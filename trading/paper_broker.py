@@ -230,6 +230,18 @@ class PaperBroker:
         else:
             return self._alpaca_get_portfolio()
 
+    def get_current_price(self, ticker: str) -> float:
+        """Return the latest price for *ticker*.
+
+        In mock mode fetches via yfinance; in real mode queries the Alpaca
+        last-trade endpoint.
+        """
+        if self.mock:
+            return _current_price(ticker)
+        else:
+            last_trade = self._api.get_last_trade(ticker)
+            return float(last_trade.price)
+
     def get_order_history(self, limit: int = 50) -> list[Order]:
         """Return recent orders, newest first."""
         if self.mock:

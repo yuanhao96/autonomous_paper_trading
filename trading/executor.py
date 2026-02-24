@@ -150,10 +150,9 @@ def execute_signals(
         # ---- Build order request -------------------------------------------
         order_request = OrderRequest(
             ticker=signal.ticker,
-            action=signal.action,
+            side=signal.action,
             quantity=qty,
-            price=current_price,
-            strategy_name=signal.strategy_name,
+            order_type="market",
         )
 
         # ---- Risk check ----------------------------------------------------
@@ -178,7 +177,11 @@ def execute_signals(
 
         # ---- Submit order --------------------------------------------------
         try:
-            order: Order = broker.submit_order(order_request)
+            order: Order = broker.submit_order(
+                ticker=order_request.ticker,
+                side=order_request.side,
+                quantity=order_request.quantity,
+            )
             logger.info(
                 "Order submitted: %s %d shares of %s @ %.2f (order_id=%s)",
                 signal.action.upper(),

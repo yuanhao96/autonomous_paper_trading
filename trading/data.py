@@ -105,6 +105,7 @@ def get_ohlcv(
     if _is_cache_valid(cache_path, interval):
         logger.info("Cache hit for %s (interval=%s): %s", ticker, interval, cache_path)
         df: pd.DataFrame = pd.read_parquet(cache_path)
+        df.attrs["ticker"] = ticker.upper()
         return df
 
     logger.info("Cache miss for %s (interval=%s); fetching from yfinance", ticker, interval)
@@ -133,6 +134,7 @@ def get_ohlcv(
     except Exception:
         logger.exception("Failed to write cache file %s", cache_path)
 
+    df.attrs["ticker"] = ticker.upper()
     return df
 
 
