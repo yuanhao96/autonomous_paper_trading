@@ -27,9 +27,9 @@ Python trading logic is called from OpenClaw via tool/subprocess. OpenClaw handl
 - **Platform**: OpenClaw (Node.js >=22)
 - **Trading Logic**: Python 3.11+
 - **Market Data**: `yfinance` (free) + `alpaca-trade-api` (paper trading execution)
-- **Data Store**: SQLite for trade logs, curriculum state, strategy versions
+- **Data Store**: SQLite for trade logs, strategy versions
 - **LLM**: Anthropic Claude API (`claude-sonnet-4-6` default)
-- **Vector Store**: ChromaDB for semantic knowledge retrieval
+- **Knowledge Store**: Markdown files with YAML front-matter for structured knowledge; BM25 full-text search via `rank_bm25`
 - **Human Preferences**: `config/preferences.yaml` (human-only write, agent read-only)
 - **Testing**: pytest
 - **Linting**: ruff + mypy
@@ -93,9 +93,19 @@ autonomou_evolving_investment/
 │       └── knowledge.py       # Auditor's own knowledge of trading biases/exploits
 ├── knowledge/
 │   ├── ingestion.py           # Fetch articles, SEC filings, earnings, news, pro analysis
-│   ├── store.py               # ChromaDB wrapper for semantic knowledge storage
+│   ├── store.py               # MarkdownMemory: markdown files + BM25 search
 │   ├── synthesizer.py         # LLM-driven synthesis of raw content into structured knowledge
-│   └── curriculum.py          # Structured learning curriculum with progression tracking
+│   ├── curriculum.py          # Structured learning curriculum with progression tracking
+│   └── memory/                # Persistent knowledge (git-tracked except daily_log/)
+│       ├── trading/
+│       │   ├── curriculum/    # Staged topic files (stage_1/ .. stage_4/)
+│       │   ├── discovered/    # Emergent topics found during learning
+│       │   ├── daily_log/     # Raw daily intake (gitignored)
+│       │   └── connections.md # Cross-topic insights
+│       └── auditor/
+│           ├── biases/        # Known trading biases (V2)
+│           ├── reviews/       # Audit review records (V2)
+│           └── daily_log/     # Auditor daily log (gitignored)
 ├── strategies/
 │   ├── base.py                # Abstract Strategy interface (generate_signals, backtest, score)
 │   ├── registry.py            # Strategy registry; load/save/version strategies
@@ -118,8 +128,7 @@ autonomou_evolving_investment/
 │   ├── curriculum.yaml        # Trading knowledge curriculum definition
 │   └── prompts/               # Versioned prompt templates for LLM components
 ├── data/                      # gitignored
-│   ├── market/                # Cached OHLCV data
-│   └── knowledge_base/        # ChromaDB persistence
+│   └── market/                # Cached OHLCV data
 ├── logs/                      # gitignored
 ├── tests/
 ├── main.py                    # Entry point

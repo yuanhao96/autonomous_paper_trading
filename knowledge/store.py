@@ -1,18 +1,25 @@
-"""ChromaDB wrapper for semantic knowledge storage."""
+"""Markdown-based knowledge memory with BM25 search.
+
+Replaces the former ChromaDB vector store with structured markdown files
+that use YAML front-matter for metadata.  Each topic is a `.md` file that
+the agent can review, refine, and that is fully git-versionable.
+"""
 
 from __future__ import annotations
 
-import uuid
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
-import chromadb
-from chromadb.config import Settings
+import frontmatter
+from rank_bm25 import BM25Okapi
 
 
 @dataclass
 class Document:
-    """A knowledge document to be stored in the vector database."""
+    """A knowledge document (kept for backward compatibility with ingestion/synthesizer)."""
 
     title: str
     content: str
@@ -21,210 +28,307 @@ class Document:
     topic_tags: list[str] = field(default_factory=list)
 
 
-# Predefined collection names aligned with the curriculum stages.
-CURRICULUM_COLLECTIONS: list[str] = [
-    "general",
-    "stage_1_foundations",
-    "stage_2_strategies",
-    "stage_3_risk_management",
-    "stage_4_advanced",
-]
+def _slugify(text: str) -> str:
+    """Convert *text* to a filesystem-safe slug."""
+    slug = text.lower().strip()
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[\s_]+", "_", slug)
+    slug = slug.strip("_")
+    return slug or "untitled"
 
 
-class KnowledgeStore:
-    """Persistent semantic knowledge store backed by ChromaDB.
+def _tokenize(text: str) -> list[str]:
+    """Simple whitespace + lowercase tokenizer for BM25."""
+    return re.findall(r"[a-z0-9]+", text.lower())
 
-    Documents are embedded and stored in named collections. Each collection
-    maps to a curriculum stage (or "general" for uncategorised content).
-    Metadata fields are kept as scalars because ChromaDB metadata values
-    must be ``str | int | float | bool``.
+
+class MarkdownMemory:
+    """Persistent knowledge store backed by markdown files with YAML front-matter.
+
+    Directory layout::
+
+        <memory_root>/
+            curriculum/
+                stage_1/ ... stage_4/
+                    <topic_id>.md
+            discovered/
+                <slugified_name>.md
+            daily_log/
+                <YYYY-MM-DD>.md
+            connections.md
+
+    Parameters
+    ----------
+    memory_root:
+        Root directory for all memory files.  Created if it does not exist.
     """
 
-    def __init__(self, persist_dir: str = "data/knowledge_base") -> None:
-        self._client: chromadb.ClientAPI = chromadb.Client(
-            Settings(
-                persist_directory=persist_dir,
-                is_persistent=True,
-                anonymized_telemetry=False,
-            )
-        )
-        self._persist_dir: str = persist_dir
+    def __init__(self, memory_root: str = "knowledge/memory/trading") -> None:
+        self._root = Path(memory_root)
+        # Ensure directory structure exists.
+        for stage in range(1, 5):
+            (self._root / "curriculum" / f"stage_{stage}").mkdir(parents=True, exist_ok=True)
+        (self._root / "discovered").mkdir(parents=True, exist_ok=True)
+        (self._root / "daily_log").mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
-    # Public helpers
+    # Curriculum knowledge
     # ------------------------------------------------------------------
 
-    def _get_or_create_collection(self, name: str) -> chromadb.Collection:
-        """Return an existing collection or create a new one."""
-        return self._client.get_or_create_collection(name=name)
+    def _topic_path(self, topic_id: str, stage_number: int) -> Path:
+        return self._root / "curriculum" / f"stage_{stage_number}" / f"{topic_id}.md"
 
-    # ------------------------------------------------------------------
-    # Core API
-    # ------------------------------------------------------------------
-
-    def add_document(
+    def store_curriculum_knowledge(
         self,
+        topic_id: str,
+        stage_number: int,
         doc: Document,
-        collection_name: str = "general",
-    ) -> str:
-        """Add a document to the specified collection.
+        synthesized_content: str,
+        mastery_score: float = 0.0,
+        mastery_reasoning: str = "",
+        mastery_gaps: list[str] | None = None,
+    ) -> Path:
+        """Create or append synthesized knowledge to a curriculum topic file.
 
-        Parameters
-        ----------
-        doc:
-            The ``Document`` to store.
-        collection_name:
-            Target collection (default ``"general"``).
+        YAML front-matter tracks metadata; the markdown body accumulates
+        dated entries (never overwrites previous content).
 
-        Returns
-        -------
-        str
-            The generated document ID.
+        Returns the path to the written file.
         """
-        collection = self._get_or_create_collection(collection_name)
+        path = self._topic_path(topic_id, stage_number)
+        now = datetime.now(timezone.utc).isoformat()
 
-        doc_id: str = uuid.uuid4().hex
+        if path.exists():
+            post = frontmatter.load(str(path))
+        else:
+            post = frontmatter.Post("")
+            post.metadata["topic_id"] = topic_id
+            post.metadata["stage"] = stage_number
+            post.metadata["mastery_score"] = mastery_score
+            post.metadata["mastery_reasoning"] = mastery_reasoning
+            post.metadata["mastery_gaps"] = mastery_gaps or []
+            post.metadata["sources"] = []
+            post.metadata["created"] = now
 
-        metadata: dict[str, str] = {
-            "title": doc.title,
-            "source": doc.source,
-            "timestamp": doc.timestamp,
-            "topic_tags": ",".join(doc.topic_tags),
-        }
+        # Update timestamps and sources.
+        post.metadata["updated"] = now
+        sources: list[str] = post.metadata.get("sources", [])
+        source_entry = f"{doc.title} ({doc.source})"
+        if source_entry not in sources:
+            sources.append(source_entry)
+        post.metadata["sources"] = sources
 
-        collection.add(
-            ids=[doc_id],
-            documents=[doc.content],
-            metadatas=[metadata],
+        # Append new content under a dated heading.
+        date_heading = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        new_section = f"\n\n## {date_heading} — {doc.title}\n\n{synthesized_content}"
+        post.content = post.content.rstrip() + new_section
+
+        path.write_text(frontmatter.dumps(post), encoding="utf-8")
+        return path
+
+    # ------------------------------------------------------------------
+    # Daily log
+    # ------------------------------------------------------------------
+
+    def append_daily_log(self, doc: Document) -> Path:
+        """Append a raw document entry to today's daily log file."""
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        path = self._root / "daily_log" / f"{today}.md"
+
+        if path.exists():
+            post = frontmatter.load(str(path))
+        else:
+            post = frontmatter.Post("")
+            post.metadata["date"] = today
+            post.metadata["entry_count"] = 0
+
+        post.metadata["entry_count"] = post.metadata.get("entry_count", 0) + 1
+
+        entry = (
+            f"\n\n### {doc.title}\n\n"
+            f"**Source:** {doc.source}  \n"
+            f"**Tags:** {', '.join(doc.topic_tags)}  \n"
+            f"**Time:** {doc.timestamp}\n\n"
+            f"{doc.content[:2000]}"
         )
+        post.content = post.content.rstrip() + entry
 
-        return doc_id
+        path.write_text(frontmatter.dumps(post), encoding="utf-8")
+        return path
 
-    def query(
+    # ------------------------------------------------------------------
+    # Discovered topics
+    # ------------------------------------------------------------------
+
+    def store_discovered(
         self,
-        query_text: str,
-        collection_name: str = "general",
+        topic_name: str,
+        content: str,
+        source: str = "",
+        tags: list[str] | None = None,
+    ) -> Path:
+        """Store a discovered (emergent) knowledge topic."""
+        slug = _slugify(topic_name)
+        path = self._root / "discovered" / f"{slug}.md"
+        now = datetime.now(timezone.utc).isoformat()
+
+        if path.exists():
+            post = frontmatter.load(str(path))
+        else:
+            post = frontmatter.Post("")
+            post.metadata["topic"] = topic_name
+            post.metadata["tags"] = tags or []
+            post.metadata["created"] = now
+
+        post.metadata["updated"] = now
+        if source:
+            sources: list[str] = post.metadata.get("sources", [])
+            if source not in sources:
+                sources.append(source)
+            post.metadata["sources"] = sources
+
+        date_heading = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        new_section = f"\n\n## {date_heading}\n\n{content}"
+        post.content = post.content.rstrip() + new_section
+
+        path.write_text(frontmatter.dumps(post), encoding="utf-8")
+        return path
+
+    # ------------------------------------------------------------------
+    # Mastery accessors
+    # ------------------------------------------------------------------
+
+    def get_mastery(self, topic_id: str, stage_number: int) -> float:
+        """Read mastery_score from front-matter; returns 0.0 if file missing."""
+        path = self._topic_path(topic_id, stage_number)
+        if not path.exists():
+            return 0.0
+        post = frontmatter.load(str(path))
+        try:
+            return float(post.metadata.get("mastery_score", 0.0))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def set_mastery(
+        self,
+        topic_id: str,
+        stage_number: int,
+        score: float,
+        reasoning: str = "",
+        gaps: list[str] | None = None,
+    ) -> None:
+        """Update mastery metadata in front-matter (creates stub if missing)."""
+        path = self._topic_path(topic_id, stage_number)
+        now = datetime.now(timezone.utc).isoformat()
+
+        if path.exists():
+            post = frontmatter.load(str(path))
+        else:
+            post = frontmatter.Post("")
+            post.metadata["topic_id"] = topic_id
+            post.metadata["stage"] = stage_number
+            post.metadata["sources"] = []
+            post.metadata["created"] = now
+
+        post.metadata["mastery_score"] = round(score, 3)
+        post.metadata["mastery_reasoning"] = reasoning
+        post.metadata["mastery_gaps"] = gaps or []
+        post.metadata["updated"] = now
+
+        path.write_text(frontmatter.dumps(post), encoding="utf-8")
+
+    # ------------------------------------------------------------------
+    # Topic content
+    # ------------------------------------------------------------------
+
+    def get_topic_content(self, topic_id: str, stage_number: int) -> str:
+        """Return full markdown body of a curriculum topic (empty string if missing)."""
+        path = self._topic_path(topic_id, stage_number)
+        if not path.exists():
+            return ""
+        post = frontmatter.load(str(path))
+        return post.content
+
+    # ------------------------------------------------------------------
+    # BM25 search
+    # ------------------------------------------------------------------
+
+    def search(
+        self,
+        query: str,
+        subdirectory: str | None = None,
         n_results: int = 5,
-    ) -> list[dict[str, object]]:
-        """Perform a semantic similarity search.
+    ) -> list[dict[str, Any]]:
+        """BM25-ranked full-text search over markdown files.
 
         Parameters
         ----------
-        query_text:
+        query:
             Natural-language query string.
-        collection_name:
-            Collection to search in.
+        subdirectory:
+            Restrict search to a sub-path under memory_root (e.g. ``"curriculum"``
+            or ``"discovered"``).  ``None`` searches everything.
         n_results:
             Maximum number of results to return.
 
         Returns
         -------
-        list[dict[str, object]]
-            Each dict contains ``id``, ``content``, ``metadata``, and
-            ``distance`` keys.
+        list[dict]
+            Each dict has keys: ``path``, ``metadata``, ``content``, ``score``.
         """
-        collection = self._get_or_create_collection(collection_name)
-
-        # Guard against querying an empty collection.
-        if collection.count() == 0:
+        search_root = self._root / subdirectory if subdirectory else self._root
+        if not search_root.exists():
             return []
 
-        # Clamp n_results to the number of documents in the collection.
-        effective_n: int = min(n_results, collection.count())
-
-        results = collection.query(
-            query_texts=[query_text],
-            n_results=effective_n,
-        )
-
-        output: list[dict[str, object]] = []
-        ids: list[str] = results["ids"][0] if results["ids"] else []
-        documents: list[str] = results["documents"][0] if results["documents"] else []
-        metadatas: list[dict[str, str]] = results["metadatas"][0] if results["metadatas"] else []
-        distances: list[float] = results["distances"][0] if results["distances"] else []
-
-        for i, doc_id in enumerate(ids):
-            output.append(
-                {
-                    "id": doc_id,
-                    "content": documents[i] if i < len(documents) else "",
-                    "metadata": metadatas[i] if i < len(metadatas) else {},
-                    "distance": distances[i] if i < len(distances) else 0.0,
-                }
-            )
-
-        return output
-
-    def list_by_topic(
-        self,
-        topic: str,
-        collection_name: str = "general",
-    ) -> list[dict[str, object]]:
-        """Return all documents whose ``topic_tags`` metadata contains *topic*.
-
-        ChromaDB stores ``topic_tags`` as a comma-separated string, so we
-        use the ``$contains`` operator to filter.
-
-        Parameters
-        ----------
-        topic:
-            The topic tag to filter on (case-sensitive substring match
-            against the comma-separated ``topic_tags`` field).
-        collection_name:
-            Collection to search in.
-
-        Returns
-        -------
-        list[dict[str, object]]
-            Each dict contains ``id``, ``content``, and ``metadata`` keys.
-        """
-        collection = self._get_or_create_collection(collection_name)
-
-        if collection.count() == 0:
+        md_files = sorted(search_root.rglob("*.md"))
+        if not md_files:
             return []
 
-        # ChromaDB $contains on string metadata is unreliable across
-        # versions, so we fetch all documents and filter in Python.
-        results = collection.get()
-
-        output: list[dict[str, object]] = []
-        ids: list[str] = results["ids"] if results["ids"] else []
-        documents: list[str] = (
-            results["documents"] if results["documents"] else []
-        )
-        metadatas: list[dict[str, str]] = (
-            results["metadatas"] if results["metadatas"] else []
-        )
-
-        for i, doc_id in enumerate(ids):
-            meta = metadatas[i] if i < len(metadatas) else {}
-            tags_str = meta.get("topic_tags", "")
-            if topic not in tags_str:
+        # Parse all files.
+        corpus: list[list[str]] = []
+        file_data: list[dict[str, Any]] = []
+        for fp in md_files:
+            try:
+                post = frontmatter.load(str(fp))
+            except Exception:
                 continue
-            output.append(
+            tokens = _tokenize(post.content)
+            if not tokens:
+                continue
+            corpus.append(tokens)
+            file_data.append(
                 {
-                    "id": doc_id,
-                    "content": documents[i] if i < len(documents) else "",
-                    "metadata": metadatas[i] if i < len(metadatas) else {},
+                    "path": str(fp),
+                    "metadata": dict(post.metadata),
+                    "content": post.content,
                 }
             )
 
-        return output
+        if not corpus:
+            return []
 
-    def get_collection_names(self) -> list[str]:
-        """Return the names of all collections that currently exist."""
-        collections = self._client.list_collections()
-        return [c.name for c in collections]
+        bm25 = BM25Okapi(corpus)
+        query_tokens = _tokenize(query)
+        if not query_tokens:
+            return []
 
-    def count(self, collection_name: str = "general") -> int:
-        """Return the number of documents in the given collection.
+        scores = bm25.get_scores(query_tokens)
 
-        Returns ``0`` if the collection does not exist yet.
-        """
-        try:
-            collection = self._client.get_collection(name=collection_name)
-        except (ValueError, Exception):
-            # ChromaDB raises NotFoundError (or ValueError in some versions)
-            # when the collection does not exist.
-            return 0
-        return collection.count()
+        # Pair scores with file data and sort descending.
+        ranked = sorted(
+            zip(scores, file_data),
+            key=lambda pair: pair[0],
+            reverse=True,
+        )
+
+        results: list[dict[str, Any]] = []
+        for score_val, data in ranked[:n_results]:
+            results.append(
+                {
+                    "path": data["path"],
+                    "metadata": data["metadata"],
+                    "content": data["content"][:1000],
+                    "score": float(score_val),
+                }
+            )
+        return results

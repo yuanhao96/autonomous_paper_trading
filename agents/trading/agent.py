@@ -13,8 +13,9 @@ from typing import Any
 from agents.trading.state import StateManager
 from core.preferences import load_preferences
 from knowledge.curriculum import CurriculumTracker
-from knowledge.ingestion import fetch_alpaca_news, fetch_arxiv, fetch_news, fetch_wikipedia
-from knowledge.store import KnowledgeStore
+from knowledge.ingestion import fetch_alpaca_news, fetch_arxiv, fetch_wikipedia
+from knowledge.store import MarkdownMemory
+from knowledge.synthesizer import KnowledgeSynthesizer
 from strategies.registry import StrategyRegistry
 from strategies.rsi_mean_reversion import RSIMeanReversionStrategy
 from strategies.sma_crossover import SMACrossoverStrategy
@@ -61,6 +62,8 @@ class TradingAgent:
 
         preferences = load_preferences()
         self._risk_manager = RiskManager(preferences)
+        self._memory = MarkdownMemory()
+        self._synthesizer = KnowledgeSynthesizer()
         self._curriculum = CurriculumTracker()
         self._state_manager = StateManager()
         self._registry = StrategyRegistry()
@@ -200,33 +203,19 @@ class TradingAgent:
     # Learning session
     # ------------------------------------------------------------------
 
-    # Map curriculum stage number to the ChromaDB collection name.
-    _STAGE_COLLECTION: dict[int, str] = {
-        1: "stage_1_foundations",
-        2: "stage_2_strategies",
-        3: "stage_3_risk_management",
-        4: "stage_4_advanced",
-    }
-
-    # Mastery increment applied each time a topic is successfully studied.
-    _MASTERY_INCREMENT: float = 0.1
-
     def run_learning_session(self) -> str:
         """Run a knowledge-learning session.
 
-        Fetches content for the current stage's least-mastered topics and
-        stores it in the ChromaDB knowledge base.  Source selection is
-        stage-aware:
+        Fetches content for the current stage's least-mastered topics,
+        synthesizes it via LLM, and stores the result as structured markdown
+        in the knowledge memory.  Source selection is stage-aware:
 
-        * **Stages 1–2** (foundations, strategy families) → Wikipedia summaries,
-          which give clear conceptual definitions suitable for beginner topics.
-        * **Stages 3–4** (risk management, advanced) → arXiv q-fin paper abstracts,
-          which give rigorous, technical depth.
-        * **Ongoing tasks** → Yahoo Finance RSS, which covers current market news.
+        * **Stages 1-2** (foundations, strategy families) -> Wikipedia summaries.
+        * **Stages 3-4** (risk management, advanced) -> arXiv q-fin abstracts.
+        * **Ongoing tasks** -> Alpaca news for the watchlist tickers.
 
-        Each fetched document is persisted in the appropriate KnowledgeStore
-        collection, and the topic's mastery score is nudged up by
-        ``_MASTERY_INCREMENT`` to track progression.
+        Mastery is assessed by the LLM based on accumulated knowledge rather
+        than incremented by a fixed amount.
 
         Returns
         -------
@@ -247,8 +236,6 @@ class TradingAgent:
             return summary
 
         current_stage = self._curriculum.get_current_stage()
-        collection_name = self._STAGE_COLLECTION.get(current_stage, "general")
-        store = KnowledgeStore()
 
         studied: list[str] = []
         for topic in tasks:
@@ -258,7 +245,7 @@ class TradingAgent:
                 "wikipedia" if current_stage <= 2 else "arxiv",
             )
 
-            # --- Fetch from stage-appropriate source --------------------------
+            # --- 1. Fetch from stage-appropriate source -----------------------
             docs = []
             try:
                 if current_stage <= 2:
@@ -270,36 +257,89 @@ class TradingAgent:
                     "Failed to fetch content for topic '%s'", topic.name
                 )
 
-            # --- Store documents in ChromaDB ----------------------------------
-            stored_count = 0
+            if not docs:
+                studied.append(f"Studied '{topic.name}': no documents fetched.")
+                continue
+
+            # --- 2. Append raw docs to daily log ------------------------------
             for doc in docs:
                 try:
-                    store.add_document(doc, collection_name=collection_name)
-                    stored_count += 1
+                    self._memory.append_daily_log(doc)
                 except Exception:
                     logger.exception(
-                        "Failed to store document '%s' for topic '%s'",
-                        doc.title, topic.name,
+                        "Failed to log document '%s'", doc.title
                     )
 
-            # --- Nudge mastery score -----------------------------------------
-            if stored_count > 0:
+            # --- 3. Synthesize via LLM ----------------------------------------
+            try:
+                knowledge = self._synthesizer.synthesize(docs)
+            except Exception:
+                logger.exception(
+                    "Failed to synthesize content for topic '%s'", topic.name
+                )
+                studied.append(
+                    f"Studied '{topic.name}': fetched {len(docs)} doc(s), synthesis failed."
+                )
+                continue
+
+            # --- 4. Format synthesized content as markdown --------------------
+            sections: list[str] = []
+            if knowledge.summary:
+                sections.append(knowledge.summary)
+            if knowledge.key_concepts:
+                sections.append("**Key concepts:** " + ", ".join(knowledge.key_concepts))
+            if knowledge.trading_implications:
+                sections.append(
+                    "**Trading implications:**\n"
+                    + "\n".join(f"- {imp}" for imp in knowledge.trading_implications)
+                )
+            if knowledge.risk_factors:
+                sections.append(
+                    "**Risk factors:**\n"
+                    + "\n".join(f"- {rf}" for rf in knowledge.risk_factors)
+                )
+            synthesized_md = "\n\n".join(sections)
+
+            # --- 5. Write to curriculum topic file ----------------------------
+            for doc in docs:
                 try:
-                    current_mastery = self._curriculum.get_mastery(topic.id)
-                    new_mastery = min(current_mastery + self._MASTERY_INCREMENT, 1.0)
-                    self._curriculum.set_mastery(topic.id, new_mastery)
-                    logger.info(
-                        "Mastery for '%s' updated: %.0f%% → %.0f%%",
-                        topic.id, current_mastery * 100, new_mastery * 100,
+                    self._memory.store_curriculum_knowledge(
+                        topic_id=topic.id,
+                        stage_number=current_stage,
+                        doc=doc,
+                        synthesized_content=synthesized_md,
                     )
+                    # Only store once (synthesized content is per-topic, not per-doc)
+                    break
                 except Exception:
                     logger.exception(
-                        "Failed to update mastery for topic '%s'", topic.id
+                        "Failed to store knowledge for topic '%s'", topic.name
                     )
+
+            # --- 6. Assess mastery from accumulated content -------------------
+            try:
+                accumulated = self._memory.get_topic_content(topic.id, current_stage)
+                score, reasoning, gaps = self._synthesizer.assess_mastery(
+                    topic_id=topic.id,
+                    topic_name=topic.name,
+                    topic_description=topic.description,
+                    mastery_criteria=topic.mastery_criteria,
+                    learned_content=accumulated[:4000],
+                )
+                old_mastery = self._curriculum.get_mastery(topic.id)
+                self._curriculum.set_mastery(topic.id, score, notes=reasoning)
+                logger.info(
+                    "Mastery for '%s' assessed: %.0f%% -> %.0f%% (%s)",
+                    topic.id, old_mastery * 100, score * 100, reasoning[:80],
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to assess mastery for topic '%s'", topic.id
+                )
 
             entry_summary = (
                 f"Studied '{topic.name}': "
-                f"fetched {len(docs)} doc(s), stored {stored_count}."
+                f"fetched {len(docs)} doc(s), synthesized and stored."
             )
             studied.append(entry_summary)
 
@@ -331,19 +371,19 @@ class TradingAgent:
                     "Failed to fetch Alpaca news for ongoing task '%s'", task_name
                 )
 
-            stored_count = 0
+            logged_count = 0
             for doc in docs:
                 try:
-                    store.add_document(doc, collection_name="general")
-                    stored_count += 1
+                    self._memory.append_daily_log(doc)
+                    logged_count += 1
                 except Exception:
                     logger.exception(
-                        "Failed to store Alpaca news article '%s'", doc.title
+                        "Failed to log Alpaca news article '%s'", doc.title
                     )
 
             entry_summary = (
                 f"Ongoing '{task_name}': "
-                f"fetched {len(docs)} article(s), stored {stored_count}."
+                f"fetched {len(docs)} article(s), logged {logged_count}."
             )
             studied.append(entry_summary)
             logger.info(entry_summary)

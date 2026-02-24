@@ -19,11 +19,10 @@ _CURRICULUM_YAML_PATH = str(
 
 @pytest.fixture
 def tracker(tmp_path: Path) -> CurriculumTracker:
-    """Create a CurriculumTracker using the real curriculum YAML and a temp DB."""
-    db_path = str(tmp_path / "curriculum_state.db")
+    """Create a CurriculumTracker using the real curriculum YAML and temp memory."""
     return CurriculumTracker(
         curriculum_path=_CURRICULUM_YAML_PATH,
-        db_path=db_path,
+        memory_root=str(tmp_path / "memory"),
     )
 
 

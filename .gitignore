@@ -14,10 +14,12 @@ build/
 venv/
 env/
 
-# Data (cached market data, knowledge base)
+# Data (cached market data)
 data/market/
-data/knowledge_base/
 data/*.db
+
+# Knowledge memory (daily logs are ephemeral)
+knowledge/memory/*/daily_log/
 
 # Logs
 logs/

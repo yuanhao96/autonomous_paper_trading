@@ -1,4 +1,4 @@
-"""Tests for knowledge.store — ChromaDB-backed semantic knowledge store."""
+"""Tests for knowledge.store — MarkdownMemory knowledge store."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from knowledge.store import Document, KnowledgeStore
+from knowledge.store import Document, MarkdownMemory
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -14,120 +14,172 @@ from knowledge.store import Document, KnowledgeStore
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> KnowledgeStore:
-    """Create a KnowledgeStore backed by a temporary directory."""
-    return KnowledgeStore(persist_dir=str(tmp_path / "chroma_test"))
+def memory(tmp_path: Path) -> MarkdownMemory:
+    """Create a MarkdownMemory backed by a temporary directory."""
+    return MarkdownMemory(memory_root=str(tmp_path / "memory"))
 
 
 # ---------------------------------------------------------------------------
-# Tests — add_document and query
+# Tests — store_curriculum_knowledge
 # ---------------------------------------------------------------------------
 
 
-class TestAddAndQuery:
-    def test_add_document_returns_id(self, store: KnowledgeStore) -> None:
+class TestStoreCurriculumKnowledge:
+    def test_creates_file(self, memory: MarkdownMemory) -> None:
         doc = Document(
             title="Test doc",
             content="Moving averages are a popular technical indicator.",
             source="unit_test",
             topic_tags=["technical_analysis"],
         )
-        doc_id = store.add_document(doc, collection_name="general")
-        assert isinstance(doc_id, str)
-        assert len(doc_id) > 0
+        path = memory.store_curriculum_knowledge(
+            topic_id="market_microstructure",
+            stage_number=1,
+            doc=doc,
+            synthesized_content="Synthesized content about market microstructure.",
+        )
+        assert path.exists()
+        assert path.name == "market_microstructure.md"
 
-    def test_query_returns_added_document(self, store: KnowledgeStore) -> None:
+    def test_appends_content(self, memory: MarkdownMemory) -> None:
+        doc1 = Document(title="Doc1", content="First batch.", source="test")
+        doc2 = Document(title="Doc2", content="Second batch.", source="test")
+
+        memory.store_curriculum_knowledge(
+            topic_id="order_types", stage_number=1, doc=doc1,
+            synthesized_content="First synthesis.",
+        )
+        memory.store_curriculum_knowledge(
+            topic_id="order_types", stage_number=1, doc=doc2,
+            synthesized_content="Second synthesis.",
+        )
+
+        content = memory.get_topic_content("order_types", 1)
+        assert "First synthesis" in content
+        assert "Second synthesis" in content
+
+
+# ---------------------------------------------------------------------------
+# Tests — mastery round-trip
+# ---------------------------------------------------------------------------
+
+
+class TestMastery:
+    def test_default_mastery_is_zero(self, memory: MarkdownMemory) -> None:
+        assert memory.get_mastery("nonexistent", 1) == 0.0
+
+    def test_set_and_get_mastery(self, memory: MarkdownMemory) -> None:
+        memory.set_mastery("market_microstructure", 1, 0.65, reasoning="initial study")
+        assert memory.get_mastery("market_microstructure", 1) == pytest.approx(0.65)
+
+    def test_update_mastery(self, memory: MarkdownMemory) -> None:
+        memory.set_mastery("order_types", 1, 0.3)
+        memory.set_mastery("order_types", 1, 0.75, reasoning="second study")
+        assert memory.get_mastery("order_types", 1) == pytest.approx(0.75)
+
+    def test_mastery_with_gaps(self, memory: MarkdownMemory) -> None:
+        memory.set_mastery(
+            "order_types", 1, 0.5,
+            reasoning="partial", gaps=["limit orders", "stop orders"],
+        )
+        assert memory.get_mastery("order_types", 1) == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# Tests — daily log
+# ---------------------------------------------------------------------------
+
+
+class TestDailyLog:
+    def test_append_daily_log(self, memory: MarkdownMemory) -> None:
         doc = Document(
-            title="RSI Explanation",
-            content="The Relative Strength Index measures momentum of price changes.",
-            source="textbook",
-            topic_tags=["momentum", "indicators"],
+            title="Market news",
+            content="AAPL up 2% on earnings beat.",
+            source="alpaca",
+            topic_tags=["earnings"],
         )
-        store.add_document(doc, collection_name="general")
+        path = memory.append_daily_log(doc)
+        assert path.exists()
+        text = path.read_text()
+        assert "Market news" in text
+        assert "AAPL up 2%" in text
 
-        results = store.query("What is RSI?", collection_name="general", n_results=5)
+
+# ---------------------------------------------------------------------------
+# Tests — discovered
+# ---------------------------------------------------------------------------
+
+
+class TestDiscovered:
+    def test_store_discovered(self, memory: MarkdownMemory) -> None:
+        path = memory.store_discovered(
+            topic_name="Gamma Squeeze Mechanics",
+            content="Explanation of how gamma squeezes work.",
+            source="reddit_analysis",
+            tags=["options", "squeeze"],
+        )
+        assert path.exists()
+        assert "gamma_squeeze_mechanics" in path.name
+        text = path.read_text()
+        assert "gamma squeezes" in text
+
+
+# ---------------------------------------------------------------------------
+# Tests — BM25 search
+# ---------------------------------------------------------------------------
+
+
+class TestSearch:
+    def test_search_returns_results(self, memory: MarkdownMemory) -> None:
+        doc = Document(title="Momentum", content="Momentum strategies.", source="test")
+        memory.store_curriculum_knowledge(
+            topic_id="momentum", stage_number=2, doc=doc,
+            synthesized_content="Momentum investing buys stocks with strong recent performance.",
+        )
+        doc2 = Document(title="Value", content="Value strategies.", source="test")
+        memory.store_curriculum_knowledge(
+            topic_id="value", stage_number=2, doc=doc2,
+            synthesized_content="Value investing focuses on underpriced securities.",
+        )
+
+        results = memory.search("momentum performance", n_results=5)
         assert len(results) >= 1
-        assert "id" in results[0]
-        assert "content" in results[0]
-        assert "metadata" in results[0]
-        assert "distance" in results[0]
-        assert "momentum" in results[0]["content"].lower() or "rsi" in results[0]["content"].lower()
+        # The momentum doc should rank higher than the value doc.
+        momentum_results = [r for r in results if "momentum" in r["content"].lower()]
+        assert len(momentum_results) >= 1
 
-    def test_query_empty_collection(self, store: KnowledgeStore) -> None:
-        results = store.query("anything", collection_name="empty_collection")
+    def test_search_empty_memory(self, memory: MarkdownMemory) -> None:
+        results = memory.search("anything")
+        assert results == []
+
+    def test_search_with_subdirectory(self, memory: MarkdownMemory) -> None:
+        memory.store_discovered(
+            topic_name="Pair Trading",
+            content="Statistical arbitrage between correlated pairs.",
+            source="test",
+        )
+        results = memory.search("pair arbitrage", subdirectory="discovered")
+        assert len(results) >= 1
+
+    def test_search_nonexistent_subdirectory(self, memory: MarkdownMemory) -> None:
+        results = memory.search("anything", subdirectory="nonexistent")
         assert results == []
 
 
 # ---------------------------------------------------------------------------
-# Tests — list_by_topic
+# Tests — get_topic_content
 # ---------------------------------------------------------------------------
 
 
-class TestListByTopic:
-    def test_list_by_topic_filters(self, store: KnowledgeStore) -> None:
-        doc_a = Document(
-            title="Momentum Intro",
-            content="Momentum is about buying winners.",
-            source="test",
-            topic_tags=["momentum"],
+class TestGetTopicContent:
+    def test_missing_topic(self, memory: MarkdownMemory) -> None:
+        assert memory.get_topic_content("missing", 1) == ""
+
+    def test_returns_body(self, memory: MarkdownMemory) -> None:
+        doc = Document(title="T", content="C", source="s")
+        memory.store_curriculum_knowledge(
+            topic_id="test_topic", stage_number=1, doc=doc,
+            synthesized_content="Body content here.",
         )
-        doc_b = Document(
-            title="Value Intro",
-            content="Value investing focuses on cheap stocks.",
-            source="test",
-            topic_tags=["value"],
-        )
-        store.add_document(doc_a, collection_name="general")
-        store.add_document(doc_b, collection_name="general")
-
-        momentum_docs = store.list_by_topic("momentum", collection_name="general")
-        assert len(momentum_docs) >= 1
-        # All returned docs should have "momentum" in topic_tags.
-        for d in momentum_docs:
-            assert "momentum" in d["metadata"]["topic_tags"]
-
-    def test_list_by_topic_empty(self, store: KnowledgeStore) -> None:
-        results = store.list_by_topic("nonexistent_topic", collection_name="general")
-        assert results == []
-
-
-# ---------------------------------------------------------------------------
-# Tests — count
-# ---------------------------------------------------------------------------
-
-
-class TestCount:
-    def test_count_empty(self, store: KnowledgeStore) -> None:
-        assert store.count("general") == 0
-
-    def test_count_after_adds(self, store: KnowledgeStore) -> None:
-        for i in range(3):
-            doc = Document(
-                title=f"Doc {i}",
-                content=f"Content for document number {i}.",
-                source="test",
-                topic_tags=["test"],
-            )
-            store.add_document(doc, collection_name="general")
-        assert store.count("general") == 3
-
-    def test_count_nonexistent_collection(self, store: KnowledgeStore) -> None:
-        assert store.count("does_not_exist") == 0
-
-
-# ---------------------------------------------------------------------------
-# Tests — multiple collections
-# ---------------------------------------------------------------------------
-
-
-class TestMultipleCollections:
-    def test_documents_in_different_collections(self, store: KnowledgeStore) -> None:
-        doc_a = Document(title="A", content="Content A", source="test", topic_tags=["a"])
-        doc_b = Document(title="B", content="Content B", source="test", topic_tags=["b"])
-
-        store.add_document(doc_a, collection_name="stage_1_foundations")
-        store.add_document(doc_b, collection_name="stage_2_strategies")
-
-        assert store.count("stage_1_foundations") == 1
-        assert store.count("stage_2_strategies") == 1
-        assert store.count("general") == 0
+        content = memory.get_topic_content("test_topic", 1)
+        assert "Body content here" in content

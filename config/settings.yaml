@@ -13,13 +13,12 @@ schedule:
 
 data:
   cache_dir: "data/market"
-  knowledge_dir: "data/knowledge_base"
+  knowledge_dir: "knowledge/memory"
   default_period: "1y"
   default_interval: "1d"
 
 database:
   trades_db: "data/paper_trades.db"
-  curriculum_db: "data/curriculum_state.db"
   agent_state_db: "data/agent_state.db"
 
 logging:
