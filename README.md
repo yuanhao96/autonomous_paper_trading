@@ -101,9 +101,10 @@ Each nightly learning session draws from multiple source types per curriculum to
 
 | Source | Used For | Details |
 |--------|----------|---------|
-| **Wikipedia** | Stage 1–2 (Foundations, Strategy Families) | Concept summaries via Wikipedia REST API |
-| **arXiv (q-fin)** | Stage 3–4 (Risk Management, Advanced) | Academic paper abstracts from the quantitative finance category |
 | **Investment Books** | All stages | Excerpts from 120+ books in `~/projects/investment-books-text/`, mapped per topic in `config/books.yaml` |
+| **Wikipedia** | Stage 1–2 (Foundations, Strategy Families) | Concept summaries via Wikipedia REST API |
+| **Web Search** | All stages | DuckDuckGo search snippets + full article extraction via `ddgs` package (free, no API key) |
+| **arXiv (q-fin)** | Stage 3–4 (Risk Management, Advanced) | Academic paper abstracts from the quantitative finance category |
 | **Alpaca News** | Ongoing daily tasks | Real-time market news for the watchlist tickers via Alpaca News API |
 
 ### Book Library Setup
@@ -144,7 +145,7 @@ This file is the agent's constitution. Only humans may edit it.
 |---------|------------|
 | `llm` | `model` (default `moonshot-v1-32k`), `max_retries`, `retry_base_delay` |
 | `schedule` | Cron expressions for market scans, evaluations, reports, learning, evolution |
-| `data` | `cache_dir`, `knowledge_dir` (markdown memory root), `default_period`, `default_interval` |
+| `data` | `cache_dir`, `knowledge_dir`, `books_dir`, `web_search_max_results`, `web_search_fetch_articles` |
 | `database` | SQLite paths for trades and agent state |
 | `logging` | `llm_log_file`, `trade_log_file`, `level` |
 

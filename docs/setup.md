@@ -31,7 +31,7 @@ source .venv/bin/activate    # macOS / Linux
 pip install -r requirements.txt
 ```
 
-This installs the core dependencies: `yfinance`, `pandas`, `numpy`, `anthropic`, `python-frontmatter`, `rank-bm25`, `pyyaml`, `python-dotenv`, `alpaca-trade-api`, `pyarrow`, and testing/linting tools (`pytest`, `ruff`, `mypy`).
+This installs the core dependencies: `yfinance`, `pandas`, `numpy`, `openai`, `python-frontmatter`, `rank-bm25`, `pyyaml`, `python-dotenv`, `alpaca-trade-api`, `pyarrow`, `ddgs` (DuckDuckGo web search), and testing/linting tools (`pytest`, `ruff`, `mypy`).
 
 ### 4. Set up environment variables
 

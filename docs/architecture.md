@@ -78,10 +78,19 @@ Markdown-based knowledge memory with BM25 full-text search. Knowledge is stored 
 
 **`knowledge/ingestion.py`**
 
-Fetches raw content from external sources: articles, SEC filings, earnings reports, news, and professional trader analysis.
+Fetches raw content from external sources and returns normalised `Document` objects for storage and synthesis. Supported sources:
 
-- Input: source URLs, ticker symbols, date ranges.
-- Output: raw content passed to the synthesizer.
+- `fetch_wikipedia(topic)` -- Wikipedia REST summary API with search fallback.
+- `fetch_web_search(topic)` -- DuckDuckGo web search via the `ddgs` package. Returns search snippets as Documents, optionally fetches full article content for the top results via `fetch_article()`. Configurable via `web_search_max_results` and `web_search_fetch_articles` in `settings.yaml`.
+- `fetch_arxiv(query)` -- arXiv Atom API, scoped to quantitative finance.
+- `fetch_news(query)` -- Yahoo Finance RSS feed.
+- `fetch_alpaca_news(tickers)` -- Alpaca News API (requires API keys).
+- `fetch_sec_filings(ticker)` -- SEC EDGAR full-text search API.
+- `fetch_article(url)` -- Generic web article extraction (HTML to text).
+- `fetch_book_text(path)` -- Plain-text book chunking with chapter-aware splitting.
+
+- Input: topic names, search queries, URLs, ticker symbols.
+- Output: `Document` objects passed to the synthesizer or stored directly.
 
 **`knowledge/synthesizer.py`**
 
