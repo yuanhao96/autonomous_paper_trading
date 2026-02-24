@@ -13,7 +13,8 @@ from typing import Any
 from agents.trading.state import StateManager
 from core.preferences import load_preferences
 from knowledge.curriculum import CurriculumTracker
-from knowledge.ingestion import fetch_news
+from knowledge.ingestion import fetch_arxiv, fetch_news, fetch_wikipedia
+from knowledge.store import KnowledgeStore
 from strategies.registry import StrategyRegistry
 from strategies.rsi_mean_reversion import RSIMeanReversionStrategy
 from strategies.sma_crossover import SMACrossoverStrategy
@@ -199,16 +200,38 @@ class TradingAgent:
     # Learning session
     # ------------------------------------------------------------------
 
+    # Map curriculum stage number to the ChromaDB collection name.
+    _STAGE_COLLECTION: dict[int, str] = {
+        1: "stage_1_foundations",
+        2: "stage_2_strategies",
+        3: "stage_3_risk_management",
+        4: "stage_4_advanced",
+    }
+
+    # Mastery increment applied each time a topic is successfully studied.
+    _MASTERY_INCREMENT: float = 0.1
+
     def run_learning_session(self) -> str:
         """Run a knowledge-learning session.
 
-        Fetches the next topics from the curriculum tracker and retrieves
-        relevant news for each.
+        Fetches content for the current stage's least-mastered topics and
+        stores it in the ChromaDB knowledge base.  Source selection is
+        stage-aware:
+
+        * **Stages 1–2** (foundations, strategy families) → Wikipedia summaries,
+          which give clear conceptual definitions suitable for beginner topics.
+        * **Stages 3–4** (risk management, advanced) → arXiv q-fin paper abstracts,
+          which give rigorous, technical depth.
+        * **Ongoing tasks** → Yahoo Finance RSS, which covers current market news.
+
+        Each fetched document is persisted in the appropriate KnowledgeStore
+        collection, and the topic's mastery score is nudged up by
+        ``_MASTERY_INCREMENT`` to track progression.
 
         Returns
         -------
         str
-            Summary of what was studied.
+            Human-readable summary of what was studied.
         """
         logger.info("Starting learning session")
 
@@ -223,18 +246,60 @@ class TradingAgent:
             logger.info(summary)
             return summary
 
+        current_stage = self._curriculum.get_current_stage()
+        collection_name = self._STAGE_COLLECTION.get(current_stage, "general")
+        store = KnowledgeStore()
+
         studied: list[str] = []
         for topic in tasks:
-            logger.info("Studying topic: %s (%s)", topic.name, topic.id)
+            logger.info(
+                "Studying topic: %s (%s) [stage=%d, source=%s]",
+                topic.name, topic.id, current_stage,
+                "wikipedia" if current_stage <= 2 else "arxiv",
+            )
+
+            # --- Fetch from stage-appropriate source --------------------------
+            docs = []
             try:
-                articles = fetch_news(topic.name)
-                article_count = len(articles)
+                if current_stage <= 2:
+                    docs = fetch_wikipedia(topic.name)
+                else:
+                    docs = fetch_arxiv(topic.name, max_results=5)
             except Exception:
-                logger.exception("Failed to fetch news for topic '%s'", topic.name)
-                article_count = 0
+                logger.exception(
+                    "Failed to fetch content for topic '%s'", topic.name
+                )
+
+            # --- Store documents in ChromaDB ----------------------------------
+            stored_count = 0
+            for doc in docs:
+                try:
+                    store.add_document(doc, collection_name=collection_name)
+                    stored_count += 1
+                except Exception:
+                    logger.exception(
+                        "Failed to store document '%s' for topic '%s'",
+                        doc.title, topic.name,
+                    )
+
+            # --- Nudge mastery score -----------------------------------------
+            if stored_count > 0:
+                try:
+                    current_mastery = self._curriculum.get_mastery(topic.id)
+                    new_mastery = min(current_mastery + self._MASTERY_INCREMENT, 1.0)
+                    self._curriculum.set_mastery(topic.id, new_mastery)
+                    logger.info(
+                        "Mastery for '%s' updated: %.0f%% → %.0f%%",
+                        topic.id, current_mastery * 100, new_mastery * 100,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to update mastery for topic '%s'", topic.id
+                    )
 
             entry_summary = (
-                f"Studied '{topic.name}': fetched {article_count} articles."
+                f"Studied '{topic.name}': "
+                f"fetched {len(docs)} doc(s), stored {stored_count}."
             )
             studied.append(entry_summary)
 
@@ -243,9 +308,10 @@ class TradingAgent:
                     topic=topic.name, summary=entry_summary
                 )
             except Exception:
-                logger.exception("Failed to persist learning entry for '%s'", topic.name)
+                logger.exception(
+                    "Failed to persist learning entry for '%s'", topic.name
+                )
 
-        current_stage = self._curriculum.get_current_stage()
         try:
             self._state_manager.update_field("current_stage", current_stage)
         except Exception:

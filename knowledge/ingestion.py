@@ -26,7 +26,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_REQUEST_TIMEOUT: Final[int] = 10  # seconds
+_REQUEST_TIMEOUT: Final[int] = 15  # seconds
 
 # SEC EDGAR requires a User-Agent that identifies the caller.
 # See: https://www.sec.gov/os/accessing-edgar-data
@@ -348,3 +348,202 @@ def fetch_article(url: str) -> Document | None:
         timestamp=_utcnow_iso(),
         topic_tags=["article"],
     )
+
+
+def fetch_wikipedia(topic: str) -> list[Document]:
+    """Fetch a Wikipedia summary for a concept.
+
+    Uses the Wikipedia REST summary API, falling back to a Wikipedia search
+    when the topic name does not map directly to a page title.
+
+    Parameters
+    ----------
+    topic:
+        Concept name (e.g. ``"Market Microstructure"``).
+
+    Returns
+    -------
+    list[Document]
+        A list containing one ``Document``, or empty on failure.
+    """
+    _WIKIPEDIA_USER_AGENT: str = (
+        "AutonomousEvolvingInvestment/1.0 "
+        "(paper-trading research; contact@example.com)"
+    )
+
+    def _summary_url(title: str) -> str:
+        return (
+            "https://en.wikipedia.org/api/rest_v1/page/summary/"
+            + urllib.parse.quote(title.replace(" ", "_"), safe="")
+        )
+
+    def _fetch_summary(title: str) -> dict | None:
+        req = _build_request(_summary_url(title), user_agent=_WIKIPEDIA_USER_AGENT)
+        try:
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return None
+            logger.warning("Wikipedia HTTP error for '%s': %s", title, exc)
+            return None
+        except (urllib.error.URLError, OSError) as exc:
+            logger.warning("Wikipedia network error for '%s': %s", title, exc)
+            return None
+
+    def _search_title(query: str) -> str | None:
+        """Use the Wikipedia search API to find the best matching page title."""
+        params = urllib.parse.urlencode({
+            "action": "query",
+            "list": "search",
+            "srsearch": query,
+            "format": "json",
+            "srlimit": "1",
+        })
+        url = f"https://en.wikipedia.org/w/api.php?{params}"
+        req = _build_request(url, user_agent=_WIKIPEDIA_USER_AGENT)
+        try:
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+                data = json.loads(resp.read())
+            hits = data.get("query", {}).get("search", [])
+            return hits[0]["title"] if hits else None
+        except Exception as exc:
+            logger.warning("Wikipedia search failed for '%s': %s", query, exc)
+            return None
+
+    # Try the topic name directly, then fall back to search.
+    data = _fetch_summary(topic)
+    if data is None:
+        best_title = _search_title(topic)
+        if best_title:
+            logger.info(
+                "Wikipedia: '%s' not found directly; using search result '%s'",
+                topic, best_title,
+            )
+            data = _fetch_summary(best_title)
+
+    if not data:
+        logger.warning("Wikipedia: no article found for topic '%s'.", topic)
+        return []
+
+    extract: str = data.get("extract", "").strip()
+    if not extract:
+        logger.warning("Wikipedia: empty extract for topic '%s'.", topic)
+        return []
+
+    title: str = data.get("title", topic)
+    page_url: str = (
+        data.get("content_urls", {}).get("desktop", {}).get("page", "")
+        or f"https://en.wikipedia.org/wiki/{urllib.parse.quote(title.replace(' ', '_'))}"
+    )
+
+    logger.info("Fetched Wikipedia article '%s' for topic '%s'.", title, topic)
+    return [
+        Document(
+            title=title,
+            content=extract,
+            source=page_url,
+            timestamp=_utcnow_iso(),
+            topic_tags=["wikipedia", topic.lower()],
+        )
+    ]
+
+
+def fetch_arxiv(query: str, max_results: int = 5) -> list[Document]:
+    """Fetch paper abstracts from arXiv in the quantitative finance (q-fin) category.
+
+    Uses the arXiv public Atom API. Results are sorted by relevance.
+
+    Parameters
+    ----------
+    query:
+        Search terms (e.g. ``"Kelly Criterion optimal betting"``).
+    max_results:
+        Maximum number of papers to return (default 5).
+
+    Returns
+    -------
+    list[Document]
+        A list of ``Document`` objects, one per paper abstract.
+        Returns an empty list on network or parsing errors.
+    """
+    # Wrap multi-word queries in quotes so arXiv treats them as phrases.
+    # Search by title first (highest precision), then fall back to all-fields.
+    quoted_query = f'"{query}"' if " " in query else query
+
+    def _build_params(search_query: str) -> dict[str, str]:
+        return {
+            "search_query": search_query,
+            "start": "0",
+            "max_results": str(max_results),
+            "sortBy": "relevance",
+            "sortOrder": "descending",
+        }
+
+    params: dict[str, str] = _build_params(f"ti:{quoted_query}")
+    def _fetch_xml(search_params: dict[str, str]) -> ET.Element | None:
+        fetch_url = "https://export.arxiv.org/api/query?" + urllib.parse.urlencode(search_params)
+        fetch_req = _build_request(fetch_url)
+        try:
+            with urllib.request.urlopen(fetch_req, timeout=_REQUEST_TIMEOUT) as resp:
+                return ET.fromstring(resp.read())
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError) as exc:
+            logger.warning("Failed to fetch arXiv for query '%s': %s", query, exc)
+            return None
+        except ET.ParseError as exc:
+            logger.warning("Failed to parse arXiv XML for query '%s': %s", query, exc)
+            return None
+
+    root: ET.Element | None = _fetch_xml(params)
+    if root is None:
+        return []
+
+    # If the title-scoped search returns nothing, retry against all fields.
+    ns_os = {"os": "http://a9.com/-/spec/opensearch/1.1/"}
+    total = int(root.findtext("os:totalResults", default="0", namespaces=ns_os) or 0)
+    if total == 0:
+        logger.info(
+            "arXiv: no title matches for '%s'; retrying with all-field search.", query
+        )
+        fallback_params = _build_params(f"all:{quoted_query}")
+        root = _fetch_xml(fallback_params)
+        if root is None:
+            return []
+
+    ns: dict[str, str] = {"atom": "http://www.w3.org/2005/Atom"}
+    documents: list[Document] = []
+
+    for entry in root.findall("atom:entry", ns):
+        title: str = re.sub(
+            r"\s+", " ", (entry.findtext("atom:title", namespaces=ns) or "").strip()
+        )
+        summary: str = re.sub(
+            r"\s+", " ", (entry.findtext("atom:summary", namespaces=ns) or "").strip()
+        )
+        arxiv_id: str = (entry.findtext("atom:id", namespaces=ns) or "").strip()
+        published: str = (entry.findtext("atom:published", namespaces=ns) or "").strip()
+
+        if not title or not summary:
+            continue
+
+        # Skip arXiv error entries (the API returns a single entry with an
+        # error message in the title when the query fails).
+        if "Error" in title and len(summary) < 50:
+            logger.warning("arXiv returned an error entry for query '%s'.", query)
+            break
+
+        documents.append(
+            Document(
+                title=title,
+                content=summary,
+                source=arxiv_id or url,
+                timestamp=_parse_rfc822_to_iso(published) if published else _utcnow_iso(),
+                topic_tags=["arxiv", "q-fin", query.lower()],
+            )
+        )
+
+        if len(documents) >= max_results:
+            break
+
+    logger.info("Fetched %d arXiv papers for query '%s'.", len(documents), query)
+    return documents
