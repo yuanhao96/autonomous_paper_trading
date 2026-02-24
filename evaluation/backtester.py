@@ -146,9 +146,17 @@ class Backtester:
                 start += cfg.step_days
                 continue
 
-            signals = strategy.generate_signals(test_data)
+            # Roll through the test window day-by-day so strategies that
+            # look at the last row emit one signal per bar.
+            daily_signals: list[tuple[pd.Timestamp, object]] = []
+            for i in range(len(test_data)):
+                slice_data = test_data.iloc[: i + 1]
+                bar_signals = strategy.generate_signals(slice_data)
+                for sig in bar_signals:
+                    daily_signals.append((slice_data.index[-1], sig))
+
             window_trades, equity = self._simulate_window(
-                signals, test_data, equity
+                daily_signals, test_data, equity
             )
             all_trades.extend(window_trades)
 
@@ -180,7 +188,7 @@ class Backtester:
 
     @staticmethod
     def _simulate_window(
-        signals: list[Signal],
+        daily_signals: list[tuple[pd.Timestamp, object]],
         data: pd.DataFrame,
         equity: float,
     ) -> tuple[list[dict], float]:
@@ -192,6 +200,11 @@ class Backtester:
         - A *sell* signal (or end-of-window) closes the open position.
         - Only one position is held at a time within a window.
         - Position size is 100 % of current equity (simplified).
+
+        Parameters
+        ----------
+        daily_signals:
+            List of (bar_date, signal) tuples from the day-by-day roll.
 
         Returns
         -------
@@ -205,11 +218,9 @@ class Backtester:
         entry_ticker: str = ""
         shares: float = 0.0
 
-        # Sort signals by date.
-        sorted_signals = sorted(signals, key=lambda s: s.date)
-
-        for signal in sorted_signals:
-            sig_date = signal.date
+        for sig_date, signal in daily_signals:
+            # Determine action — support both .action and .side attribute names.
+            action: str = getattr(signal, "action", None) or getattr(signal, "side", "")
 
             # Find the *next* trading day in data after the signal date for
             # execution at the open.
@@ -218,7 +229,7 @@ class Backtester:
                 continue
             exec_date = later_dates[0]
 
-            if signal.side == "buy" and not in_position:
+            if action == "buy" and not in_position:
                 entry_price = float(data.loc[exec_date, "Open"])
                 if entry_price <= 0:
                     continue
@@ -227,7 +238,7 @@ class Backtester:
                 entry_ticker = signal.ticker
                 in_position = True
 
-            elif signal.side == "sell" and in_position:
+            elif action == "sell" and in_position:
                 exit_price = float(data.loc[exec_date, "Open"])
                 pnl = (exit_price - entry_price) * shares
                 return_pct = (exit_price - entry_price) / entry_price if entry_price else 0.0
