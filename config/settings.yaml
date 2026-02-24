@@ -26,6 +26,9 @@ data:
   book_chunk_size: 3000
   # Characters to skip at start of each book (front matter / copyright).
   book_skip_chars: 3000
+  # Web search settings for nightly learning.
+  web_search_max_results: 5
+  web_search_fetch_articles: 2
 
 database:
   trades_db: "data/paper_trades.db"
