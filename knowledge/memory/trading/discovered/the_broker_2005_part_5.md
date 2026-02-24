@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.199394+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 5
+updated: '2026-02-24T16:42:52.199394+00:00'
+---
+
+
+
+## 2026-02-24
+
+gridlock once again as congressmen demanded hearings and prosecutors performed for the cameras and the insufferable talking heads prattled nonstop on cable news. The President smiled into the darkness. On the Arlington Memorial Bridge, over the Potomac River, Hoby refilled the directors paper cup with green tea. "Thank you," Teddy said softly. "What's our boy doing tomorrow when he leaves office?" he asked. "Fleeing the country." "He should've left sooner." "He plans to spend a month in the Caribbean, licking his wounds, ignoring the world, pouting, waiting for someone to show some interest." "And Mrs. Morgan?" "She's already back in Delaware playing bridge." ''Are they splitting?" "If he's smart. Who knows?" Teddy took a careful sip of tea. "So what's our leverage if Morgan balks?" "I don't think he'll balk. The preliminary talks have gone well. Critz seems to be on board. He has a much better feel of things now than Morgan. Critz knows that they would've never seen the Oval Office had it not been for the Backman scandal." "As I said, what's our leverage if he balks?" "None, really. He's an idiot, but he's a clean one." They turned off Constitution Avenue onto 18th Street and were soon entering the east gate of the White House. Men with machine guns materialized from the darkness, then Secret Service agents in black trench coats stopped the van. Code words were used, radios squawked, and within minutes Teddy was being lowered from the van. Inside, a cursory search of his wheelchair revealed nothing but a crippled and bundled-up old man. Artie, minus the Heineken, and again without knocking, poked his head through the door and announced: "Maynard's here." - 15 - John Grisham The Broker "So he's alive," the President said. "Barely." "Then roll him in." Hoby and a deputy named Priddy followed the wheelchair into the Oval Office. The President and Critz welcomed their guests and directed them to the sitting area in front of the fireplace. Though Maynard avoided the White House, Priddy practically lived there, briefing the President every morning on intelligence matters. As they settled in, Teddy glanced around the room, as if looking for bugs and listening devices. He was almost certain there were none; that practice had ended with Watergate. Nixon laid enough wire in the White House to juice a small city, but, of course, he paid for it. Teddy, however, was wired. Carefully hidden above the axle of his wheelchair, just inches below his seat, was a powerful recorder that would capture every sound made during the next thirty minutes. He tried to smile at President Morgan, but he wanted to say something like: You are without a doubt the most limited politician I have ever encountered. Only in America could a moron like you make it to the top. President Morgan smiled at Teddy Maynard, but he wanted to say something like: I should have fired you four years ago. Your agency has been a constant embarrassment to this country. Teddy: I was shocked when you

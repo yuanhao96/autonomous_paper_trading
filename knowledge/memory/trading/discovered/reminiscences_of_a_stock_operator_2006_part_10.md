@@ -1,0 +1,18 @@
+---
+created: '2026-02-24T16:42:51.661613+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Reminiscences of a Stock Operator
+  2006.txt
+tags:
+- book
+- trading
+- investment
+topic: Reminiscences of a Stock Operator 2006 — part 10
+updated: '2026-02-24T16:42:51.661613+00:00'
+---
+
+
+
+## 2026-02-24
+
+at least a point. Well, I didn't have to hog it, I could put up a point margin and double my money in a jiffy; or I'd take half a point. On one or two hundred shares a day, that wouldn't be bad at the end of the month, what? The practical trouble with that arrangement, of course, was that even if the bucket shop had the resources to stand a big steady loss, they wouldn't do it. They wouldn't have a customer around the place who had the bad taste to win all the time. At all events, what was a perfect system for trading in bucket shops didn't work in Fullerton's office. There I was actually buying and selling stocks. The price of Sugar on the tape might be 105 and I could see a three-point drop coming. As a matter of fact, at the very moment the ticker was printing 105 on the tape the real price on the floor of the Exchange might be 104 or 103. By the time my order to sell a thousand shares got to Fullerton's floor man to execute, the price might be still lower. I couldn't tell at what price I had put out my thousand shares until I got a report from the clerk. When I surely would have made three thousand on the same transaction in a bucket shop I might not make a cent in a Stock Exchange house. Of course, I have taken an extreme case, but the fact remains that in A. R. Fullerton's office the tape always talked ancient history to me, as far as my system of trading went, and I didn't realise it. And then, too, if my order was fairly big my own sale would tend further to depress the price. In the bucket shop I didn't have to figure on the effect of my own trading. I lost in New York because the game was altogether different. It was not that I now was playing it legitimately that made me lose, but that I was playing it ignorantly. I have been told that I am a good reader of the tape. But reading the tape like an expert did not save me. I might have made out a great deal better if I had been on the floor myself, a room trader. In a particular crowd perhaps I might have adapted my system to the conditions immediately before me. But, of course, if I had got to operating on such a scale as I do now, for instance, the system would have equally failed me, on account of the effect of my own trading on prices. In short, I did not know the game of stock speculation. I knew a part of it, a rather important part, which has been very valuable to me at all times. But if with all I had I still lost, what chance does the green outsider have of winning, or, rather, of cashing in? It didn't take me long to realise that there was something wrong with my play, but I couldn't spot the exact trouble. There were times when my system worked beautifully, and then, all of a sudden, nothing but one swat after another. I was only twenty-two, remember; not that I was so stuck on myself that I didn't want to know just where I was at fault, but that at that age nobody knows much of anything. The people in the office were very nice to me. I couldn't plunge as I wanted to because of

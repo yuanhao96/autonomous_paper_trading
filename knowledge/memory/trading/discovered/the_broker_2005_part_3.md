@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.198756+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 3
+updated: '2026-02-24T16:42:52.198756+00:00'
+---
+
+
+
+## 2026-02-24
+
+finally dropped the charges-two days after the election-when all three girls signed affidavits claiming they had not had sex with Artie. They were about to, in fact had been just seconds away from all manner of frolicking, when one of their mothers knocked on the motel room door and prevented an orgy. The President sat in his leather rocker and pretended to flip through some useless papers. "What's the latest on Backman?" he asked. In his eighteen years as director of the CIA, Teddy Maynard had been to the White House less than ten times. And never for dinner (he always declined for health reasons), and never to say howdy to a foreign hotshot (he couldn't have cared less). Back when he could walk, he had occasionally stopped by to confer with whoever happened to be president, and perhaps one or two of his policy makers. Now, since he was in a wheelchair, his conversations with the White House were by phone. Twice, a vice president had actually been driven out to Langley to meet with Mr. Maynard. The only advantage of being in a wheelchair was that it provided a wonderful excuse to go or stay or do whatever he damn well pleased. No one wanted to push around an old crippled man. A spy for almost fifty years, he now preferred the luxury of looking directly behind himself when he moved about. Pie traveled in an unmarked white van-bulletproof glass, lead walls, two heavily armed boys perched behind the heavily armed driver-with his wheelchair clamped to the floor in the rear and facing back, so that Teddy could see the traffic that could not see him. Two other vans followed at a distance, and any misguided attempt to get near the director would be instantly terminated. None was expected. Most of the world thought Teddy Maynard was either dead or idling away his final days in some secret nursing home where old spies were sent to die. Teddy wanted it that way. - 12 - John Grisham The Broker He was wrapped in a heavy gray quilt, and tended to by Hoby, his faithful aide. As the van moved along the Beltway at a constant sixty miles an hour, Teddy sipped green tea poured from a thermos by Hoby, and watched the cars behind them. Hoby sat next to the wheelchair on a leather stool made especially for him. A sip of tea and Teddy said, "Where's Backman right now?" "In his cell," Hoby answered. "And our people are with the warden?" "They're sitting in his office, waiting." Another sip from a paper cup, one carefully guarded with both hands. The hands were frail, veiny, the color of skim milk, as if they had already died and were patiently waiting for the rest of the body. "How long will it take to get him out of the country?" "About four hours." "And the plan is in place?" "Everything is ready. We're waiting on the green light." "I hope this moron can see it my way." Critz and the moron were staring at the walls of the Oval Office, their heavy silence broken occasionally by a comment about Joel Backman. They had to talk about something, because neither would

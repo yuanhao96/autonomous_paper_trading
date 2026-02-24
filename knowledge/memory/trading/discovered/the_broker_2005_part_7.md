@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.200029+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 7
+updated: '2026-02-24T16:42:52.200029+00:00'
+---
+
+
+
+## 2026-02-24
+
+a few hours remaining in his administration, Teddy certainly was not going to divulge any more than was necessary to get the pardon. "Why would Backman take such a deal?" Critz asked. "He may not," Teddy answered. "But he's been in solitary confinement for six years. That's twenty-three hours a day in a tiny cell. One hour of sunshine. Three showers a week. Bad food-they say he's lost sixty pounds. I hear he's not doing too well.1 Two months ago, after the landslide, when Teddy Maynard conceived this pardon scheme, he had pulled a few of his many strings and Backman's confinement had grown much worse. The temperature in his cell was lowered ten degrees, and for the past month he'd had a terrible cough. His food, bland at best, had been run through the processor again and was being served cold. His toilet flushed about half the time. The guards woke him up at all hours of the night. His phone privileges were curtailed. The law library that he used twice a week was suddenly off-limits. Backman, a lawyer, knew his rights, and he was threatening all manner of litigation against the prison and the government, though he had yet to file suit. The fight was taking its toll. He was demanding sleeping pills and Prozac. "You want me to pardon Joel Backman so you can arrange for him to be murdered?" the President asked. "Yes," Teddy said bluntly. "But we wont actually arrange it." "But it'll happen." "Yes." "And his death will be in the best interests of our national security?" "I firmly believe that." - 18 - John Grisham The Broker The isolation wing at Rudley Federal Correctional Facility had forty identical cells, each a twelve-foot square with no windows, no bars, green-painted concrete floors and cinder-block walls, and a door that was solid metal with a narrow slot at the bottom for food trays and a small open peephole for the guards to have a look occasionally. The wing was filled with government informants, drug snitches, Mafia misfits, a couple of spies-men who needed to be locked away because there were plenty of folks back home who would gladly slice their throats. Most of the forty inmates in protective custody at Rudley had requested the I-wing. Joel Backman was trying to sleep when two guards clanged open his door and switched on his light. "The warden wants you," one said, and there was no elaboration. They rode in silence in a prison van across the frigid Oklahoma prairie, past other buildings holding less- secure criminals, until they arrived at the administration building. Backman, handcuffed for no apparent reason, was hurried inside, up two flights of stairs, then down a long hall to the big office where lights were on and something important was going down. He saw a clock on a wall; it was almost 11:00 p.m. He'd never met the warden, which was not at all unusual. For - 19 - John Grisham The Broker many good reasons the warden didn't circulate. He wasn't running for office, nor was he concerned with motivating the troops. With him were

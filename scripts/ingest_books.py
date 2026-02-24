@@ -26,7 +26,7 @@ load_dotenv(dotenv_path=_PROJECT_ROOT / ".env")
 import yaml
 
 from knowledge.ingestion import fetch_book_text
-from knowledge.store import MarkdownMemory
+from knowledge.store import MarkdownMemory, _slugify
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,40 +64,61 @@ def main() -> None:
                         help="Max chunks to load per book (default: 10)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print what would be ingested without writing anything.")
+    parser.add_argument("--skip-existing", action="store_true", default=True,
+                        help="Skip books whose first chunk already exists (default: True).")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-ingest all books even if already present.")
     args = parser.parse_args()
+    skip_existing = args.skip_existing and not args.force
 
     books_dir = _get_books_dir()
     books_map = _load_books_config()
     memory = MarkdownMemory(memory_root=str(_PROJECT_ROOT / "knowledge" / "memory" / "trading"))
 
-    # Build unique book → [topic_ids] mapping (books appear in multiple topics).
+    # Build book → [topic_ids] mapping from books.yaml.
     book_topics: dict[str, list[str]] = {}
     for topic_id, filenames in books_map.items():
         for fname in filenames:
             book_topics.setdefault(fname, []).append(topic_id)
 
-    total_books = len(book_topics)
+    # Discover ALL .txt files in books_dir, not just those in books.yaml.
+    all_book_files = sorted(books_dir.glob("*.txt"))
+    total_books = len(all_book_files)
     total_chunks_stored = 0
-    skipped = 0
+    skipped_empty = 0
+    skipped_existing = 0
     failed = 0
 
-    logger.info("Books directory : %s", books_dir)
-    logger.info("Books to ingest : %d unique books across %d topics", total_books, len(books_map))
-    logger.info("Chunks per book : %d", args.chunks)
+    logger.info("Books directory  : %s", books_dir)
+    logger.info("Total book files : %d", total_books)
+    logger.info("Mapped in YAML   : %d unique books", len(book_topics))
+    logger.info("Chunks per book  : %d", args.chunks)
+    logger.info("Skip existing    : %s", skip_existing)
     if args.dry_run:
         logger.info("DRY RUN — no files will be written.\n")
 
-    for i, (filename, topic_ids) in enumerate(sorted(book_topics.items()), start=1):
-        book_path = books_dir / filename
-        topic_hint = topic_ids[0]  # primary topic for tagging
-        tags = ["book"] + topic_ids
+    for i, book_path in enumerate(all_book_files, start=1):
+        filename = book_path.name
+        topic_ids = book_topics.get(filename, [])
+        topic_hint = topic_ids[0] if topic_ids else "trading"
+        tags = ["book"] + (topic_ids if topic_ids else ["trading", "investment"])
+
+        book_slug = filename.replace(".txt", "").replace(" ", "_").lower()[:60]
+
+        # Check if already ingested using the same slug formula as store_discovered.
+        # topic_name = f"{stem[:50]} — part 1" → _slugify → filename
+        stem50 = Path(filename).stem[:50]
+        first_chunk_slug = _slugify(f"{stem50} \u2014 part 1")
+        existing_path = (
+            _PROJECT_ROOT / "knowledge" / "memory" / "trading" / "discovered"
+            / f"{first_chunk_slug}.md"
+        )
+        if skip_existing and existing_path.exists():
+            logger.debug("[%d/%d] ⏭  Already ingested: %s", i, total_books, filename[:60])
+            skipped_existing += 1
+            continue
 
         logger.info("[%d/%d] %s", i, total_books, filename[:70])
-
-        if not book_path.exists():
-            logger.warning("  ⚠ File not found, skipping: %s", book_path)
-            skipped += 1
-            continue
 
         docs = fetch_book_text(
             str(book_path),
@@ -108,44 +129,42 @@ def main() -> None:
         )
 
         if not docs:
-            logger.warning("  ⚠ No content extracted (scanned PDF?), skipping.")
-            skipped += 1
+            logger.warning("  ⚠  No content extracted (scanned PDF?), skipping.")
+            skipped_empty += 1
             continue
 
         if args.dry_run:
-            logger.info("  → Would store %d chunk(s) tagged: %s", len(docs), topic_ids)
+            label = ", ".join(topic_ids) if topic_ids else "(unmapped)"
+            logger.info("  → Would store %d chunk(s) | topics: %s", len(docs), label)
             total_chunks_stored += len(docs)
             continue
 
-        # Store each chunk as a discovered topic entry.
-        book_slug = filename.replace(".txt", "").replace(" ", "_").lower()[:60]
         for j, doc in enumerate(docs):
-            # Override tags to include all topic_ids this book maps to.
             doc.topic_tags = tags
             topic_name = f"{Path(filename).stem[:50]} — part {j + 1}"
-            entry_key = f"{book_slug}_p{j + 1}"
             try:
-                path = memory.store_discovered(
+                memory.store_discovered(
                     topic_name=topic_name,
                     content=doc.content,
                     source=str(book_path),
                     tags=tags,
                 )
                 total_chunks_stored += 1
-                logger.debug("    ✅ chunk %d → %s", j + 1, path.name)
             except Exception as exc:
                 logger.error("    ❌ Failed to store chunk %d: %s", j + 1, exc)
                 failed += 1
 
-        logger.info("  ✅ Stored %d chunk(s) | topics: %s", len(docs), ", ".join(topic_ids))
+        label = ", ".join(topic_ids) if topic_ids else "(unmapped — tagged: trading, investment)"
+        logger.info("  ✅ Stored %d chunk(s) | %s", len(docs), label)
 
     print()
     logger.info("=" * 60)
     logger.info("Ingestion complete!")
-    logger.info("  Books processed : %d", total_books - skipped)
-    logger.info("  Books skipped   : %d (missing / scanned)", skipped)
-    logger.info("  Chunks stored   : %d", total_chunks_stored)
-    logger.info("  Errors          : %d", failed)
+    logger.info("  Books processed   : %d", total_books - skipped_empty - skipped_existing)
+    logger.info("  Already existed   : %d (skipped)", skipped_existing)
+    logger.info("  Scanned/empty     : %d (skipped)", skipped_empty)
+    logger.info("  Chunks stored     : %d", total_chunks_stored)
+    logger.info("  Errors            : %d", failed)
     logger.info("=" * 60)
 
 

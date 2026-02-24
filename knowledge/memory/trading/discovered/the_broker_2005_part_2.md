@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.198420+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 2
+updated: '2026-02-24T16:42:52.198420+00:00'
+---
+
+
+
+## 2026-02-24
+
+his life to public service, he was broke and aging quickly and anxious to make a buck. The President had sold his handsome home in Georgetown for a huge profit. He'd bought a small ranch in Alaska, where the people evidently admired him. He planned to spend the rest of his days there, hunting, fishing, perhaps writing his memoirs. Whatever he did in Alaska, it would have nothing to do with politics and Washington. He would not be the senior statesman, the grand old man of anybody's party, the sage voice of experience. No farewell tours, convention speeches, endowed chairs of political science. No presidential library. The people had spoken with a clear and thunderous voice. If they didn't want him, then he could certainly live without them. "We need to make a decision about Cuccinello," Critz said. The President was still standing at a window, looking at nothing in the darkness, still pondering Delaware. "Who?" - 10 - John Grisham The Broker "Figgy Cuccinello, that movie director who was indicted for having sex with a young starlet." "How young?" "Fifteen, I think." "That's pretty young." "Yes, it is. He fled to Argentina, where he's been for ten years. Now he's homesick, wants to come back and start making dreadful movies again. He says his art is calling him home." "Perhaps the young girls are calling him home." "That too." "Seventeen wouldn't bother me. Fifteen's too young." "His offer is up to five million." The President turned and looked at Critz. "He's offering five million for a pardon?" "Yes, and he needs to move quickly. The money has to be wired out of Switzerland. It's three in the morning over there." "Where would it go?" "We have accounts offshore. It's easy." "What would the press do?" "It would be ugly." "It's always ugly." "This would be especially ugly." "I really don't care about the press," Morgan said. Then why did you ask? Critz wanted to say. "Can the money be traced?" the President asked and turned back to the window. "No." With his right hand, the President began scratching the back of his neck, something he always did when wrestling with a difficult decision. Ten minutes before he almost nuked North Korea, he'd scratched until the skin broke and blood oozed onto the collar of his white shirt. "The answer is no," he said. "Fifteen is too young." Without a knock, the door opened and Artie Morgan, the President's son, barged in holding a Heineken in one hand and some papers in the other. "Just talked to the CIA," he said casually. He wore faded jeans and no socks. "Maynard's on the way over." He dumped the papers on the desk and left the room, slamming the door behind him. - 11 - John Grisham The Broker Artie would take the $5 million without hesitation, Critz thought to himself, regardless of the girl's age. Fifteen was certainly not too young for Artie. They might have carried Kansas if Artie hadn't been caught in a Topeka motel room with three cheerleaders, the oldest of whom was seventeen. A grandstanding prosecutor had

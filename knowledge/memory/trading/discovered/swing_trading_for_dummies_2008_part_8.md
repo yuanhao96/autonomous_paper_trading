@@ -1,0 +1,18 @@
+---
+created: '2026-02-24T16:42:51.803321+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Swing Trading For Dummies
+  2008.txt
+tags:
+- book
+- trading
+- investment
+topic: Swing Trading For Dummies 2008 — part 8
+updated: '2026-02-24T16:42:51.803321+00:00'
+---
+
+
+
+## 2026-02-24
+
+Chapter 6: Analyzing Charts to Trade Trends, Ranges, or Both ............................. 117

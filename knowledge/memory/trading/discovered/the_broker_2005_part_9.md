@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.200642+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 9
+updated: '2026-02-24T16:42:52.200642+00:00'
+---
+
+
+
+## 2026-02-24
+
+a yacht, a place in Vail, all of which he'd been quite eager to talk about. The bold caption above his head read: the broker-is this the second MOST POWERFUL MAN IN WASHINGTON? The magazine was in Mr. Sizemore's briefcase, along with a thick file on Joel Backman. He'd scoured it on the flight from Washington to Tulsa. According to the magazine article, the broker's income at the time was reported to be in excess of $10 million a year, though he'd been coy with the reporter. The law firm he founded had two hundred lawyers, small by Washington standards, but without a doubt the most powerful in political circles. It was a lobbying machine, not a place where real lawyers practiced their craft. More like a bordello for rich companies and foreign governments. Oh, how the mighty have fallen, Mr. Sizemore thought to himself as he watched the bottle shake. "I don't understand," Backman managed to whisper. "And we don't have time to explain," Mr. Sizemore said. "It's a quick deal, Mr. Backman. Unfortunately, you don't have time to contemplate things. A snap decision is required. Yes or no. You want to - 21 - John Grisham The Broker stay here, or you want to live with another name on the other side of the world?" "Where?" "We don't know where, but we'll figure it out." "Will I be safe?" "Only you can answer that question, Mr. Backman." As Mr. Backman pondered his own question, he shook even more. "When will I leave?" he asked slowly. His voice was regaining strength for the moment, but another violent cough was always waiting. "Immediately," said Mr. Sizemore, who had seized control of the meeting and relegated the warden, the FBI, and the Justice Department to being spectators. "You mean, like, right now?" "You will not return to your cell." "Oh darn," Backman said, and the others couldn't help but smile. "There's a guard waiting by your cell," the warden said. "He'll bring whatever you want." "There's always a guard waiting by my cell," Backman snapped at the warden. "If it's that sadistic little bastard Sloan, tell him to take my razor blades and slash his own wrists." Everyone swrallowed hard and waited for the words to escape through the heating vents. Instead, they cut through the polluted air and rattled around the room for a moment. Mr. Sizemore cleared his throat, reshuffled his weight from the left buttock to the right, and said, "There are some gentlemen waiting in the Oval Office, Mr. Backman. Are you going to accept the deal?" "The President is waiting on me?" "You could say that." "He owes me. I put him there." "This really is not the time to debate such matters, Mr. Backman," Mr. Sizemore said calmly. "Is he returning the favor?" "I'm not privy to the President's thoughts." "You're assuming he has the ability to think." 'Til just call and tell them the answer is no." "Wait." - 22 - John Grisham The Broker Backman drained the bottle of water and asked for another. He wiped his mouth with a sleeve, then said, "Is it like a witness protection

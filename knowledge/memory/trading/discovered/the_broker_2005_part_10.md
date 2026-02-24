@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.200966+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 10
+updated: '2026-02-24T16:42:52.200966+00:00'
+---
+
+
+
+## 2026-02-24
+
+program, something like that?" "It's not an official program, Mr. Backman. But, from time to time, we find it necessary to hide people." "How often do you lose one?' "Not too often." "Not too often? So there's no guarantee I'll be safe." "Nothing is guaranteed. But your odds are good." Backman looked at the warden and said, "How many years do I have left here, Lester?" Lester was jolted back into the conversation. No one called him Lester, a name he hated and avoided. The nameplate on his desk declared him to be L. Howard Cass. "Fourteen years, and you can address me as Warden Cass.' "Cass my ass. Odds are I'll be dead in three. A combination of malnutrition, hypothermia, and negligent health care should do it. Lester here runs a really tight ship, boys." "Can we move along?" Mr. Sizemore said. "Of course I'll take the deal," Backman said. "What fool wouldn't?" Mr. Knabe from Justice finally moved. He opened a briefcase and said, "Here's the paperwork." "Who do you work for?" Backman asked Mr. Sizemore. "The President of the United States." "Well, tell him I didn't vote for him because I was locked away. But I certainly would have, if given the chance. And tell him I said thanks, okay?" "Sure." Hoby poured another cup of green tea, decaffeinated now because it was almost midnight, and handed it to Teddy, who was wrapped in a blanket and staring at the traffic behind them. They were on Constitution Avenue, leaving downtown, almost to the Roosevelt Bridge. The old man took a sip and said, "Morgan is too stupid to be selling pardons. Critz, however, worries me." "There's a new account on the island of Nevis," Hoby said. "It - 23 - John Grisham The Broker popped up two weeks ago, opened by an obscure company owned by Floyd Dunlap." "And who's he?" "One of Morgan's fundraisers." "Why Nevis?" "It's the current hot spot for offshore activity." "And we're covering it?" "We're all over it. Any transfers should take place in the next forty-eight hours." Teddy nodded slightly and glanced to his left for a partial look at the Kennedy Center. "Where's Backman?" "He's leaving prison." Teddy smiled and sipped his tea. They crossed the bridge in silence, and when the Potomac was behind them, he finally said, "Who'll get him?" "Does it really matter?" "No, it doesn't. But it will be quite enjoyable watching the contest." Wearing a well-worn but starched and pressed khaki military uniform, with all the patches and badges removed, and shiny black combat boots and a heavy navy parka with a hood that he pulled snugly around his head, Joel Backman strutted out of the Rudley Federal Correctional Facility at five minutes after midnight, fourteen years ahead of schedule. He had been there, in solitary confinement, for six years, and upon leaving he carried with him a small canvas bag with a few books and some photos. He did not look back. He was fifty-two years old, divorced, broke, thoroughly estranged from two of his three children and thoroughly forgotten by every

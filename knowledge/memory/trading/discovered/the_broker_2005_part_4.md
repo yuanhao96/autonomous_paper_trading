@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.199077+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 4
+updated: '2026-02-24T16:42:52.199077+00:00'
+---
+
+
+
+## 2026-02-24
+
+mention what was really on his mind. Can this be happening? Is this finally the end? Forty years. From Cornell to the Oval Office. The end was so abrupt that they had not had enough time to properly prepare for it. They had been counting on four more years. Four years of glory as they carefully crafted a legacy, then rode gallantly into the sunset. Though it was late, it seemed to grow even darker outside. The windows that overlooked the Rose Garden were black. A clock above the fireplace could almost be heard as it ticked nonstop in its final countdown. "What will the press do if I pardon Backman?" the President asked, not for the first time. "Go berserk." "That might be fun." "You won't be around." - 13 - John Grisham The Broker "No, I wont." After the transfer of power at noon the next day, his escape from Washington would begin with a private jet (owned by an oil company) to an old friend's villa on the island of Barbados. At Morgan's instructions, the televisions had been removed from the villa, no newspapers or magazines would be delivered, and all phones had been unplugged. He would have no contact with anyone, not even Critz, and especially not Mrs. Morgan, for at least a month. He wouldn't care if Washington burned. In fact, he secretly hoped that it would. After Barbados, he would sneak up to his cabin in Alaska, and there he would continue to ignore the world as the winter passed and he waited on spring. "Should we pardon him?" the President asked. "Probably," Critz said. The President had shifted to the "we" mode now, something he invariably did when a potentially unpopular decision was at hand. For the easy ones, it was always "I." When he needed a crutch, and especially when he would need someone to blame, he opened up the decision-making process and included Critz. Critz had been taking the blame for forty years, and though he was certainly used to it, he was nonetheless tired of it. He said, "There's a very good chance we wouldn't be here had it not been for Joel Backman." "You may be right about that," the President said. He had always maintained that he had been elected because of his brilliant campaigning, charismatic personality, uncanny grasp of the issues, and clear vision for America. To finally admit that he owed anything to Joel Backman was almost shocking. But Critz was too calloused, and too tired, to be shocked. Six years ago, the Backman scandal had engulfed much of Washington and eventually tainted the White House. A cloud appeared over a popular president, paving the way for Arthur Morgan to stumble his way into the White House. Now that he was stumbling out, he relished the idea of one last arbitrary slap in the face to the Washington establishment that had shunned him for four years. A reprieve for Joel Backman would rattle the walls of every office building in D.C. and shock the press into a blathering frenzy. Morgan liked the idea. While he sunned away on - 14 - John Grisham The Broker Barbados, the city would

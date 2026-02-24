@@ -1,0 +1,18 @@
+---
+created: '2026-02-24T16:42:52.413217+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Trade Your Way to Financial
+  Freedom 2 edition 2006.txt
+tags:
+- book
+- trading
+- investment
+topic: Trade Your Way to Financial Freedom 2 edition 2006 — part 7
+updated: '2026-02-24T16:42:52.413217+00:00'
+---
+
+
+
+## 2026-02-24
+
+Chapter 1. Until you’ve mastered yourself, you’ll always struggle with the market. I wish all of you could integrate that meaning into your being and then truly apply it to your trading. The material that Dr. Tharp presents in this book, in his Market Mastery newsletter, in his home-study courses, and in his seminars will change your life if you are open to them. I urge you to take the first step today and open yourself up to the material found in this book. Enjoy the journey It’s a great one! David Mobley, Sr. Naples, Florida February 2998 ACKNOWLEDGMENTS This book is a product of 15 years of thinking about markets, studying hundreds of great traders and investors, and coaching many more to greatness by helping them apply some of the principles you’ll find in this book. If this book helps hundreds more, even if I never meet you, it will have been worth the effort. During those 15 years, numerous people have helped shape the thinking that has gone into this book. I can only acknowledge a few of those people by name. However, everyone who contributed in any way has my deepest thanks and appreciation. I’d like to acknowledge Ed Seykota for showing me very early on the importance of simplicity and creative money management. Ed has presented at three of my early seminars, and I’m deeply indebted to his wisdom. Tom Basso has been a great contributor to my thinking and my life. Tom was a guest speaker at more than a dozen of my seminars and several of our professional trader schools. Tom has also contributed several sections to this book. Thank you, Tom. Ray Kelly was one of my earliest clients. I’ve watched him evolve from a tough floor trader-whose favorite saying used to be “My way or the highway!“-into someone who would freely give his time to inner-city high school kids just to convince them to start to take responsibility for their lives. Ray is one of the best traders I know and a great teacher as well. He’s presented at many of my seminars and has written the arbitrage section of this book. Chuck LeBeau helped me make the link from the famous trader’s axiom-“Cut your losses short and let your profits run”to the importance of exits. Think about it. Cutting losses short is all about aborting losses--exits. Letting profits run is all about exits as well. The entire axiom is all about exits. Chuck’s persistence in driving home this point has been very valuable to me. Chuck is xvii xviii Ac!aomledgments now a guest speaker at my advanced systems seminar and has also contributed a section to this book on fundamental analysis. I would also like to acknowledge a very special person in my life--David Mobley, Sr. I’ve probably done more consulting with David than any other trader. I’ve also worked with most of his family. I’ve watched them all grow tremendously over the last 6 years since we’ve been close, but especially David. Thus, it is with great pleasure that I asked David to write the Foreword to this book. David’s company, Maricopa, was one of our first graduating companies. Kevin Thomas, Jerry Toepke, and Louis Mendelsohn all contributed great sections to the concepts chapter (

@@ -1,0 +1,19 @@
+---
+created: '2026-02-24T16:42:51.123498+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Harmonic Trading, Volume Two
+  - Advanced Strategies for Profiting from the Natural Order of the Financial Markets
+  2010.txt
+tags:
+- book
+- trading
+- investment
+topic: Harmonic Trading, Volume Two - Advanced Strategies — part 10
+updated: '2026-02-24T16:42:51.123498+00:00'
+---
+
+
+
+## 2026-02-24
+
+Chapter 1 Contemporary Market Case Studies from a Harmonic Trading Perspective “The S&P 500 has held the lows set in the past two months.… Despite this strength, there is a nice shorting opportunity at the 78.6% retracement from the high that would complete a Bearish Gartley pattern. There are three harmonic numbers just above 1500 that define the potential reversal zone: • AB=CD at 1505 • 1.27BC at 1515 • .786XA at 1510 I would focus closely on the 1510 area where the .786XA completes. Although the index may exceed this area slightly, if the bearish pattern is valid, the index should not rally too far above this zone.” (HarmonicTrader.com http://www.harmonictrader.com/members/ harmonic/markets/spx0600.htm) Figure 1.1 17 18 Harmonic Trading: Volume Two The decisive downside continuation following the completion of this pattern clearly indicated the change in trend that was occurring. In fact, in my September 2000 market report three months later, I outlined this breakdown: “As we enter the historically ominous September-October period, it is essential to consider such bearish possibilities.… The most critical levels to examine in the next few weeks are the short-term .618 and .786 retracements from the July low to the August high.. I would become extremely bearish if the index sold off sharply through these support levels. In that event, I would look for the index to sell off well below the 1400 level. For now, stay on the sides and watch these levels closely.” (HarmonicTrader.com http://www.harmonictrader.com/members/ harmonic/markets/spx0900.htm) The index declined steadily in the months that followed and triggered the next set of harmonic levels at the 1300 level. Two More Failed Harmonic Scenarios—1300 and 1150 Despite the bearish downtrend, the index still possessed critical support levels that continued to maintain the long-term bullish trend. The next set of long-term harmonic support was wellbelow the prior Bearish Gartley at 1500. Although the index possessed a Bullish AB=CD on the weekly chart at the 1300 level, the price action failed this area decidedly. Within a few months later, the price action was clearly headed for the 1150 area, where the next set of long-term harmonic retracements converged. I outlined this scenario in my December 2000 market report, stating: “The test of 1150 will be one of the most critical market events of the New Year. The 1150 area represents a convergence of significant Fibonacci projections or retracements for each of the past six years. From each of the previous years’ low to this year’s high, these retracements converge in the mid-1100 area: • • • • • 1999 1.27 @ 1145 1998 .618 @ 1165 1997 .5 @ 1145 1996 .382 @ 1190 1994/95 .382 @ 1135 (general area) A convergence of numbers like this will most likely act as a magnet and pull the index down to test all of the numbers in this area. A capitulation sell-off could happen quickly and signal the end of the bear trend. But, the index must hold this price level. Therefore, the picture for the S&P is clear: A violation of the 1300 lows will cause a decisive move to 1150.” (HarmonicTrader.com http://www.harmonictrader.com/members/dow/ harmonic/markets/spx1200.htm)

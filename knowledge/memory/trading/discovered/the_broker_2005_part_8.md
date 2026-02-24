@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.200332+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 8
+updated: '2026-02-24T16:42:52.200332+00:00'
+---
+
+
+
+## 2026-02-24
+
+three other suits, all earnest-looking men who'd been chatting for some time. Though smoking was strictly prohibited in offices owned by the US. government, an ashtray was full and a thick fog hung close to the ceiling. With absolutely no introduction, the warden said, "Sit over there, Mr. Backman." "A pleasure to meet you," Backman said as he looked at the other men in the room. "Why, exactly, am I here?" "We'll discuss that." ''Could you please remove these handcuffs? I promise not to kill anyone." The warden snapped at the nearest guard, who quickly found a key and freed Backman. The guard then scrambled out of the room, slamming the door behind him, much to the displeasure of the warden, a very nervous man. He pointed and said, "This is Special Agent Adair of the FBI. This is Mr. Knabe from the Justice Department. And this is Mr. Size- more, also from Washington." None of the three moved in the direction of Mr. Backman, who was still standing and looking quite perplexed. He nodded at them, in a halfhearted effort to be polite. His efforts were not returned. "Please sit," the warden said, and Backman finally took a chair. "Thank you. As you know, Mr. Backman, a new president is about to be sworn in. President Morgan is on the way out. Right now he is in the Oval Office wrestling with the decision of whether to grant you a full pardon." Backman was suddenly seized with a violent cough, one brought on in part by the near arctic temperature in his cell and in part by the shock of the word "pardon." Mr. Knabe from Justice handed him a bottle of water, which he gulped and splashed down his chin and finally managed to stifle the cough. "A pardon?" he mumbled. "A full pardon, with some strings attached." "But why?" "I don't know why, Mr. Backman, nor is it my business to understand what's happening. I'm just the messenger." - 20 - John Grisham The Broker Mr. Sizemore, introduced simply as "from Washington," but without the baggage of title or affiliation, said, "It's a deal, Mr. Back- man. In return for a full pardon, you must agree to leave the country, never return, and live with a new identity in a place where no one can find you." No problem there, thought Backman. He didn't want to be found. "But why?" he mumbled again. The bottle of water in his left hand could actually be seen shaking. As Mr. Sizemore from Washington watched it shake, he studied Joel Backman, from his closely cropped gray hair to his battered dime- store running shoes, with his black prison-issue socks, and couldn't help but recall the image of the man in his prior life. A magazine cover came to mind. A fancy photo of Joel Backman in a black Italian suit, impeccably tailored and detailed and groomed and looking at the camera with as much smugness as humanly possible. The hair was longer and darker, the handsome face was fleshy and wrinkle free, the waistline was thick and spoke of many power lunches and four-hour dinners. He loved wine and women and sports cars. He had a jet,

@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.199718+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 6
+updated: '2026-02-24T16:42:52.199718+00:00'
+---
+
+
+
+## 2026-02-24
+
+carried a single state, albeit by seventeen votes. Morgan: You couldn't find a terrorist if he advertised on a billboard. Teddy: Happy fishing. You'll get even fewer trout than votes. Morgan: Why didn't you just die, like everyone promised me you would? Teddy: Presidents come and go, but I never leave. Morgan: It was Critz who wanted to keep you. Thank him for your job. I wanted to sack your ass two weeks after my inauguration. Critz said loudly, "Coffee anyone?" Teddy said, "No," and as soon as that was established, Hoby and Priddy likewise declined. And because the CIA wanted no coffee, President Morgan said, "Yes, black with two sugars." Critz nodded at a secretary who was waiting in a half-opened side door. - 16 - John Grisham The Broker He turned back to the gathering and said, "We don't have a lot of time." Teddy said quickly, Tin here to discuss Joel Backman." "Yes, that's why you're here," the President said. "As you know," Teddy continued, almost ignoring the President, "Mr. Backman went to prison without saying a word. He still carries some secrets that, frankly, could compromise national security." "You can't kill him," Critz blurted. "We cannot target American citizens, Mr. Critz. It's against the law. We prefer that someone else do it." "I don't follow," the President said. "Here's the plan. If you pardon Mr. Backman, and if he accepts the pardon, then we will have him oat of the country in a matter of hours. He must agree to spend the rest of his life in hiding. This should not be a problem because there are several people who would like to see him dead, and he knows it. We'll relocate him to a foreign country, probably in Europe where he'll be easier to watch. He'll have a new identity. He'll be a free man, and with time people will forget about Joel Backman." "That's not the end of the story," Critz said. "No. We'll wait, perhaps a year or so, then we'll leak the word in the right places. They'll find Mr. Backman, and they'll kill him, and when they do so, many of our questions will be answered." A long pause as Teddy looked at Critz, then the President. When he was convinced they were thoroughly confused, he continued. "It's a very simple plan, gentlemen. It's a question of who kills him." "So you'll be watching?" Critz asked. "Very closely." "Who's after him?" the President asked. Teddy refolded his veiny hands and recoiled a bit, then he looked down his long nose like a schoolteacher addressing his little third graders. "Perhaps the Russians, the Chinese, maybe the Israelis. There could be others." Of course there were others, but no one expected Teddy to reveal everything he knew. He never had; never would, regardless of who was president and regardless of how much time he had left in the Oval Office. They came and went, some for four years, others for eight. Some loved the espionage, others were only concerned with the latest polls. - 17 - John Grisham The Broker Morgan had been particularly inept at foreign policy, and with

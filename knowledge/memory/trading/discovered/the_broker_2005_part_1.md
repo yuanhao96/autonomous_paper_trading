@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:42:52.197884+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/The Broker 2005.txt
+tags:
+- book
+- trading
+- investment
+topic: The Broker 2005 — part 1
+updated: '2026-02-24T16:42:52.197884+00:00'
+---
+
+
+
+## 2026-02-24
+
+d so few electoral votes. Three to be exact, all from Alaska, the only state Morgan had not visited, at Critz's advice. Five hundred and thirty-five for the challenger, three for President Morgan. The word "landslide" did not even begin to capture the enormity of the shellacking. Once the votes were counted, the challenger, following bad advice, decided to contest the results in Alaska. Why not go for all 538 electoral votes? he reasoned. Never again would a candidate for the presidency have the opportunity to completely whitewash his opponent, to throw the mother of all shutouts. For six weeks the President suffered even more while lawsuits raged in Alaska. When the supreme court there eventually awarded him the state's three electoral votes, he and Critz had a very quiet bottle of champagne. President Morgan had become enamored of Alaska, even though the certified results gave him a scant seventeen-vote margin. He should have avoided more states. He even lost Delaware, his home, where the once-enlightened electorate had allowed him to serve eight wonderful years as governor. Just as he had never found the time to visit Alaska, his opponent had totally ignored Delaware-no organization to speak of, no television ads, not a single campaign stop. And his opponent still took 52 percent of the vote! Critz sat in a thick leather chair and held a notepad with a list of a hundred things that needed to be done immediately. He watched his President move slowly from one window to the next, peering into the darkness, dreaming of what might have been. The man was depressed -9- John Grisham The Broker and humiliated. At fifty-eight his life was over, his career a wreck, his marriage crumbling. Mrs. Morgan had already moved back to Wilmington and was openly laughing at the idea of living in a cabin in Alaska. Critz had secret doubts about his friend his ability to hunt and fish for the rest of his life, but the prospect of living two thousand miles from Mrs. Morgan was very appealing. They might have carried Nebraska if the rather blue-blooded First Lady had not referred to the football team as the "Sooners." The Nebraska Sooners! Overnight, Morgan fell so far in the polls in both Nebraska and Oklahoma that he never recovered. And in Texas she took a bite of prizewinning chili and began vomiting. As she was rushed to the hospital a microphone captured her still-famous words: "How can you backward people eat such a putrid mess?" Nebraska has five electoral votes. Texas has thirty-four. Insulting the local football team was a mistake they could have survived. But no candidate could overcome such a belittling description of Texas chili. What a campaign! Critz was tempted to write a book. Someone needed to record the disaster. Their partnership of almost forty years was ending. Critz had lined up a job with a defense contractor for $200,000 a year, and he would hit the lecture circuit at $50,000 a speech if anybody was desperate enough to pay it. After dedicating
