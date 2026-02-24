@@ -1,0 +1,28 @@
+# Runtime configuration for the trading system
+llm:
+  model: "claude-sonnet-4-6"
+  max_retries: 3
+  retry_base_delay: 1.0  # seconds, exponential backoff
+
+schedule:
+  market_open_scan: "30 9 * * 1-5"
+  daily_evaluation: "0 17 * * 1-5"
+  daily_report: "30 17 * * 1-5"
+  nightly_learning: "0 22 * * *"
+  weekly_evolution_review: "0 10 * * 6"
+
+data:
+  cache_dir: "data/market"
+  knowledge_dir: "data/knowledge_base"
+  default_period: "1y"
+  default_interval: "1d"
+
+database:
+  trades_db: "data/paper_trades.db"
+  curriculum_db: "data/curriculum_state.db"
+  agent_state_db: "data/agent_state.db"
+
+logging:
+  llm_log_file: "logs/llm_calls.jsonl"
+  trade_log_file: "logs/trades.jsonl"
+  level: "INFO"

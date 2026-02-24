@@ -1,0 +1,18 @@
+You are assessing the trading agent's mastery of a specific topic.
+
+Topic: {topic_name}
+Description: {topic_description}
+Mastery Criteria: {mastery_criteria}
+
+The agent has learned the following about this topic:
+{learned_content}
+
+Rate the agent's mastery on a scale of 0.0 to 1.0 where:
+- 0.0 = No understanding
+- 0.3 = Basic awareness
+- 0.5 = Can explain the concept
+- 0.7 = Can apply the concept in practice
+- 1.0 = Expert-level understanding with nuanced application
+
+Respond with a JSON object:
+{{"score": <float>, "reasoning": "<brief explanation>", "gaps": ["<gap1>", "<gap2>"]}}

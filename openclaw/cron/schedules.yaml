@@ -1,0 +1,23 @@
+# OpenClaw cron job definitions
+# These are stubs — actual OpenClaw wiring happens on the target machine.
+jobs:
+  market_open_scan:
+    schedule: "30 9 * * 1-5"    # 9:30 AM ET, weekdays
+    action: trading_agent.run_market_scan
+    description: "Scan market at open for trading signals"
+  daily_evaluation:
+    schedule: "0 17 * * 1-5"    # 5:00 PM ET, weekdays
+    action: trading_agent.run_daily_evaluation
+    description: "Evaluate daily performance"
+  daily_report:
+    schedule: "30 17 * * 1-5"   # 5:30 PM ET, weekdays
+    action: reporter.send_daily_report
+    description: "Send daily performance report via messaging"
+  nightly_learning:
+    schedule: "0 22 * * *"      # 10:00 PM ET, daily
+    action: trading_agent.run_learning_session
+    description: "Run nightly knowledge learning session"
+  weekly_evolution_review:
+    schedule: "0 10 * * 6"      # 10:00 AM ET, Saturday
+    action: trading_agent.run_weekly_review
+    description: "Weekly strategy review and evolution planning"
