@@ -554,19 +554,24 @@ def fetch_arxiv(query: str, max_results: int = 5) -> list[Document]:
 
 
 def _ddgs_text_search(query: str, max_results: int = 5) -> list[dict]:
-    """Run a DuckDuckGo text search via the ``duckduckgo_search`` package.
+    """Run a DuckDuckGo text search via the ``ddgs`` package.
+
+    Tries the newer ``ddgs`` package first, falling back to the older
+    ``duckduckgo_search`` package for backward compatibility.
 
     Isolated into its own function so tests can mock it without touching
     the third-party import.
 
     Returns a list of result dicts with keys ``title``, ``body``, ``href``.
-    Raises ``ImportError`` if the package is not installed.
+    Raises ``ImportError`` if neither package is installed.
     """
-    from duckduckgo_search import DDGS  # soft import
+    try:
+        from ddgs import DDGS
+    except ImportError:
+        from duckduckgo_search import DDGS  # fallback to older package
 
-    with DDGS() as ddgs:
-        results = list(ddgs.text(query, max_results=max_results))
-    return results
+    ddgs = DDGS()
+    return list(ddgs.text(query, max_results=max_results))
 
 
 def fetch_web_search(
