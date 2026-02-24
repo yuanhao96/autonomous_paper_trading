@@ -31,7 +31,7 @@ source .venv/bin/activate    # macOS / Linux
 pip install -r requirements.txt
 ```
 
-This installs the core dependencies: `yfinance`, `pandas`, `numpy`, `anthropic`, `chromadb`, `pyyaml`, `python-dotenv`, `alpaca-trade-api`, `pyarrow`, and testing/linting tools (`pytest`, `ruff`, `mypy`).
+This installs the core dependencies: `yfinance`, `pandas`, `numpy`, `anthropic`, `python-frontmatter`, `rank-bm25`, `pyyaml`, `python-dotenv`, `alpaca-trade-api`, `pyarrow`, and testing/linting tools (`pytest`, `ruff`, `mypy`).
 
 ### 4. Set up environment variables
 
@@ -206,12 +206,14 @@ This means yfinance could not fetch data for the requested ticker. Common causes
 
 The system expects `config/preferences.yaml` to exist. Ensure you have not renamed or deleted this file. If it is missing, recreate it using the template shown in the configuration section above.
 
-### `ChromaDB persistence errors`
+### Knowledge memory issues
 
-ChromaDB stores its data in `data/knowledge_base/` by default. Ensure this directory is writable. If you encounter corruption, delete the directory and let the system recreate it:
+Knowledge is stored as markdown files in `knowledge/memory/trading/`. If files become corrupted, you can safely delete and re-learn:
 
 ```bash
-rm -rf data/knowledge_base/
+rm -rf knowledge/memory/trading/curriculum/
+rm -rf knowledge/memory/trading/discovered/
+# The agent will recreate these directories and re-learn on the next learning session
 ```
 
 ### `ModuleNotFoundError`

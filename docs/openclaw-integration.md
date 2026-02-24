@@ -404,8 +404,8 @@ openclaw install-service
 openclaw launchd install
 ```
 
-Your Python `.venv` and SQLite databases persist between restarts automatically since they are
-stored in the project directory (not `/tmp`).
+Your Python `.venv`, SQLite databases, and markdown knowledge files persist between restarts
+automatically since they are stored in the project directory (not `/tmp`).
 
 To monitor that the service is healthy:
 
@@ -470,6 +470,8 @@ activated when the subprocess runs. Use the full path to `.venv/bin/python` in a
 plugin commands.
 
 **Database locked errors**
-SQLite doesn't handle concurrent writes well. If cron jobs and tool calls overlap, you may
-see `database is locked`. The fix in V2 will be to add write queuing; for V1, the cron schedule
-is spaced enough to avoid this in practice.
+SQLite (used for trade logs and agent state) doesn't handle concurrent writes well. If cron
+jobs and tool calls overlap, you may see `database is locked`. The fix in V2 will be to add
+write queuing; for V1, the cron schedule is spaced enough to avoid this in practice.
+Knowledge files (markdown-based) do not have this issue since they use individual files rather
+than a shared database.

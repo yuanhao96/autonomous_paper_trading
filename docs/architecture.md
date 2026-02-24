@@ -70,11 +70,11 @@ Reads and validates the human-controlled `config/preferences.yaml`. Returns a fr
 
 **`knowledge/store.py`**
 
-ChromaDB wrapper for semantic knowledge storage. Documents are stored in named collections aligned with curriculum stages (`general`, `stage_1_foundations`, `stage_2_strategies`, `stage_3_risk_management`, `stage_4_advanced`). Supports adding documents, semantic similarity queries, and topic-based filtering.
+Markdown-based knowledge memory with BM25 full-text search. Knowledge is stored as structured markdown files with YAML front-matter under `knowledge/memory/`. The directory is organized into `curriculum/stage_{1-4}/` (one `.md` file per topic), `discovered/` (emergent topics), and `daily_log/` (raw daily intake, gitignored). Supports storing curriculum knowledge, daily logs, discovered topics, mastery tracking via front-matter, and BM25-ranked search across all files.
 
 - Input: `Document` objects with title, content, source, timestamp, topic tags.
-- Output: query results with content, metadata, and distance scores.
-- Key class: `KnowledgeStore`.
+- Output: search results with path, metadata, content preview, and BM25 score.
+- Key class: `MarkdownMemory`.
 
 **`knowledge/ingestion.py`**
 
@@ -85,16 +85,16 @@ Fetches raw content from external sources: articles, SEC filings, earnings repor
 
 **`knowledge/synthesizer.py`**
 
-LLM-driven synthesis of raw ingested content into structured knowledge documents suitable for storage in ChromaDB.
+LLM-driven synthesis of raw ingested content into structured knowledge. Produces `StructuredKnowledge` objects (summary, key concepts, trading implications, risk factors) that are formatted as markdown and stored in topic files. Also provides `assess_mastery()` which uses the LLM to evaluate the agent's understanding of a topic based on accumulated content.
 
-- Input: raw content from the ingestion module.
-- Output: structured `Document` objects with topic tags.
+- Input: raw `Document` objects from the ingestion module.
+- Output: `StructuredKnowledge` dataclass; mastery assessment tuples `(score, reasoning, gaps)`.
 
 **`knowledge/curriculum.py`**
 
-Tracks learning progression through a four-stage curriculum defined in `config/curriculum.yaml`. Per-topic mastery scores are persisted in SQLite. The tracker determines the current stage, returns the next learning tasks (lowest mastery topics), and checks whether a stage is complete (all topics above the mastery threshold).
+Tracks learning progression through a four-stage curriculum defined in `config/curriculum.yaml`. Per-topic mastery scores are persisted in markdown front-matter via `MarkdownMemory`. The tracker determines the current stage, returns the next learning tasks (lowest mastery topics), and checks whether a stage is complete (all topics above the mastery threshold).
 
-- Input: curriculum YAML definition, SQLite database path.
+- Input: curriculum YAML definition, memory root directory.
 - Output: current stage number, mastery scores, next learning tasks.
 - Key classes: `CurriculumTracker`, `Topic`.
 
@@ -251,7 +251,8 @@ The trading agent follows a structured four-stage curriculum defined in `config/
 
 ### Progression Rules
 
-- Each topic has a mastery score in [0.0, 1.0] persisted in SQLite.
+- Each topic has a mastery score in [0.0, 1.0] persisted in YAML front-matter of the topic's markdown file.
+- Mastery is assessed by the LLM (via `KnowledgeSynthesizer.assess_mastery()`) based on the agent's accumulated knowledge, not by fixed increments.
 - A stage is complete when every topic in that stage reaches the mastery threshold (default 0.7).
 - Stage N+1 unlocks only when stage N is complete.
 - The `CurriculumTracker.get_next_learning_tasks()` method returns the lowest-mastery topics in the current stage, prioritizing the weakest areas.
