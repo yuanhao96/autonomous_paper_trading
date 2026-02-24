@@ -8,8 +8,10 @@ Only stdlib dependencies are used (urllib, xml.etree, re, logging, json).
 
 from __future__ import annotations
 
+import html
 import json
 import logging
+import os
 import re
 import urllib.error
 import urllib.parse
@@ -546,4 +548,105 @@ def fetch_arxiv(query: str, max_results: int = 5) -> list[Document]:
             break
 
     logger.info("Fetched %d arXiv papers for query '%s'.", len(documents), query)
+    return documents
+
+
+def fetch_alpaca_news(
+    tickers: list[str],
+    max_results: int = 20,
+) -> list[Document]:
+    """Fetch recent market news from the Alpaca News API.
+
+    Requires ``ALPACA_API_KEY`` and ``ALPACA_SECRET_KEY`` environment
+    variables (loaded via python-dotenv if present).
+
+    Parameters
+    ----------
+    tickers:
+        List of ticker symbols to filter news by (e.g. ``["AAPL", "MSFT"]``).
+        Pass an empty list for unfiltered market-wide news (noisier).
+    max_results:
+        Maximum number of articles to return (Alpaca allows up to 50 per
+        request; default 20).
+
+    Returns
+    -------
+    list[Document]
+        Normalised ``Document`` objects. Returns an empty list when
+        credentials are missing or the API call fails.
+    """
+    api_key: str = os.environ.get("ALPACA_API_KEY", "")
+    secret_key: str = os.environ.get("ALPACA_SECRET_KEY", "")
+
+    if not api_key or not secret_key:
+        logger.warning(
+            "fetch_alpaca_news: ALPACA_API_KEY / ALPACA_SECRET_KEY not set; skipping."
+        )
+        return []
+
+    params: dict[str, str] = {
+        "limit": str(min(max_results, 50)),
+        "sort": "desc",
+        "include_content": "false",  # full HTML content is rarely useful; summary suffices
+    }
+    if tickers:
+        params["symbols"] = ",".join(t.upper() for t in tickers)
+
+    url: str = (
+        "https://data.alpaca.markets/v1beta1/news?"
+        + urllib.parse.urlencode(params)
+    )
+    req: urllib.request.Request = urllib.request.Request(
+        url,
+        headers={
+            "APCA-API-KEY-ID": api_key,
+            "APCA-API-SECRET-KEY": secret_key,
+            "User-Agent": _DEFAULT_USER_AGENT,
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+            data: dict = json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        logger.warning(
+            "Alpaca News API HTTP %d for tickers %s: %s", exc.code, tickers, body[:200]
+        )
+        return []
+    except (urllib.error.URLError, OSError) as exc:
+        logger.warning("Alpaca News API network error for tickers %s: %s", tickers, exc)
+        return []
+
+    articles: list[dict] = data.get("news", [])
+    documents: list[Document] = []
+
+    for article in articles:
+        headline: str = html.unescape(article.get("headline", "")).strip()
+        summary: str = html.unescape(article.get("summary", "")).strip()
+        source: str = article.get("url", "") or article.get("source", "")
+        created_at: str = article.get("created_at", "") or _utcnow_iso()
+        symbols: list[str] = article.get("symbols", [])
+
+        if not headline:
+            continue
+
+        # Use summary as content; fall back to headline if summary is empty.
+        content: str = summary if summary else headline
+
+        documents.append(
+            Document(
+                title=headline,
+                content=content,
+                source=source,
+                timestamp=created_at,
+                topic_tags=["news", "alpaca"] + [s.lower() for s in symbols],
+            )
+        )
+
+    logger.info(
+        "Fetched %d Alpaca news articles for tickers %s.",
+        len(documents),
+        tickers or ["(all)"],
+    )
     return documents

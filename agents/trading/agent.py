@@ -13,7 +13,7 @@ from typing import Any
 from agents.trading.state import StateManager
 from core.preferences import load_preferences
 from knowledge.curriculum import CurriculumTracker
-from knowledge.ingestion import fetch_arxiv, fetch_news, fetch_wikipedia
+from knowledge.ingestion import fetch_alpaca_news, fetch_arxiv, fetch_news, fetch_wikipedia
 from knowledge.store import KnowledgeStore
 from strategies.registry import StrategyRegistry
 from strategies.rsi_mean_reversion import RSIMeanReversionStrategy
@@ -311,6 +311,46 @@ class TradingAgent:
                 logger.exception(
                     "Failed to persist learning entry for '%s'", topic.name
                 )
+
+        # ------------------------------------------------------------------
+        # Ongoing tasks — use Alpaca news for the watchlist tickers
+        # ------------------------------------------------------------------
+        ongoing_tasks = self._curriculum.get_ongoing_tasks()
+        for task in ongoing_tasks:
+            task_id: str = task.get("id", "")
+            task_name: str = task.get("name", task_id)
+            logger.info("Running ongoing task: %s", task_name)
+
+            docs = []
+            try:
+                docs = fetch_alpaca_news(
+                    tickers=_DEFAULT_TICKERS, max_results=20
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to fetch Alpaca news for ongoing task '%s'", task_name
+                )
+
+            stored_count = 0
+            for doc in docs:
+                try:
+                    store.add_document(doc, collection_name="general")
+                    stored_count += 1
+                except Exception:
+                    logger.exception(
+                        "Failed to store Alpaca news article '%s'", doc.title
+                    )
+
+            entry_summary = (
+                f"Ongoing '{task_name}': "
+                f"fetched {len(docs)} article(s), stored {stored_count}."
+            )
+            studied.append(entry_summary)
+            logger.info(entry_summary)
+
+            # Only run the news fetch once even if multiple ongoing tasks
+            # are defined — they all hit the same endpoint.
+            break
 
         try:
             self._state_manager.update_field("current_stage", current_stage)
