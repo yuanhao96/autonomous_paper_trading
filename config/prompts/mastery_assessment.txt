@@ -14,5 +14,12 @@ Rate the agent's mastery on a scale of 0.0 to 1.0 where:
 - 0.7 = Can apply the concept in practice
 - 1.0 = Expert-level understanding with nuanced application
 
+Grading factors (apply these adjustments):
+- PENALIZE (-0.1 each) for claims with confidence < 0.5 (unsupported assertions)
+- PENALIZE (-0.05 each) for unresolved contradictions between sources
+- REWARD (+0.05) for citing multiple independent source types (books, arxiv, web)
+- REWARD (+0.05) for explicitly identifying edge cases and failure modes
+- PENALIZE (-0.1) if mastery criteria is not demonstrably met by the content
+
 Respond with a JSON object:
-{{"score": <float>, "reasoning": "<brief explanation>", "gaps": ["<gap1>", "<gap2>"]}}
+{"score": <float>, "reasoning": "<brief explanation including evidence quality assessment>", "gaps": ["<gap1>", "<gap2>"]}

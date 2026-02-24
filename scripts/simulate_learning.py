@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=_PROJECT_ROOT / ".env")
 
 from knowledge.curriculum import CurriculumTracker
+from knowledge.learning_controller import LearningController
 from knowledge.store import MarkdownMemory, Document
 from knowledge.synthesizer import KnowledgeSynthesizer, StructuredKnowledge
 from knowledge.ingestion import fetch_web_search, fetch_wikipedia
@@ -201,6 +202,7 @@ def simulate_topic_learning(
     skip_wiki: bool = False,
     skip_web: bool = False,
     dry_run: bool = False,
+    controller: LearningController | None = None,
 ) -> dict:
     """Run the full learning pipeline for a single curriculum topic.
 
@@ -213,7 +215,98 @@ def simulate_topic_learning(
     logger.info("=" * 70)
 
     # ------------------------------------------------------------------
-    # Step 1: Search knowledge base for relevant book chunks
+    # Multi-round controller path (replaces fixed Steps 1/2/2b)
+    # ------------------------------------------------------------------
+    if controller is not None and not dry_run:
+        logger.info("[Controller] Running multi-round learning for '%s'...", topic.name)
+        knowledge, state = controller.learn_topic(topic)
+
+        # Log confidence trajectory
+        logger.info("  Confidence trajectory:")
+        for entry in state.round_log:
+            tools_str = ", ".join(entry["tools"])
+            logger.info(
+                "    Round %d | tools: %-35s | docs: %2d | confidence: %.2f | gaps: %d",
+                entry["round"] + 1, tools_str, entry["docs_retrieved"],
+                entry["confidence"], len(entry.get("gaps", [])),
+            )
+        if state.gaps:
+            logger.info("  Unresolved gaps: %s", state.gaps[:3])
+        if state.conflicts:
+            logger.info("  Conflicts detected: %d", len(state.conflicts))
+        logger.info("  Total evidence: %d docs | source diversity: %d tool(s)",
+                    len(state.evidence_pool), state.source_diversity())
+
+        documents = state.evidence_pool[:15]
+        # Skip to Step 3 (synthesis already done in controller)
+        # Format synthesized markdown for storage
+        synthesized_md = f"### Summary\n\n{knowledge.summary}\n\n"
+        if knowledge.key_concepts:
+            synthesized_md += "### Key Concepts\n\n"
+            for concept in knowledge.key_concepts:
+                synthesized_md += f"- {concept}\n"
+            synthesized_md += "\n"
+        if knowledge.trading_implications:
+            synthesized_md += "### Trading Implications\n\n"
+            for impl in knowledge.trading_implications:
+                synthesized_md += f"- {impl}\n"
+            synthesized_md += "\n"
+        if knowledge.risk_factors:
+            synthesized_md += "### Risk Factors\n\n"
+            for risk in knowledge.risk_factors:
+                synthesized_md += f"- {risk}\n"
+        if getattr(knowledge, "claims", None):
+            synthesized_md += "\n### Evidence Trail\n\n"
+            for claim in knowledge.claims[:10]:
+                conf = claim.get("confidence", "?")
+                src = claim.get("source_title", "unknown")
+                synthesized_md += f"- [{conf}] {claim.get('claim','')} *(source: {src})*\n"
+
+        if not documents:
+            return {"topic": topic.id, "status": "no_content", "mastery": 0.0}
+
+        ref_doc = documents[0]
+        path = memory.store_curriculum_knowledge(
+            topic_id=topic.id,
+            stage_number=topic.stage_number,
+            doc=ref_doc,
+            synthesized_content=synthesized_md,
+        )
+        logger.info("[Step 4] Stored at: %s", path)
+
+        logger.info("[Step 5] Assessing mastery...")
+        learned_content = memory.get_topic_content(topic.id, topic.stage_number)
+        score, reasoning, gaps = synthesizer.assess_mastery(
+            topic_id=topic.id,
+            topic_name=topic.name,
+            topic_description=topic.description,
+            mastery_criteria=topic.mastery_criteria,
+            learned_content=learned_content[:3000],
+        )
+        tracker.set_mastery(topic.id, score, notes=reasoning)
+        logger.info("  Mastery score: %.2f", score)
+        if gaps:
+            for gap in gaps:
+                logger.info("    - %s", gap)
+
+        bar = "#" * int(score * 20) + "." * (20 - int(score * 20))
+        print(f"    Mastery: [{bar}] {score:.0%}")
+
+        return {
+            "topic": topic.id,
+            "topic_name": topic.name,
+            "status": "completed",
+            "documents_used": len(documents),
+            "mastery_score": score,
+            "reasoning": reasoning,
+            "gaps": gaps,
+            "key_concepts": knowledge.key_concepts[:5],
+            "rounds_used": state.round_idx,
+            "source_diversity": state.source_diversity(),
+        }
+
+    # ------------------------------------------------------------------
+    # Step 1: Search knowledge base for relevant book chunks (legacy path)
     # ------------------------------------------------------------------
     logger.info("[Step 1] Searching knowledge base for relevant content...")
     chunks = _search_relevant_chunks(memory, topic.name, topic.description)
@@ -382,6 +475,8 @@ def main() -> None:
                         help="Skip Wikipedia fetches (use only book knowledge).")
     parser.add_argument("--skip-web", action="store_true",
                         help="Skip web search (use only books + Wikipedia).")
+    parser.add_argument("--no-controller", action="store_true",
+                        help="Use legacy fixed pipeline (Steps 1/2/2b) instead of multi-round controller.")
     args = parser.parse_args()
 
     tracker = CurriculumTracker(
@@ -405,6 +500,16 @@ def main() -> None:
 
     logger.info("Topics to learn: %s\n", [t.name for t in topics])
 
+    # Build controller (multi-round mode) unless --no-controller
+    controller: LearningController | None = None
+    if not args.no_controller and not args.dry_run:
+        controller = LearningController(memory, synthesizer, tracker)
+        logger.info("Using multi-round LearningController (max_rounds=%d, threshold=%.2f)",
+                    controller.max_rounds, controller.confidence_threshold)
+    else:
+        logger.info("Using legacy fixed pipeline%s.",
+                    " [DRY RUN]" if args.dry_run else " [--no-controller]")
+
     # Run learning for each topic.
     results: list[dict] = []
     for topic in topics:
@@ -413,6 +518,7 @@ def main() -> None:
             skip_wiki=args.skip_wiki,
             skip_web=args.skip_web,
             dry_run=args.dry_run,
+            controller=controller,
         )
         results.append(result)
         print()
@@ -431,6 +537,8 @@ def main() -> None:
             print(f"\n  {r['topic_name']}")
             print(f"    Mastery: [{bar}] {score:.0%}")
             print(f"    Sources: {r['documents_used']} documents")
+            if r.get("rounds_used") is not None:
+                print(f"    Rounds:  {r['rounds_used']} | Source diversity: {r.get('source_diversity', '?')} tool(s)")
             if r.get("gaps"):
                 print(f"    Gaps: {', '.join(r['gaps'][:3])}")
             if r.get("key_concepts"):

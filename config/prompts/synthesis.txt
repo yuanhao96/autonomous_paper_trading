@@ -5,9 +5,19 @@ For each document, identify:
 2. Trading implications (actionable insights)
 3. Risk factors mentioned
 4. Relevance to specific curriculum topics
+5. Per-claim citations with source and confidence
+6. Any contradictions between sources
 
 Output ONLY a valid JSON object with exactly these keys (no markdown, no extra commentary):
-{"summary": "<concise synthesis of all documents>", "key_concepts": ["<concept1>", "<concept2>"], "trading_implications": ["<implication1>", "<implication2>"], "risk_factors": ["<risk1>", "<risk2>"], "curriculum_relevance": {"<topic_id>": "<relevance 0-1>"}}
+{
+  "summary": "<concise 2-3 sentence synthesis of all documents>",
+  "key_concepts": ["<concept1>", "<concept2>"],
+  "trading_implications": ["<implication1>", "<implication2>"],
+  "risk_factors": ["<risk1>", "<risk2>"],
+  "curriculum_relevance": {"<topic_id>": "<relevance 0-1>"},
+  "claims": [{"claim": "<assertion>", "source_title": "<title>", "confidence": <0.0-1.0>}],
+  "contradictions": [{"claim_a": "<claim>", "claim_b": "<claim>", "reason": "<why they conflict>"}]
+}
 
 Documents to synthesize:
 ---

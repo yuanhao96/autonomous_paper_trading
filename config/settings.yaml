@@ -38,3 +38,15 @@ logging:
   llm_log_file: "logs/llm_calls.jsonl"
   trade_log_file: "logs/trades.jsonl"
   level: "INFO"
+
+# Multi-round learning controller configuration
+learning:
+  max_rounds: 3
+  confidence_threshold: 0.75
+  min_marginal_gain: 0.05
+  per_topic_budget: 50000  # approximate token budget per topic
+  tool_policies:
+    stage_1: [memory, wikipedia, books]
+    stage_2: [memory, wikipedia, books, arxiv]
+    stage_3: [memory, books, arxiv, web]
+    stage_4: [memory, arxiv, web, news]
