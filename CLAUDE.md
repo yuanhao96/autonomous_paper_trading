@@ -147,6 +147,11 @@ The trading agent follows a structured curriculum defined in `config/curriculum.
 - **Ongoing**: Daily news ingestion, earnings, professional trader analysis (filtered by relevance)
 
 Each topic has a mastery score tracked in `knowledge/curriculum.py`. The agent progresses through stages sequentially; Stage N+1 unlocks when Stage N reaches a mastery threshold.
+During learning runs (`main.py --action learn`), newly discovered high-signal concepts can be auto-added into `config/curriculum.yaml` via `CurriculumTracker.add_discovered_topic()` (deduped and capped per source topic).
+
+Optional learning config knobs in `config/settings.yaml`:
+- `learning.auto_add_discovered_topics` (default: true)
+- `learning.auto_add_max_per_topic` (default: 2)
 
 ## Human Preferences (Agent Read-Only)
 

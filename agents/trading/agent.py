@@ -174,6 +174,90 @@ class TradingAgent:
             )
         return docs
 
+    def _load_learning_settings(self) -> dict[str, Any]:
+        """Load learning settings from ``config/settings.yaml``."""
+        config_path = Path("config/settings.yaml")
+        if not config_path.exists():
+            return {}
+        try:
+            with open(config_path, "r") as fh:
+                data = yaml.safe_load(fh) or {}
+            learning = data.get("learning", {})
+            return learning if isinstance(learning, dict) else {}
+        except Exception:
+            logger.exception("Failed to load learning settings")
+            return {}
+
+    def _extract_discovered_topic_candidates(
+        self,
+        source_topic_name: str,
+        key_concepts: list[str],
+    ) -> list[str]:
+        """Extract conservative candidate topic names from synthesis concepts."""
+        source_lower = source_topic_name.strip().lower()
+        candidates: list[str] = []
+        seen: set[str] = set()
+
+        for raw in key_concepts:
+            name = str(raw).strip(" -\t\r\n")
+            if not name:
+                continue
+            if len(name) < 4 or len(name) > 60:
+                continue
+            words = name.split()
+            if len(words) > 6:
+                continue
+            lower = name.lower()
+            if lower == source_lower:
+                continue
+            if lower in seen:
+                continue
+            seen.add(lower)
+            candidates.append(name)
+
+        return candidates
+
+    def _auto_add_discovered_topics(
+        self,
+        current_stage: int,
+        source_topic_name: str,
+        key_concepts: list[str],
+    ) -> list[str]:
+        """Auto-add newly discovered topics to ``config/curriculum.yaml``."""
+        cfg = self._load_learning_settings()
+        enabled = bool(cfg.get("auto_add_discovered_topics", True))
+        if not enabled:
+            return []
+
+        max_new = int(cfg.get("auto_add_max_per_topic", 2))
+        if max_new <= 0:
+            return []
+
+        added_names: list[str] = []
+        candidates = self._extract_discovered_topic_candidates(
+            source_topic_name, key_concepts
+        )
+        for name in candidates:
+            if len(added_names) >= max_new:
+                break
+            try:
+                added, topic_id = self._curriculum.add_discovered_topic(
+                    name=name,
+                    description=f"Discovered during study of '{source_topic_name}'.",
+                    stage_number=current_stage,
+                )
+                if added:
+                    added_names.append(name)
+                    logger.info(
+                        "Auto-added discovered topic '%s' (id=%s, stage=%d)",
+                        name,
+                        topic_id,
+                        current_stage,
+                    )
+            except Exception:
+                logger.exception("Failed to auto-add discovered topic '%s'", name)
+        return added_names
+
     # ------------------------------------------------------------------
     # Daily trading cycle
     # ------------------------------------------------------------------
@@ -449,11 +533,27 @@ class TradingAgent:
             except Exception:
                 logger.exception("Failed to assess mastery for topic '%s'", topic.id)
 
+            discovered_topics: list[str] = []
+            try:
+                discovered_topics = self._auto_add_discovered_topics(
+                    current_stage=current_stage,
+                    source_topic_name=topic.name,
+                    key_concepts=knowledge.key_concepts,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed discovered-topic auto-add for topic '%s'", topic.id
+                )
+
             entry_summary = (
                 f"Studied '{topic.name}': {len(docs)} doc(s) across "
                 f"{state.round_idx} round(s), {state.source_diversity()} source type(s), "
                 f"confidence={state.confidence:.2f}."
             )
+            if discovered_topics:
+                entry_summary += (
+                    " Added discovered topics: " + ", ".join(discovered_topics) + "."
+                )
             studied.append(entry_summary)
 
             try:

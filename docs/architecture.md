@@ -101,10 +101,10 @@ LLM-driven synthesis of raw ingested content into structured knowledge. Produces
 
 **`knowledge/curriculum.py`**
 
-Tracks learning progression through a four-stage curriculum defined in `config/curriculum.yaml`. Per-topic mastery scores are persisted in markdown front-matter via `MarkdownMemory`. The tracker determines the current stage, returns the next learning tasks (lowest mastery topics), and checks whether a stage is complete (all topics above the mastery threshold).
+Tracks learning progression through a four-stage curriculum defined in `config/curriculum.yaml`. Per-topic mastery scores are persisted in markdown front-matter via `MarkdownMemory`. The tracker determines the current stage, returns the next learning tasks (lowest mastery topics), checks whether a stage is complete (all topics above the mastery threshold), and can persist newly discovered topics back into the curriculum YAML.
 
 - Input: curriculum YAML definition, memory root directory.
-- Output: current stage number, mastery scores, next learning tasks.
+- Output: current stage number, mastery scores, next learning tasks, optional discovered-topic additions.
 - Key classes: `CurriculumTracker`, `Topic`.
 
 ### `trading/` -- Market Data, Risk, Broker, Executor
@@ -265,6 +265,7 @@ The trading agent follows a structured four-stage curriculum defined in `config/
 - A stage is complete when every topic in that stage reaches the mastery threshold (default 0.7).
 - Stage N+1 unlocks only when stage N is complete.
 - The `CurriculumTracker.get_next_learning_tasks()` method returns the lowest-mastery topics in the current stage, prioritizing the weakest areas.
+- In learning runs, discovered high-signal concepts can be added to `config/curriculum.yaml` via `CurriculumTracker.add_discovered_topic()`; auto-add behavior is controlled by `learning.auto_add_discovered_topics` and `learning.auto_add_max_per_topic` in `config/settings.yaml`.
 
 ### Ongoing Learning
 

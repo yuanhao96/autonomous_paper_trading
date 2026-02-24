@@ -8,6 +8,7 @@ topic in stage N reaches the configured mastery threshold.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -76,6 +77,51 @@ class CurriculumTracker:
         self._ongoing: list[dict[str, Any]] = list(
             self._curriculum.get("ongoing", [])
         )
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _slugify_topic_id(self, name: str) -> str:
+        """Convert a human-readable topic name into a stable topic_id."""
+        slug = name.lower().strip()
+        slug = re.sub(r"[^\w\s-]", "", slug)
+        slug = re.sub(r"[\s_]+", "_", slug)
+        slug = slug.strip("_")
+        return slug or "discovered_topic"
+
+    def _persist_curriculum(self) -> None:
+        """Persist in-memory curriculum updates back to curriculum YAML."""
+        stage_payloads: list[dict[str, Any]] = []
+        existing_stages = {
+            int(stage.get("stage_number", 0)): stage
+            for stage in self._curriculum.get("stages", [])
+            if isinstance(stage, dict) and "stage_number" in stage
+        }
+
+        for stage_number in sorted(self._stages.keys()):
+            stage_obj = existing_stages.get(stage_number, {})
+            topics = self._stages.get(stage_number, [])
+            stage_payload = dict(stage_obj) if stage_obj else {
+                "name": f"Stage {stage_number}",
+                "stage_number": stage_number,
+                "description": "",
+            }
+            stage_payload["stage_number"] = stage_number
+            stage_payload["topics"] = [
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "description": t.description,
+                    "mastery_criteria": t.mastery_criteria,
+                }
+                for t in topics
+            ]
+            stage_payloads.append(stage_payload)
+
+        self._curriculum["stages"] = stage_payloads
+        with open(self._curriculum_path, "w") as fh:
+            yaml.safe_dump(self._curriculum, fh, sort_keys=False)
 
     # ------------------------------------------------------------------
     # Public API
@@ -152,3 +198,42 @@ class CurriculumTracker:
     def get_ongoing_tasks(self) -> list[dict[str, Any]]:
         """Return the list of ongoing (non-staged) task definitions."""
         return list(self._ongoing)
+
+    def add_discovered_topic(
+        self,
+        name: str,
+        description: str = "",
+        mastery_criteria: str = "",
+        stage_number: int | None = None,
+    ) -> tuple[bool, str]:
+        """Add a newly discovered topic to the curriculum and persist it.
+
+        Returns
+        -------
+        tuple[bool, str]
+            ``(added, topic_id)``, where ``added`` indicates whether a new topic
+            was created (``False`` when a duplicate already exists).
+        """
+        clean_name = name.strip()
+        if not clean_name:
+            return False, ""
+
+        topic_id = self._slugify_topic_id(clean_name)
+        if topic_id in self._topic_stage:
+            return False, topic_id
+
+        target_stage = stage_number or self.get_current_stage()
+        topic = Topic(
+            id=topic_id,
+            name=clean_name,
+            description=description.strip(),
+            mastery_criteria=(
+                mastery_criteria.strip()
+                or f"Can explain and apply {clean_name} in a concrete trading scenario"
+            ),
+            stage_number=target_stage,
+        )
+        self._stages.setdefault(target_stage, []).append(topic)
+        self._topic_stage[topic_id] = target_stage
+        self._persist_curriculum()
+        return True, topic_id
