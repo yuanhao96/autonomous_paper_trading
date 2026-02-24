@@ -266,6 +266,53 @@ class TestLearningControllerStopPolicy:
         assert ctrl.should_continue(state) is False
 
 
+class TestSelectToolsWebAlways:
+    """Web search must be selected at every stage, every round."""
+
+    def _ctrl(self):
+        from knowledge.learning_controller import LearningController
+        from knowledge.tools import default_tools
+        from unittest.mock import MagicMock
+        memory = MagicMock()
+        memory.search.return_value = []
+        synthesizer = MagicMock()
+        curriculum = MagicMock()
+        ctrl = LearningController(memory, synthesizer, curriculum,
+                                  tools=default_tools(memory))
+        return ctrl
+
+    @pytest.mark.parametrize("stage", [1, 2, 3, 4])
+    def test_web_included_every_stage(self, stage):
+        ctrl = self._ctrl()
+        state = TopicLearningState(topic_id="test")
+        tools = ctrl.select_tools("", state, stage=stage, topic_name="momentum")
+        names = [t.spec.name for t in tools]
+        assert "web" in names, f"Stage {stage}: expected 'web' in tools, got {names}"
+
+    def test_memory_always_first(self):
+        ctrl = self._ctrl()
+        state = TopicLearningState(topic_id="test")
+        for stage in [1, 2, 3, 4]:
+            tools = ctrl.select_tools("", state, stage=stage)
+            assert tools[0].spec.name == "memory"
+
+    def test_stage1_has_wiki_and_books(self):
+        ctrl = self._ctrl()
+        state = TopicLearningState(topic_id="test")
+        tools = ctrl.select_tools("", state, stage=1)
+        names = [t.spec.name for t in tools]
+        assert "wikipedia" in names
+        assert "book" in names
+
+    def test_stage4_has_arxiv_and_news(self):
+        ctrl = self._ctrl()
+        state = TopicLearningState(topic_id="test")
+        tools = ctrl.select_tools("", state, stage=4)
+        names = [t.spec.name for t in tools]
+        assert "arxiv" in names
+        assert "news" in names
+
+
 class TestPlanSubQuestions:
     def test_returns_list_of_strings_with_mock_llm(self):
         from knowledge.learning_controller import LearningController

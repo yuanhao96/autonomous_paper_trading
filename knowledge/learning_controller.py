@@ -143,11 +143,13 @@ class LearningController:
         def _get(name: str) -> KnowledgeTool | None:
             return self._tool_map.get(name)
 
-        # Always start with memory search
+        # Always: memory + web search (every stage, every round)
         if mem := _get("memory"):
             selected.append(mem)
+        if web := _get("web"):
+            selected.append(web)
 
-        # Stage-based policy
+        # Stage-based additions on top of the universal set
         if stage <= 2:
             if wiki := _get("wikipedia"):
                 selected.append(wiki)
@@ -161,13 +163,9 @@ class LearningController:
                 selected.append(book)
             if arxiv := _get("arxiv"):
                 selected.append(arxiv)
-            if web := _get("web"):
-                selected.append(web)
         else:  # stage 4
             if arxiv := _get("arxiv"):
                 selected.append(arxiv)
-            if web := _get("web"):
-                selected.append(web)
             if news := _get("news"):
                 selected.append(news)
 

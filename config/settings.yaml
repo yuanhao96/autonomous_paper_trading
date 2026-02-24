@@ -46,7 +46,7 @@ learning:
   min_marginal_gain: 0.05
   per_topic_budget: 50000  # approximate token budget per topic
   tool_policies:
-    stage_1: [memory, wikipedia, books]
-    stage_2: [memory, wikipedia, books, arxiv]
-    stage_3: [memory, books, arxiv, web]
-    stage_4: [memory, arxiv, web, news]
+    stage_1: [memory, web, wikipedia, books]
+    stage_2: [memory, web, wikipedia, books, arxiv]
+    stage_3: [memory, web, books, arxiv]
+    stage_4: [memory, web, arxiv, news]
