@@ -1,3 +1,4 @@
+anthropic>=0.40.0
 openai>=1.30.0
 yfinance>=0.2.30
 alpaca-trade-api>=3.0.0

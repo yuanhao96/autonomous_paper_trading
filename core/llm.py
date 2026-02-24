@@ -1,7 +1,7 @@
 """Centralized LLM wrapper with logging, retries, and prompt template loading.
 
-Uses Moonshot (Kimi) via its OpenAI-compatible API endpoint.
-Set MOONSHOT_API_KEY in .env to authenticate.
+Uses Kimi Code API (https://api.kimi.com/coding/) via the Anthropic-compatible
+SDK. Set KIMI_CODE_API_KEY and optionally KIMI_CODE_BASE_URL in .env.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import openai
+import anthropic
 import yaml
 from dotenv import load_dotenv
 
@@ -22,39 +22,33 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Project root is two levels up from this file (core/llm.py -> project root)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Moonshot OpenAI-compatible base URL
-MOONSHOT_BASE_URL = "https://api.moonshot.cn/v1"
+KIMI_CODE_BASE_URL = "https://api.kimi.com/coding/"
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
 def _load_settings() -> dict[str, Any]:
-    """Load runtime settings from config/settings.yaml."""
     settings_path = _PROJECT_ROOT / "config" / "settings.yaml"
     if not settings_path.exists():
-        logger.warning("settings.yaml not found at %s; using defaults", settings_path)
         return {}
     with open(settings_path, "r") as f:
         return yaml.safe_load(f) or {}
 
 
 def _get_llm_settings() -> dict[str, Any]:
-    """Return the llm section of settings with defaults."""
     settings = _load_settings()
     llm_conf = settings.get("llm", {})
     return {
-        "model": llm_conf.get("model", "moonshot-v1-32k"),
+        "model": llm_conf.get("model", "claude-sonnet-4-5"),
         "max_retries": int(llm_conf.get("max_retries", 3)),
         "retry_base_delay": float(llm_conf.get("retry_base_delay", 1.0)),
     }
 
 
 def _get_log_file() -> Path:
-    """Return the path to the LLM call log file."""
     settings = _load_settings()
     log_conf = settings.get("logging", {})
     rel_path = log_conf.get("llm_log_file", "logs/llm_calls.jsonl")
@@ -65,20 +59,20 @@ def _get_log_file() -> Path:
 # Client singleton
 # ---------------------------------------------------------------------------
 
-_client: openai.OpenAI | None = None
+_client: anthropic.Anthropic | None = None
 
 
-def _get_client() -> openai.OpenAI:
-    """Return a cached OpenAI-compatible client pointed at Moonshot."""
+def _get_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
-        api_key = os.getenv("MOONSHOT_API_KEY")
+        api_key = os.getenv("KIMI_CODE_API_KEY")
         if not api_key:
             raise EnvironmentError(
-                "MOONSHOT_API_KEY is not set. "
-                "Add it to your .env file or export it as an environment variable."
+                "KIMI_CODE_API_KEY is not set. "
+                "Add it to your .env file (get it from kimi.com/code/console)."
             )
-        _client = openai.OpenAI(api_key=api_key, base_url=MOONSHOT_BASE_URL)
+        base_url = os.getenv("KIMI_CODE_BASE_URL", KIMI_CODE_BASE_URL)
+        _client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
     return _client
 
 
@@ -94,10 +88,8 @@ def _log_call(
     output_tokens: int,
     latency_ms: float,
 ) -> None:
-    """Append a structured JSON line to the LLM call log."""
     log_file = _get_log_file()
     log_file.parent.mkdir(parents=True, exist_ok=True)
-
     entry = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "prompt_hash": prompt_hash,
@@ -111,7 +103,6 @@ def _log_call(
 
 
 def _hash_prompt(prompt: str) -> str:
-    """Return the SHA-256 hex digest of the first 500 characters of the prompt."""
     return hashlib.sha256(prompt[:500].encode("utf-8")).hexdigest()
 
 
@@ -124,7 +115,7 @@ def call_llm(
     system_prompt: str | None = None,
     model: str | None = None,
 ) -> str:
-    """Send a request to the Moonshot API and return the assistant's text response.
+    """Send a request to Kimi Code API and return the assistant's text.
 
     Parameters
     ----------
@@ -139,11 +130,6 @@ def call_llm(
     -------
     str
         The text content of the assistant's response.
-
-    Raises
-    ------
-    openai.APIError
-        If all retries are exhausted.
     """
     llm_settings = _get_llm_settings()
     resolved_model: str = model or llm_settings["model"]
@@ -153,55 +139,49 @@ def call_llm(
     client = _get_client()
     prompt_hash = _hash_prompt(prompt)
 
-    messages: list[dict[str, str]] = []
-    if system_prompt is not None:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt})
+    kwargs: dict[str, Any] = {
+        "model": resolved_model,
+        "max_tokens": 4096,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if system_prompt:
+        kwargs["system"] = system_prompt
 
     last_exception: Exception | None = None
 
     for attempt in range(max_retries):
         start_ms = time.monotonic() * 1000
         try:
-            response = client.chat.completions.create(
-                model=resolved_model,
-                messages=messages,  # type: ignore[arg-type]
-                max_tokens=4096,
-            )
+            response = client.messages.create(**kwargs)
             latency_ms = time.monotonic() * 1000 - start_ms
 
             usage = response.usage
             _log_call(
                 prompt_hash=prompt_hash,
                 model=resolved_model,
-                input_tokens=usage.prompt_tokens if usage else 0,
-                output_tokens=usage.completion_tokens if usage else 0,
+                input_tokens=usage.input_tokens if usage else 0,
+                output_tokens=usage.output_tokens if usage else 0,
                 latency_ms=latency_ms,
             )
 
-            return response.choices[0].message.content or ""
+            return response.content[0].text if response.content else ""
 
-        except openai.RateLimitError as exc:
+        except anthropic.RateLimitError as exc:
             last_exception = exc
             delay = base_delay * (2 ** attempt)
             logger.warning(
                 "Rate limited (attempt %d/%d). Retrying in %.1fs ...",
-                attempt + 1,
-                max_retries,
-                delay,
+                attempt + 1, max_retries, delay,
             )
             time.sleep(delay)
 
-        except openai.APIStatusError as exc:
+        except anthropic.APIStatusError as exc:
             if exc.status_code >= 500:
                 last_exception = exc
                 delay = base_delay * (2 ** attempt)
                 logger.warning(
                     "Server error %d (attempt %d/%d). Retrying in %.1fs ...",
-                    exc.status_code,
-                    attempt + 1,
-                    max_retries,
-                    delay,
+                    exc.status_code, attempt + 1, max_retries, delay,
                 )
                 time.sleep(delay)
             else:
@@ -211,31 +191,11 @@ def call_llm(
 
 
 def load_prompt_template(name: str) -> str:
-    """Load a prompt template from config/prompts/<name>.
-
-    If *name* does not include a file extension, ``.txt`` is assumed.
-
-    Parameters
-    ----------
-    name:
-        File name (with or without extension) inside ``config/prompts/``.
-
-    Returns
-    -------
-    str
-        The raw template text.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the template file does not exist.
-    """
+    """Load a prompt template from config/prompts/<name>."""
     prompts_dir = _PROJECT_ROOT / "config" / "prompts"
     path = prompts_dir / name
     if not path.suffix:
         path = path.with_suffix(".txt")
-
     if not path.exists():
         raise FileNotFoundError(f"Prompt template not found: {path}")
-
     return path.read_text(encoding="utf-8")
