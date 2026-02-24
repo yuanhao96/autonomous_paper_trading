@@ -13,6 +13,8 @@ import json
 import logging
 import os
 import re
+import textwrap
+from pathlib import Path
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -648,5 +650,114 @@ def fetch_alpaca_news(
         "Fetched %d Alpaca news articles for tickers %s.",
         len(documents),
         tickers or ["(all)"],
+    )
+    return documents
+
+
+def fetch_book_text(
+    book_path: str,
+    topic_hint: str = "",
+    chunk_size: int = 3000,
+    skip_chars: int = 3000,
+    max_chunks: int = 3,
+) -> list[Document]:
+    """Load a plain-text book file and return chunked ``Document`` objects.
+
+    Designed to work with the text files produced by converting the investment
+    book library (``~/projects/investment-books-text/``) from PDF via
+    ``pdftotext``.
+
+    Parameters
+    ----------
+    book_path:
+        Absolute or ``~``-expanded path to the ``.txt`` book file.
+    topic_hint:
+        Optional curriculum topic name used to populate ``topic_tags``.
+    chunk_size:
+        Maximum characters per chunk (default 3 000).
+    skip_chars:
+        Characters to skip at the start of the file to bypass front matter,
+        copyright pages, and TOC (default 3 000).
+    max_chunks:
+        Maximum number of chunks to return per call (default 3).  Keeping
+        this small limits LLM token usage while still providing useful signal.
+
+    Returns
+    -------
+    list[Document]
+        Chunked ``Document`` objects ready for synthesis and storage.
+        Returns an empty list if the file is missing or unreadable.
+    """
+    path = Path(book_path).expanduser().resolve()
+    if not path.exists():
+        logger.warning("Book file not found: %s", path)
+        return []
+
+    try:
+        raw_text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        logger.warning("Failed to read book '%s': %s", path, exc)
+        return []
+
+    # Skip front matter (copyright pages, publisher info, TOC, etc.)
+    # If the file is shorter than skip_chars or yields no content, retry
+    # with progressively smaller skips before giving up.
+    content = ""
+    for attempt_skip in (skip_chars, skip_chars // 2, 0):
+        candidate = raw_text[attempt_skip:] if len(raw_text) > attempt_skip else raw_text
+        content = " ".join(candidate.split())
+        if content:
+            break
+
+    if not content:
+        logger.warning("Book '%s' has no usable text content.", path.name)
+        return []
+
+    # --- Chapter-aware splitting ------------------------------------------
+    # Try to find chapter boundaries first so each chunk covers a coherent topic.
+    chapter_re = re.compile(
+        r"(?:CHAPTER|Chapter|PART|Part|SECTION|Section)\s+(?:\d+|[IVXLCDM]+)\b",
+        re.MULTILINE,
+    )
+    chapter_matches = list(chapter_re.finditer(content))
+
+    chunks: list[str] = []
+    if len(chapter_matches) >= 2:
+        for i, match in enumerate(chapter_matches[:max_chunks]):
+            start = match.start()
+            # End at next chapter boundary or after chunk_size * 2 chars.
+            if i + 1 < len(chapter_matches):
+                end = chapter_matches[i + 1].start()
+            else:
+                end = start + chunk_size * 2
+            chunk = content[start:end].strip()
+            if chunk:
+                # Truncate oversized chapters.
+                chunks.append(chunk[:chunk_size * 2])
+    else:
+        # Fallback: plain word-count chunking.
+        chunks = textwrap.wrap(content, chunk_size)[:max_chunks]
+
+    book_title = path.stem
+    tags = ["book"]
+    if topic_hint:
+        tags.append(re.sub(r"[^\w]+", "_", topic_hint.lower()).strip("_"))
+
+    documents: list[Document] = []
+    for i, chunk in enumerate(chunks):
+        documents.append(
+            Document(
+                title=f"{book_title} — part {i + 1}",
+                content=chunk,
+                source=str(path),
+                topic_tags=tags,
+            )
+        )
+
+    logger.info(
+        "Loaded %d chunk(s) from book '%s' (topic_hint=%r).",
+        len(documents),
+        book_title,
+        topic_hint,
     )
     return documents

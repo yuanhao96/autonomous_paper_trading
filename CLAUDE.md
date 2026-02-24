@@ -28,7 +28,7 @@ Python trading logic is called from OpenClaw via tool/subprocess. OpenClaw handl
 - **Trading Logic**: Python 3.11+
 - **Market Data**: `yfinance` (free) + `alpaca-trade-api` (paper trading execution)
 - **Data Store**: SQLite for trade logs, strategy versions
-- **LLM**: Anthropic Claude API (`claude-sonnet-4-6` default)
+- **LLM**: Moonshot (Kimi) API via OpenAI-compatible client (`moonshot-v1-32k` default). Set MOONSHOT_API_KEY in .env
 - **Knowledge Store**: Markdown files with YAML front-matter for structured knowledge; BM25 full-text search via `rank_bm25`
 - **Human Preferences**: `config/preferences.yaml` (human-only write, agent read-only)
 - **Testing**: pytest
@@ -124,8 +124,9 @@ autonomou_evolving_investment/
 │   └── validator.py           # Tests + smoke backtests before changes go live
 ├── config/
 │   ├── preferences.yaml       # Human-only: risk tolerance, trading horizon, return targets
-│   ├── settings.yaml          # Runtime config: schedule intervals, model names
+│   ├── settings.yaml          # Runtime config: schedule intervals, model names, books_dir
 │   ├── curriculum.yaml        # Trading knowledge curriculum definition
+│   ├── books.yaml             # Maps curriculum topic_id → list of book filenames
 │   └── prompts/               # Versioned prompt templates for LLM components
 ├── data/                      # gitignored
 │   └── market/                # Cached OHLCV data
@@ -203,10 +204,13 @@ ruff check . && mypy .                   # Lint
 Store in `.env` (gitignored), load via `python-dotenv`:
 
 ```
-ANTHROPIC_API_KEY=...
-ALPACA_API_KEY=...
-ALPACA_SECRET_KEY=...
+MOONSHOT_API_KEY=...                              # Moonshot (Kimi) API key
+ALPACA_API_KEY=...                                # Alpaca paper trading key
+ALPACA_SECRET_KEY=...                             # Alpaca paper trading secret
 ALPACA_BASE_URL=https://paper-api.alpaca.markets
+OPENCLAW_NOTIFY_CHANNEL=imessage                  # Channel for --notify flag
+OPENCLAW_NOTIFY_TARGET=chat_id:6                  # Target group/chat for reports
+BOOKS_DIR=~/projects/investment-books-text         # Path to plain-text book library (optional)
 ```
 
 ## Safety Invariants

@@ -1,0 +1,106 @@
+# Book-to-curriculum topic mapping
+# Maps each curriculum topic_id to a list of plain-text book files.
+# Paths are relative to the books_dir configured in settings.yaml (or BOOKS_DIR env var).
+#
+# Books are used as an additional learning source during nightly learning sessions,
+# alongside Wikipedia (stages 1-2) and arXiv (stages 3-4).
+
+# Stage 1 — Foundations
+market_microstructure:
+  - "Technical Analysis - The Complete Resource for Financial Market Technicians 2nd edition 2010.txt"
+  - "Trading for a Living - Psychology, Trading Tactics, Money Management 1993.txt"
+  - "Come Into My Trading Room - A Complete Guide to Trading 2002.txt"
+
+order_types:
+  - "Trading For Dummies 2nd edition 2009.txt"
+  - "Day Trading For Dummies 3rd edition 2014.txt"
+  - "Come Into My Trading Room - A Complete Guide to Trading 2002.txt"
+
+basic_ta:
+  - "Technical Analysis - The Complete Resource for Financial Market Technicians 2nd edition 2010.txt"
+  - "Technical Analysis Explained - The Successful Investor's Guide to Spotting Investment Trends and Turning Points 4th edition 2002.txt"
+  - "Japanese Candlestick Charting Techniques 2nd edition 2001.txt"
+  - "Encyclopedia of Chart Patterns 2nd edition 2005.txt"
+
+basic_fa:
+  - "The Intelligent Investor - A Book of Practical Counsel 2003.txt"
+  - "The Essays of Warren Buffett - Lessons for Corporate America 1998.txt"
+  - "Common Stocks and Uncommon Profits and Other Writings 2nd edition 2003.txt"
+  - "Fundamental Analysis For Dummies 2009.txt"
+
+market_hours:
+  - "Day Trading the Currency Market - Technical and Fundamental Strategies To Profit from Market Swings 2005.txt"
+  - "Day Trading For Dummies 3rd edition 2014.txt"
+  - "Day Trading and Swing Trading the Currency Market - Technical and Fundamental Strategies to Profit from Market Moves 2nd edition 2008.txt"
+
+asset_classes:
+  - "Intermarket Trading Strategies 2009.txt"
+  - "Trading For Dummies 2nd edition 2009.txt"
+  - "Currency Trading and Intermarket Analysis - How to Profit from the Shifting Currents in Global Markets 2008.txt"
+
+# Stage 2 — Strategy Families
+momentum:
+  - "Trend Following - Learn to Make Millions in Up or Down Markets 2009.txt"
+  - "Algorithmic Trading - Winning Strategies and Their Rationale 2013.txt"
+  - "The Complete Turtle Trader - The Legend, the Lessons, the Results 2007.txt"
+  - "Way of the Turtle - The Secret Methods that Turned Ordinary People into Legendary Traders 2007.txt"
+  - "Trend Trading for a Living - Learn the Skills and Gain the Confidence to Trade for a Living 2007.txt"
+  - "The Trend Following Bible - How Professional Traders Compound Wealth and Manage Risk 2012.txt"
+
+mean_reversion:
+  - "Algorithmic Trading - Winning Strategies and Their Rationale 2013.txt"
+  - "Evidence-Based Technical Analysis - Applying the Scientific Method and Statistical Inference to Trading Signals 2007.txt"
+  - "High Probability Trading Strategies - Entry to Exit Tactics for the Forex, Futures, and Stock Markets 2008.txt"
+
+pairs_trading:
+  - "Algorithmic Trading - Winning Strategies and Their Rationale 2013.txt"
+  - "Evidence-Based Technical Analysis - Applying the Scientific Method and Statistical Inference to Trading Signals 2007.txt"
+
+event_driven:
+  - "Market Wizards - Interviews With Top Traders 2012.txt"
+  - "Stock Market Wizards - Interviews with America's Top Stock Traders 2001.txt"
+  - "The New Market Wizards - Conversations with America's Top Traders 1992.txt"
+
+factor_models:
+  - "Evidence-Based Technical Analysis - Applying the Scientific Method and Statistical Inference to Trading Signals 2007.txt"
+  - "Common Stocks and Uncommon Profits and Other Writings 2nd edition 2003.txt"
+  - "The Five Rules for Successful Stock Investing - Morningstar's Guide to Building Wealth and Winning in the Market 2004.txt"
+
+# Stage 3 — Risk Management
+kelly_criterion:
+  - "Trade Your Way to Financial Freedom 2nd edition 2006.txt"
+  - "Algorithmic Trading - Winning Strategies and Their Rationale 2013.txt"
+
+portfolio_theory:
+  - "The Intelligent Investor - A Book of Practical Counsel 2003.txt"
+  - "Trade Your Way to Financial Freedom 2nd edition 2006.txt"
+  - "Building Reliable Trading Systems - Tradable Strategies That Perform As They Backtest and Meet Your Risk-Reward Goals 2013.txt"
+
+drawdown_management:
+  - "Trade Your Way to Financial Freedom 2nd edition 2006.txt"
+  - "Building Reliable Trading Systems - Tradable Strategies That Perform As They Backtest and Meet Your Risk-Reward Goals 2013.txt"
+  - "Trading for a Living - Psychology, Trading Tactics, Money Management 1993.txt"
+  - "The New Trading for a Living - Psychology, Discipline, Trading Tools and Systems, Risk Control, Trade Management 2014.txt"
+
+position_sizing:
+  - "Trade Your Way to Financial Freedom 2nd edition 2006.txt"
+  - "Trading for a Living - Psychology, Trading Tactics, Money Management 1993.txt"
+  - "The New Trading for a Living - Psychology, Discipline, Trading Tools and Systems, Risk Control, Trade Management 2014.txt"
+  - "Algorithmic Trading - Winning Strategies and Their Rationale 2013.txt"
+
+# Stage 4 — Advanced Topics
+regime_detection:
+  - "Evidence-Based Technical Analysis - Applying the Scientific Method and Statistical Inference to Trading Signals 2007.txt"
+  - "Technical Analysis Explained - The Successful Investor's Guide to Spotting Investment Trends and Turning Points 4th edition 2002.txt"
+  - "Intermarket Trading Strategies 2009.txt"
+
+sentiment_analysis:
+  - "Sentiment in the Forex Market - Indicators and Strategies To Profit from Crowd Behavior and Market Extremes 2008.txt"
+  - "The Commitments of Traders Bible - How To Profit from Insider Market Intelligence 2008.txt"
+
+options_basics:
+  - "Option Spread Strategies - Trading Up, Down, and Sideways Markets 2009.txt"
+
+cross_asset_signals:
+  - "Intermarket Trading Strategies 2009.txt"
+  - "Currency Trading and Intermarket Analysis - How to Profit from the Shifting Currents in Global Markets 2008.txt"

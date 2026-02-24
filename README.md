@@ -42,8 +42,8 @@ The Trading Agent proposes strategies and code changes. The Auditor Agent review
 ### Prerequisites
 
 - Python 3.11 or later
-- An Anthropic API key (for LLM-driven knowledge synthesis and strategy generation)
-- An Alpaca paper trading account (optional for V1 -- mock mode works without it)
+- A Moonshot (Kimi) API key from platform.moonshot.cn (for LLM-driven knowledge synthesis)
+- An Alpaca paper trading account (paper trading is the default; use --mock for local SQLite testing)
 
 ### Installation
 
@@ -60,9 +60,9 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-ALPACA_API_KEY=...           # optional for mock mode
-ALPACA_SECRET_KEY=...        # optional for mock mode
+MOONSHOT_API_KEY=sk-...
+ALPACA_API_KEY=...
+ALPACA_SECRET_KEY=...
 ALPACA_BASE_URL=https://paper-api.alpaca.markets
 ```
 
@@ -72,11 +72,11 @@ ALPACA_BASE_URL=https://paper-api.alpaca.markets
 # View current agent status (portfolio, curriculum stage, strategies)
 python main.py --dry-run
 
-# Run a daily trading cycle in mock mode (default, no Alpaca keys needed)
+# Run a daily trading cycle (Alpaca paper trading is the default)
 python main.py
 
 # Run with real Alpaca paper trading API
-python main.py --no-mock
+python main.py --mock   # use local SQLite instead of Alpaca
 
 # Focus on specific tickers
 python main.py --tickers AAPL,MSFT,GOOG
@@ -91,8 +91,35 @@ python main.py --tickers AAPL,MSFT,GOOG
 - **Walk-Forward Backtesting** -- Rolling train/test windows with equity curve tracking and performance metrics (Sharpe ratio, max drawdown, win rate, P&L).
 - **Auditor Agent** -- Checks for look-ahead bias, overfitting, survivorship bias, and data quality. Strategy promotion requires passing the audit gate.
 - **Daily Reports** -- Markdown-formatted performance summaries suitable for messaging delivery (iMessage, Slack, Telegram).
-- **LLM Integration** -- Centralized Anthropic Claude API wrapper with automatic retries, exponential backoff, and structured call logging.
+- **LLM Integration** -- Centralized Moonshot (Kimi) API wrapper (OpenAI-compatible) with automatic retries, exponential backoff, and structured call logging.
 - **Markdown Knowledge Memory** -- Structured markdown files with YAML front-matter for storing synthesized financial knowledge. BM25 full-text search via `rank_bm25`. Git-versionable and human-readable.
+- **Investment Book Library** -- 120+ curated trading and investment books (converted from PDF to plain text) mapped to curriculum topics. Each nightly learning session supplements Wikipedia/arXiv content with relevant book excerpts.
+
+## Learning Sources
+
+Each nightly learning session draws from multiple source types per curriculum topic:
+
+| Source | Used For | Details |
+|--------|----------|---------|
+| **Wikipedia** | Stage 1–2 (Foundations, Strategy Families) | Concept summaries via Wikipedia REST API |
+| **arXiv (q-fin)** | Stage 3–4 (Risk Management, Advanced) | Academic paper abstracts from the quantitative finance category |
+| **Investment Books** | All stages | Excerpts from 120+ books in `~/projects/investment-books-text/`, mapped per topic in `config/books.yaml` |
+| **Alpaca News** | Ongoing daily tasks | Real-time market news for the watchlist tickers via Alpaca News API |
+
+### Book Library Setup
+
+Convert the PDF library to plain text (one-time setup):
+
+```bash
+git clone --depth=1 https://github.com/bharaniabhishek123/some-investment-books.git ~/projects/some-investment-books
+mkdir -p ~/projects/investment-books-text
+find ~/projects/some-investment-books -name "*.pdf" | while IFS= read -r pdf; do
+  pdftotext "$pdf" ~/projects/investment-books-text/"$(basename "$pdf" .pdf).txt" 2>/dev/null
+done
+```
+
+The `config/books.yaml` file maps each curriculum `topic_id` to a list of relevant book filenames.
+Override the books directory with the `BOOKS_DIR` environment variable.
 
 ## Configuration Reference
 
@@ -115,7 +142,7 @@ This file is the agent's constitution. Only humans may edit it.
 
 | Section | Key Fields |
 |---------|------------|
-| `llm` | `model` (default `claude-sonnet-4-6`), `max_retries`, `retry_base_delay` |
+| `llm` | `model` (default `moonshot-v1-32k`), `max_retries`, `retry_base_delay` |
 | `schedule` | Cron expressions for market scans, evaluations, reports, learning, evolution |
 | `data` | `cache_dir`, `knowledge_dir` (markdown memory root), `default_period`, `default_interval` |
 | `database` | SQLite paths for trades and agent state |

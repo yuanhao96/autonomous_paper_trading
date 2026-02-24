@@ -8,12 +8,16 @@ cron jobs or tool invocations.
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from agents.trading.state import StateManager
 from core.preferences import load_preferences
 from knowledge.curriculum import CurriculumTracker
-from knowledge.ingestion import fetch_alpaca_news, fetch_arxiv, fetch_wikipedia
+from knowledge.ingestion import fetch_alpaca_news, fetch_arxiv, fetch_book_text, fetch_wikipedia
 from knowledge.store import MarkdownMemory
 from knowledge.synthesizer import KnowledgeSynthesizer
 from strategies.registry import StrategyRegistry
@@ -77,6 +81,97 @@ class TradingAgent:
             mock,
             self._registry.list_strategies(),
         )
+
+    # ------------------------------------------------------------------
+    # Book knowledge helpers
+    # ------------------------------------------------------------------
+
+    def _load_books_config(self) -> dict[str, list[str]]:
+        """Load the topic→books mapping from ``config/books.yaml``.
+
+        Returns a dict of ``{topic_id: [filename, ...]}`` or an empty dict
+        on any error.
+        """
+        config_path = Path("config/books.yaml")
+        if not config_path.exists():
+            logger.warning("books.yaml not found at %s; skipping book ingestion.", config_path)
+            return {}
+        try:
+            with open(config_path, "r") as fh:
+                data = yaml.safe_load(fh) or {}
+            return {k: v for k, v in data.items() if isinstance(v, list)}
+        except Exception:
+            logger.exception("Failed to load books.yaml")
+            return {}
+
+    def _get_books_dir(self) -> str:
+        """Return the path to the investment books directory.
+
+        Priority: ``BOOKS_DIR`` env var → ``settings.yaml data.books_dir``.
+        """
+        env_dir = os.getenv("BOOKS_DIR", "")
+        if env_dir:
+            return str(Path(env_dir).expanduser())
+
+        try:
+            import yaml as _yaml
+            with open("config/settings.yaml", "r") as fh:
+                settings = _yaml.safe_load(fh) or {}
+            books_dir = settings.get("data", {}).get("books_dir", "")
+            if books_dir:
+                return str(Path(books_dir).expanduser())
+        except Exception:
+            pass
+        return str(Path("~/projects/investment-books-text").expanduser())
+
+    def _fetch_topic_books(self, topic_id: str, topic_name: str) -> list:
+        """Return ``Document`` objects from books mapped to *topic_id*.
+
+        Reads ``config/books.yaml`` for the topic→filenames mapping and
+        calls :func:`~knowledge.ingestion.fetch_book_text` for each file.
+        At most one book's chunks are loaded per learning session call to
+        control LLM token usage; books are rotated across sessions via
+        a simple round-robin based on the topic's current mastery score.
+
+        Parameters
+        ----------
+        topic_id:
+            Curriculum topic identifier (e.g. ``"momentum"``).
+        topic_name:
+            Human-readable name used as ``topic_hint`` for tagging.
+
+        Returns
+        -------
+        list[Document]
+            Combined list of chunked document objects, or an empty list.
+        """
+        books_map = self._load_books_config()
+        book_files = books_map.get(topic_id, [])
+        if not book_files:
+            logger.debug("No books configured for topic '%s'.", topic_id)
+            return []
+
+        books_dir = self._get_books_dir()
+
+        # Rotate which book to use based on how many times we've studied this
+        # topic (approximated via mastery score bucket).
+        mastery = self._curriculum.get_mastery(topic_id)
+        book_index = int(mastery * 10) % len(book_files)
+        chosen = book_files[book_index]
+
+        book_path = os.path.join(books_dir, chosen)
+        docs = fetch_book_text(book_path, topic_hint=topic_name)
+
+        if not docs:
+            logger.warning(
+                "No content loaded from book '%s' for topic '%s'.", chosen, topic_id
+            )
+        else:
+            logger.info(
+                "Loaded %d chunk(s) from '%s' for topic '%s'.",
+                len(docs), chosen, topic_id,
+            )
+        return docs
 
     # ------------------------------------------------------------------
     # Daily trading cycle
@@ -255,6 +350,20 @@ class TradingAgent:
             except Exception:
                 logger.exception(
                     "Failed to fetch content for topic '%s'", topic.name
+                )
+
+            # --- 1b. Supplement with curated investment book excerpts ---------
+            try:
+                book_docs = self._fetch_topic_books(topic.id, topic.name)
+                if book_docs:
+                    docs.extend(book_docs)
+                    logger.info(
+                        "Added %d book chunk(s) for topic '%s'.",
+                        len(book_docs), topic.name,
+                    )
+            except Exception:
+                logger.exception(
+                    "Failed to fetch book content for topic '%s'", topic.name
                 )
 
             if not docs:

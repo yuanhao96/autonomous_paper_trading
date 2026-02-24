@@ -16,6 +16,16 @@ data:
   knowledge_dir: "knowledge/memory"
   default_period: "1y"
   default_interval: "1d"
+  # Path to the directory containing plain-text book files.
+  # Override with BOOKS_DIR environment variable.
+  books_dir: "~/projects/investment-books-text"
+  books_config: "config/books.yaml"
+  # Maximum number of chunks to load per book per learning session.
+  book_max_chunks: 3
+  # Characters per chunk when splitting book content.
+  book_chunk_size: 3000
+  # Characters to skip at start of each book (front matter / copyright).
+  book_skip_chars: 3000
 
 database:
   trades_db: "data/paper_trades.db"
