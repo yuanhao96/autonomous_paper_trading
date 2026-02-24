@@ -553,6 +553,110 @@ def fetch_arxiv(query: str, max_results: int = 5) -> list[Document]:
     return documents
 
 
+def _ddgs_text_search(query: str, max_results: int = 5) -> list[dict]:
+    """Run a DuckDuckGo text search via the ``duckduckgo_search`` package.
+
+    Isolated into its own function so tests can mock it without touching
+    the third-party import.
+
+    Returns a list of result dicts with keys ``title``, ``body``, ``href``.
+    Raises ``ImportError`` if the package is not installed.
+    """
+    from duckduckgo_search import DDGS  # soft import
+
+    with DDGS() as ddgs:
+        results = list(ddgs.text(query, max_results=max_results))
+    return results
+
+
+def fetch_web_search(
+    topic: str,
+    max_results: int = 5,
+    fetch_top_articles: int = 2,
+) -> list[Document]:
+    """Fetch web search results for a trading/finance topic via DuckDuckGo.
+
+    Creates ``Document`` objects from search snippets.  Optionally fetches
+    full article content for the top results via :func:`fetch_article`.
+
+    Parameters
+    ----------
+    topic:
+        Topic name to search for (e.g. ``"Market Microstructure"``).
+    max_results:
+        Maximum number of search snippets to return.
+    fetch_top_articles:
+        Number of top results to fetch as full articles (default 2).
+        Set to 0 to skip article fetching.
+
+    Returns
+    -------
+    list[Document]
+        Snippet documents, plus any successfully fetched full articles.
+        Returns an empty list if the search fails or the package is
+        not installed.
+    """
+    search_query = f"{topic} trading finance"
+    topic_tag = topic.lower()
+
+    try:
+        raw_results = _ddgs_text_search(search_query, max_results=max_results)
+    except ImportError:
+        logger.warning(
+            "duckduckgo_search is not installed; skipping web search for '%s'. "
+            "Install with: pip install duckduckgo_search",
+            topic,
+        )
+        return []
+    except Exception as exc:
+        logger.warning("Web search failed for '%s': %s", topic, exc)
+        return []
+
+    documents: list[Document] = []
+    article_urls: list[str] = []
+
+    for result in raw_results:
+        title = (result.get("title") or "").strip()
+        body = (result.get("body") or "").strip()
+        href = (result.get("href") or "").strip()
+
+        if not title or not body:
+            continue
+
+        documents.append(
+            Document(
+                title=title,
+                content=body,
+                source=href,
+                timestamp=_utcnow_iso(),
+                topic_tags=["web_search", topic_tag],
+            )
+        )
+
+        if href and len(article_urls) < fetch_top_articles:
+            article_urls.append(href)
+
+    # Fetch full article content for the top results.
+    for url in article_urls:
+        try:
+            import time
+            time.sleep(1)  # Rate-limit respect.
+            article_doc = fetch_article(url)
+            if article_doc is not None:
+                article_doc.topic_tags = ["web_search", "full_article", topic_tag]
+                documents.append(article_doc)
+        except Exception as exc:
+            logger.warning("Failed to fetch full article '%s': %s", url, exc)
+
+    logger.info(
+        "Web search: %d snippet(s) + %d article(s) for topic '%s'.",
+        len(documents) - len([d for d in documents if "full_article" in d.topic_tags]),
+        len([d for d in documents if "full_article" in d.topic_tags]),
+        topic,
+    )
+    return documents
+
+
 def fetch_alpaca_news(
     tickers: list[str],
     max_results: int = 20,
