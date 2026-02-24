@@ -57,7 +57,7 @@ class TradingAgent:
         and yfinance.  Set to ``False`` to route orders to Alpaca paper trading.
     """
 
-    def __init__(self, mock: bool = True) -> None:
+    def __init__(self, mock: bool = False) -> None:
         self._broker = PaperBroker(mock=mock)
 
         preferences = load_preferences()

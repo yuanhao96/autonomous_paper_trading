@@ -91,7 +91,7 @@ def _now_iso() -> str:
 class PaperBroker:
     """Unified interface for paper trading via Alpaca or a local mock."""
 
-    def __init__(self, mock: bool = True, db_path: Path | None = None) -> None:
+    def __init__(self, mock: bool = False, db_path: Path | None = None) -> None:
         self.mock = mock
 
         if self.mock:

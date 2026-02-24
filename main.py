@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -59,14 +60,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mock",
         action="store_true",
-        default=True,
-        help="Use mock paper broker (local SQLite) instead of Alpaca API. Default: True.",
+        default=False,
+        help="Use mock paper broker (local SQLite) instead of Alpaca API. Default: False (Alpaca).",
     )
     parser.add_argument(
         "--no-mock",
         action="store_true",
         default=False,
-        help="Use real Alpaca paper trading API instead of local mock.",
+        help="Use real Alpaca paper trading API (no-op, Alpaca is now the default).",
     )
     parser.add_argument(
         "--tickers",
@@ -171,11 +172,11 @@ def _print_status(mock: bool) -> None:
 
 
 def _send_openclaw_message(message: str) -> None:
-    """Broadcast *message* via the OpenClaw CLI outbound channel.
+    """Send *message* via the OpenClaw CLI to the configured notify target.
 
-    Calls ``openclaw message broadcast --message <text>`` if the OpenClaw
-    CLI is available on PATH.  Silently no-ops when OpenClaw is not installed
-    (e.g. during local testing) so the rest of the action still completes.
+    Reads OPENCLAW_NOTIFY_CHANNEL and OPENCLAW_NOTIFY_TARGET from the
+    environment (set in .env).  Silently no-ops when OpenClaw is not
+    installed or env vars are missing.
     """
     import shutil
     import subprocess
@@ -187,15 +188,28 @@ def _send_openclaw_message(message: str) -> None:
         )
         return
 
+    channel = os.getenv("OPENCLAW_NOTIFY_CHANNEL", "")
+    target = os.getenv("OPENCLAW_NOTIFY_TARGET", "")
+    if not channel or not target:
+        logging.getLogger(__name__).warning(
+            "OPENCLAW_NOTIFY_CHANNEL or OPENCLAW_NOTIFY_TARGET not set; skipping."
+        )
+        return
+
     try:
         subprocess.run(
-            [openclaw_path, "message", "broadcast", "--message", message],
+            [
+                openclaw_path, "message", "send",
+                "--channel", channel,
+                "--target", target,
+                "--message", message,
+            ],
             timeout=15,
             check=True,
             capture_output=True,
             text=True,
         )
-        logging.getLogger(__name__).info("OpenClaw broadcast sent successfully.")
+        logging.getLogger(__name__).info("OpenClaw message sent successfully.")
     except Exception as exc:
         logging.getLogger(__name__).warning("Failed to send OpenClaw message: %s", exc)
 
@@ -455,8 +469,8 @@ def main() -> None:
 
     args = _parse_args()
 
-    # Resolve mock flag.
-    mock = not args.no_mock
+    # Resolve mock flag: Alpaca is default; --mock forces local SQLite.
+    mock = args.mock
 
     # Parse tickers.
     tickers: list[str] = []

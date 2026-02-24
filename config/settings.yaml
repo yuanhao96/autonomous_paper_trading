@@ -1,6 +1,6 @@
 # Runtime configuration for the trading system
 llm:
-  model: "claude-sonnet-4-6"
+  model: "moonshot-v1-32k"
   max_retries: 3
   retry_base_delay: 1.0  # seconds, exponential backoff
 
