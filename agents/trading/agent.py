@@ -418,6 +418,51 @@ class TradingAgent:
         return summary
 
     # ------------------------------------------------------------------
+    # Weekly review
+    # ------------------------------------------------------------------
+
+    def run_weekly_review(self) -> str:
+        """Generate a weekly review combining performance and learning progress.
+
+        Returns
+        -------
+        str
+            Combined weekly review string suitable for messaging delivery.
+        """
+        logger.info("Starting weekly review")
+
+        perf_report = self.run_daily_evaluation()
+
+        stage = self._curriculum.get_current_stage()
+        try:
+            tasks = self._curriculum.get_next_learning_tasks()
+        except Exception:
+            logger.exception("Failed to get learning tasks for weekly review")
+            tasks = []
+
+        lines: list[str] = [
+            "=== Weekly Review ===",
+            "",
+            perf_report,
+            "",
+            "--- Learning Progress ---",
+            f"Current Stage: {stage}",
+        ]
+
+        if tasks:
+            lines.append("Next topics to study:")
+            for task in tasks:
+                mastery = self._curriculum.get_mastery(task.id)
+                lines.append(f"  [{mastery:.0%}] {task.name}")
+        else:
+            lines.append("All current stage topics mastered.")
+
+        lines.append("=== End Weekly Review ===")
+        summary = "\n".join(lines)
+        logger.info("Weekly review complete")
+        return summary
+
+    # ------------------------------------------------------------------
     # Status
     # ------------------------------------------------------------------
 

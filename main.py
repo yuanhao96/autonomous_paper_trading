@@ -74,6 +74,33 @@ def _parse_args() -> argparse.Namespace:
         default="",
         help="Comma-separated list of tickers to focus on (e.g. 'AAPL,MSFT,GOOG').",
     )
+    parser.add_argument(
+        "--action",
+        choices=[
+            "market_scan", "daily_eval", "daily_report",
+            "learn", "weekly_review",
+            "query_portfolio", "query_performance",
+            "query_knowledge", "run_backtest",
+        ],
+        default=None,
+        help="Specific action to run (used by OpenClaw cron jobs and tool calls).",
+    )
+    parser.add_argument(
+        "--query",
+        type=str,
+        default="",
+        help=(
+            "Query string for query_knowledge and run_backtest actions. "
+            "For run_backtest, format as 'strategy_name [ticker]' "
+            "(e.g. 'sma_crossover SPY')."
+        ),
+    )
+    parser.add_argument(
+        "--notify",
+        action="store_true",
+        default=False,
+        help="Broadcast the action result via OpenClaw outbound message after running.",
+    )
     return parser.parse_args()
 
 
@@ -141,6 +168,133 @@ def _print_status(mock: bool) -> None:
         print()
 
     print("=" * 60)
+
+
+def _send_openclaw_message(message: str) -> None:
+    """Broadcast *message* via the OpenClaw CLI outbound channel.
+
+    Calls ``openclaw message broadcast --message <text>`` if the OpenClaw
+    CLI is available on PATH.  Silently no-ops when OpenClaw is not installed
+    (e.g. during local testing) so the rest of the action still completes.
+    """
+    import shutil
+    import subprocess
+
+    openclaw_path = shutil.which("openclaw")
+    if not openclaw_path:
+        logging.getLogger(__name__).warning(
+            "openclaw CLI not found on PATH; skipping outbound message."
+        )
+        return
+
+    try:
+        subprocess.run(
+            [openclaw_path, "message", "broadcast", "--message", message],
+            timeout=15,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        logging.getLogger(__name__).info("OpenClaw broadcast sent successfully.")
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Failed to send OpenClaw message: %s", exc)
+
+
+def _dispatch_action(action: str, query: str, notify: bool, mock: bool) -> None:
+    """Dispatch a single named action and optionally notify via OpenClaw.
+
+    This is the entry-point used by OpenClaw cron jobs and plugin tool calls.
+    Results are always printed to stdout so that the calling process (or the
+    OpenClaw agent turn) can capture them.
+
+    Parameters
+    ----------
+    action:
+        One of the choices registered in ``--action``.
+    query:
+        Free-text argument forwarded to ``query_knowledge`` and
+        ``run_backtest`` actions.
+    notify:
+        When ``True``, the result string is also broadcast via the OpenClaw
+        outbound messaging channel.
+    mock:
+        Passed through to ``TradingAgent`` to select mock vs live broker.
+    """
+    import asyncio
+
+    from agents.trading.agent import TradingAgent
+
+    result: str
+
+    if action == "market_scan":
+        agent = TradingAgent(mock=mock)
+        result = agent.run_market_scan()
+
+    elif action == "daily_eval":
+        agent = TradingAgent(mock=mock)
+        result = agent.run_daily_evaluation()
+
+    elif action == "daily_report":
+        agent = TradingAgent(mock=mock)
+        result = agent.run_daily_evaluation()
+        if notify:
+            _send_openclaw_message(result)
+
+    elif action == "learn":
+        agent = TradingAgent(mock=mock)
+        result = agent.run_learning_session()
+
+    elif action == "weekly_review":
+        agent = TradingAgent(mock=mock)
+        result = agent.run_weekly_review()
+        if notify:
+            _send_openclaw_message(result)
+
+    elif action == "query_portfolio":
+        from openclaw.tools.query_portfolio import handle
+        result = asyncio.run(handle({}))
+
+    elif action == "query_performance":
+        from openclaw.tools.query_performance import handle
+        result = asyncio.run(handle({}))
+
+    elif action == "query_knowledge":
+        from openclaw.tools.query_knowledge import handle
+        if not query:
+            result = "Error: --query is required for query_knowledge."
+        else:
+            result = asyncio.run(handle({"query": query}))
+
+    elif action == "run_backtest":
+        # Populate the module-level registry so the tool handler can find strategies.
+        from strategies.registry import registry as global_registry
+        from strategies.rsi_mean_reversion import RSIMeanReversionStrategy
+        from strategies.sma_crossover import SMACrossoverStrategy
+        if not global_registry.list_strategies():
+            global_registry.register(SMACrossoverStrategy())
+            global_registry.register(RSIMeanReversionStrategy())
+
+        from openclaw.tools.run_backtest import handle
+        parts = query.split() if query else []
+        params: dict = {}
+        if parts:
+            params["strategy_name"] = parts[0]
+        if len(parts) >= 2:
+            params["ticker"] = parts[1]
+        if len(parts) >= 3:
+            params["period"] = parts[2]
+        if not params.get("strategy_name"):
+            result = (
+                "Error: --query must specify at least a strategy name "
+                "(e.g. --query 'sma_crossover SPY')."
+            )
+        else:
+            result = asyncio.run(handle(params))
+
+    else:
+        result = f"Unknown action: {action}"
+
+    print(result)
 
 
 def _run_daily_cycle(mock: bool, tickers: list[str]) -> None:
@@ -312,6 +466,17 @@ def main() -> None:
     try:
         if args.dry_run:
             _print_status(mock=mock)
+        elif args.action:
+            logger.info(
+                "Dispatching action: %s (mock=%s, notify=%s)",
+                args.action, mock, args.notify,
+            )
+            _dispatch_action(
+                action=args.action,
+                query=args.query,
+                notify=args.notify,
+                mock=mock,
+            )
         else:
             logger.info("Starting daily trading cycle (mock=%s)", mock)
             _run_daily_cycle(mock=mock, tickers=tickers)
