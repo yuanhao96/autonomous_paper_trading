@@ -6,4 +6,8 @@ For each document, identify:
 3. Risk factors mentioned
 4. Relevance to specific curriculum topics
 
-Output a structured summary with these sections clearly labeled.
+Respond with a JSON object in the following format:
+{{"summary": "<concise synthesis of all documents>", "key_concepts": ["<concept1>", "<concept2>"], "trading_implications": ["<implication1>", "<implication2>"], "risk_factors": ["<risk1>", "<risk2>"], "curriculum_relevance": {{"<topic_id>": <relevance_score_0_to_1>}}}}
+
+Documents:
+{documents}

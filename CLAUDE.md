@@ -220,3 +220,4 @@ BOOKS_DIR=~/projects/investment-books-text         # Path to plain-text book lib
 3. The Auditor Agent has **read-only access** to trading agent code and data. It cannot modify the trading system — only flag, report, and block promotion.
 4. All LLM calls are logged for auditability via `core/llm.py`.
 5. Strategy promotion requires passing the audit gate. No exceptions.
+6. Update documentation in doc/ and README.md after modifying the codebase.
