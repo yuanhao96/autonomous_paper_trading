@@ -18,6 +18,7 @@ from agents.trading.state import StateManager
 from core.preferences import load_preferences
 from knowledge.curriculum import CurriculumTracker
 from knowledge.ingestion import fetch_alpaca_news, fetch_arxiv, fetch_book_text, fetch_wikipedia
+from knowledge.learning_controller import LearningController
 from knowledge.store import MarkdownMemory
 from knowledge.synthesizer import KnowledgeSynthesizer
 from strategies.registry import StrategyRegistry
@@ -332,66 +333,60 @@ class TradingAgent:
 
         current_stage = self._curriculum.get_current_stage()
 
+        # Build the multi-round learning controller once per session.
+        controller = LearningController(
+            memory=self._memory,
+            synthesizer=self._synthesizer,
+            curriculum=self._curriculum,
+        )
+        logger.info(
+            "LearningController ready (max_rounds=%d, threshold=%.2f, budget=%d tokens)",
+            controller.max_rounds, controller.confidence_threshold, controller.per_topic_budget,
+        )
+
         studied: list[str] = []
         for topic in tasks:
             logger.info(
-                "Studying topic: %s (%s) [stage=%d, source=%s]",
-                topic.name, topic.id, current_stage,
-                "wikipedia" if current_stage <= 2 else "arxiv",
+                "Studying topic: %s (%s) [stage=%d]", topic.name, topic.id, current_stage,
             )
 
-            # --- 1. Fetch from stage-appropriate source -----------------------
-            docs = []
+            # --- Multi-round retrieval + synthesis via LearningController -----
             try:
-                if current_stage <= 2:
-                    docs = fetch_wikipedia(topic.name)
-                else:
-                    docs = fetch_arxiv(topic.name, max_results=5)
+                knowledge, state = controller.learn_topic(topic)
             except Exception:
-                logger.exception(
-                    "Failed to fetch content for topic '%s'", topic.name
-                )
-
-            # --- 1b. Supplement with curated investment book excerpts ---------
-            try:
-                book_docs = self._fetch_topic_books(topic.id, topic.name)
-                if book_docs:
-                    docs.extend(book_docs)
-                    logger.info(
-                        "Added %d book chunk(s) for topic '%s'.",
-                        len(book_docs), topic.name,
-                    )
-            except Exception:
-                logger.exception(
-                    "Failed to fetch book content for topic '%s'", topic.name
-                )
-
-            if not docs:
-                studied.append(f"Studied '{topic.name}': no documents fetched.")
+                logger.exception("LearningController failed for topic '%s'", topic.name)
+                studied.append(f"Studied '{topic.name}': controller failed.")
                 continue
 
-            # --- 2. Append raw docs to daily log ------------------------------
-            for doc in docs:
+            docs = state.evidence_pool
+            if not docs:
+                studied.append(f"Studied '{topic.name}': no documents retrieved.")
+                continue
+
+            # Log confidence trajectory
+            for entry in state.round_log:
+                logger.info(
+                    "  Round %d | tools: %-35s | docs: %2d | confidence: %.2f",
+                    entry["round"] + 1, ", ".join(entry["tools"]),
+                    entry["docs_retrieved"], entry["confidence"],
+                )
+            if state.gaps:
+                logger.info("  Unresolved gaps (%d): %s", len(state.gaps), state.gaps[:3])
+            if state.conflicts:
+                logger.info("  Conflicts detected: %d", len(state.conflicts))
+            logger.info(
+                "  Final: %d docs | %d source types | confidence=%.2f",
+                len(docs), state.source_diversity(), state.confidence,
+            )
+
+            # --- Append evidence pool to daily log ----------------------------
+            for doc in docs[:10]:
                 try:
                     self._memory.append_daily_log(doc)
                 except Exception:
-                    logger.exception(
-                        "Failed to log document '%s'", doc.title
-                    )
+                    logger.exception("Failed to log document '%s'", doc.title)
 
-            # --- 3. Synthesize via LLM ----------------------------------------
-            try:
-                knowledge = self._synthesizer.synthesize(docs)
-            except Exception:
-                logger.exception(
-                    "Failed to synthesize content for topic '%s'", topic.name
-                )
-                studied.append(
-                    f"Studied '{topic.name}': fetched {len(docs)} doc(s), synthesis failed."
-                )
-                continue
-
-            # --- 4. Format synthesized content as markdown --------------------
+            # --- Build synthesized markdown with evidence trail ---------------
             sections: list[str] = []
             if knowledge.summary:
                 sections.append(knowledge.summary)
@@ -407,25 +402,34 @@ class TradingAgent:
                     "**Risk factors:**\n"
                     + "\n".join(f"- {rf}" for rf in knowledge.risk_factors)
                 )
+            # Append evidence trail (claims with citations)
+            if getattr(knowledge, "claims", None):
+                trail = "\n".join(
+                    f"- [{c.get('confidence','?')}] {c.get('claim','')} "
+                    f"*(source: {c.get('source_title','?')})*"
+                    for c in knowledge.claims[:10]
+                )
+                sections.append(f"**Evidence trail:**\n{trail}")
+            if state.conflicts:
+                conflict_lines = "\n".join(
+                    f"- ⚠️ {cf.get('claim_a','')} ↔ {cf.get('claim_b','')}"
+                    for cf in state.conflicts[:3]
+                )
+                sections.append(f"**Unresolved conflicts:**\n{conflict_lines}")
             synthesized_md = "\n\n".join(sections)
 
-            # --- 5. Write to curriculum topic file ----------------------------
-            for doc in docs:
-                try:
-                    self._memory.store_curriculum_knowledge(
-                        topic_id=topic.id,
-                        stage_number=current_stage,
-                        doc=doc,
-                        synthesized_content=synthesized_md,
-                    )
-                    # Only store once (synthesized content is per-topic, not per-doc)
-                    break
-                except Exception:
-                    logger.exception(
-                        "Failed to store knowledge for topic '%s'", topic.name
-                    )
+            # --- Store synthesized knowledge ----------------------------------
+            try:
+                self._memory.store_curriculum_knowledge(
+                    topic_id=topic.id,
+                    stage_number=current_stage,
+                    doc=docs[0],
+                    synthesized_content=synthesized_md,
+                )
+            except Exception:
+                logger.exception("Failed to store knowledge for topic '%s'", topic.name)
 
-            # --- 6. Assess mastery from accumulated content -------------------
+            # --- Assess mastery from accumulated content ----------------------
             try:
                 accumulated = self._memory.get_topic_content(topic.id, current_stage)
                 score, reasoning, gaps = self._synthesizer.assess_mastery(
@@ -438,17 +442,17 @@ class TradingAgent:
                 old_mastery = self._curriculum.get_mastery(topic.id)
                 self._curriculum.set_mastery(topic.id, score, notes=reasoning)
                 logger.info(
-                    "Mastery for '%s' assessed: %.0f%% -> %.0f%% (%s)",
-                    topic.id, old_mastery * 100, score * 100, reasoning[:80],
+                    "Mastery for '%s': %.0f%% -> %.0f%% | rounds=%d | diversity=%d | gaps=%d",
+                    topic.id, old_mastery * 100, score * 100,
+                    state.round_idx, state.source_diversity(), len(gaps),
                 )
             except Exception:
-                logger.exception(
-                    "Failed to assess mastery for topic '%s'", topic.id
-                )
+                logger.exception("Failed to assess mastery for topic '%s'", topic.id)
 
             entry_summary = (
-                f"Studied '{topic.name}': "
-                f"fetched {len(docs)} doc(s), synthesized and stored."
+                f"Studied '{topic.name}': {len(docs)} doc(s) across "
+                f"{state.round_idx} round(s), {state.source_diversity()} source type(s), "
+                f"confidence={state.confidence:.2f}."
             )
             studied.append(entry_summary)
 
@@ -457,9 +461,7 @@ class TradingAgent:
                     topic=topic.name, summary=entry_summary
                 )
             except Exception:
-                logger.exception(
-                    "Failed to persist learning entry for '%s'", topic.name
-                )
+                logger.exception("Failed to persist learning entry for '%s'", topic.name)
 
         # ------------------------------------------------------------------
         # Ongoing tasks — use Alpaca news for the watchlist tickers
