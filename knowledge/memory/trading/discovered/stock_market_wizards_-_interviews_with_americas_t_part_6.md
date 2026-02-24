@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.806805+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 6
+updated: '2026-02-24T16:30:21.806805+00:00'
+---
+
+
+
+## 2026-02-24
+
+of art history and are then prepared to make five dollars per hour drawing cartoons, then this is definitely the career path for you." His comments threw some cold water on my plans. I had also done some writing in college, and a few of my short stories had been published. I thought that journalism might be a good alternative career path that allowed some creativity. Your interests seem to be so strongly artistic. Why did you go for an M.B.A.? Because the journalism idea fell through as well, and I decided I needed to earn a living. What went wrong with journalism? I applied to several journalism schools. That summer, while visiting my parents, who were in Brazil at the time, I received a rejection call from Carleton University, which was my first choice for a journalism school. I received the call during a party. Maybe it was because I'd had too many Brazilian caipirinhas, which is their rum concoction, but I said to myself, "I guess this is another one of life's crossroads." So I decided to give up the idea of becoming a journalist. I guess I didn't want to do it badly enough to pursue it. In retrospect, do you consider your rejection from journalism school a lucky event? I consider it a huge stroke of luck. My father always told me that I had to differentiate between my hobbies and my career. I think he's STUART WALTQ* right. My mother recently asked me if I had any regrets at not having pursued any of these other interests. At first I said that I didn't, because I was basking in the success I've had with this business, but every day that goes by, I regret it more and more. Eventually, I can see myself veering back. Veering back to drawing or writing? Maybe both, maybe neither. I always thought that the best way to combine my interests in drawing and writing was films, particularly short films. I have a lot of ideas already. Nothing that would be commercial; stuff that probably would have an end audience of three people in the world. Have you ever made any films? No, I would have to take a film course just to learn how to point the camera. Are you thinking of giving up trading in lieu of these other interests? I really admire people who do what they want to do and don't care about anything else. I had a friend in college who was determined to be a rock and roll star. He formed the band The Cowboy Junkies. When he started college, he couldn't even play a guitar, and now he is sold out at every concert. But I know myself. I like the comforts of life, and for me this business is the best way to acquire them. Although, eventually, I will probably pursue some of these other interests, it's not something I see happening in the immediate future. What happened after you were rejected from journalism school? I decided to go for an M.B.A because I thought it was the best way to get a job. Did you give any thought to what you might do with your M.B.A.? I intended to go into advertising because it was the one business career I thought might satisfy my

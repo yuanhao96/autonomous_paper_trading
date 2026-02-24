@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.643800+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Option Spread Strategies -
+  Trading Up, Down, and Sideways Markets 2009.txt
+tags:
+- book
+- options_basics
+topic: Option Spread Strategies - Trading Up, Down, and S — part 4
+updated: '2026-02-24T16:30:21.643800+00:00'
+---
+
+
+
+## 2026-02-24
+
+Chapter 1 The Covered-Write 0.08 5 days 15 days 0.06 30 days 60 days 90 days Gamma 10 0.04 0.02 0.00 –0.02 70 80 90 100 110 120 130 Strike Figure 1.5 Gamma vs. Strike Gamma is highest when an option is at-the-money, and the rate of change of gamma itself increases as expiration approaches. For the covered-write, this means that the delta of the position will change the most as the underlying crosses the strike of the short call, and that this effect will be greater as time to expiration decreases. Vega Vega describes the sensitivity of an option’s theoretical value to a 1 percent change in implied volatility. It is usually expressed as the change in value that would be gained or lost from a 1 percent rise or fall in implied volatility. Long option positions have a positive vega, and short option positions have a negative vega. Because a covered-write has a short call as its option component, it will always have a negative vega. Rising implied volatility causes the extrinsic value of options to rise, and falling implied volatility causes the extrinsic value of options to fall. Furthermore, longer-dated options are more sensitive to changes in implied volatility, since a rise or fall of implied volatility over a longer period is extrapolated to a much larger (in the case of rising volatility) or much smaller (in the case of falling volatility) universe of possible price outcomes at expiration. This is illustrated in Figure 1.6. Because a covered-write has a negative vega, rising implied volatility will cause the value of the structure to fall as the short call component of the strategy rises in price. Conversely, falling implied volatility will cause the value of the covered-write to rise, as the short call component of the strategy falls in price. In addition, the value of a covered-write with a longer-dated short call component will be more sensitive to fluctuations in implied volatility than a covered-write with a shorter-dated short call component. The Greeks 30 90 strike 100 strike 25 110 strike Vega 20 15 10 5 0 5 15 30 60 90 120 150 Days to Expiry Figure 1.6 Vega vs. Time to Expiration Example An investor has a covered-write position consisting of 100 shares of long stock at $100.00 and short one 100 strike call at $5.00. The call has a vega of 0.10. With the stock unchanged, what is the change in value of the overall position if: Implied volatility rises 5 percent . . . The price of the call will change from $5.00 to $5.50 ($5.00  5  0.10), so the value of the position will change accordingly: Initial Position Value New Position Value Stock price $100.00 Stock price $100.00  Call price $5.00  Call price $5.50 Position value $95.00 Position value $94.50 Implied volatility falls 5 percent . . . The price of the call will change from $5.00 to $4.50 ($5.00  5  0.10), so the value of the position will change accordingly: Initial Position Value New Position Value Stock price $100.00 Stock price $100.00  Call price $5.00  Call price $4.50 Position value $95.00 Position value $95.50 11

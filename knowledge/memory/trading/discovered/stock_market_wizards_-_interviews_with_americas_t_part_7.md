@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.807161+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 7
+updated: '2026-02-24T16:30:21.807161+00:00'
+---
+
+
+
+## 2026-02-24
+
+creative side. But the opportunity never arose. When I graduated, the economy in Canada was terrible. There were only two jobs offered on campus. One was a management trainee position with Lloyds Bank. The job appealed to me because of the location: New York or London. I thought it would be great to work in either of those two cities. I applied and got the job. BACK FROM THE ABYSS They sent me to a training program in New York. I spent most of the training program in the foreign exchange trading room, which was a fluke because I was supposed to be trained as a loan officer and sent back to Canada. So you fell into a trading environment entirely by chance. That is one reason why I believe anyone can do this job; I don't think you have to be born to do it. I don't know about that. I can assure you that among the hundreds of thousands of people who try trading, very few can even remotely approach your track record. What was your job at the foreign exchange desk? I was just a flunky. I took customer orders and did other assorted tasks. 1 had to be at work at 3:30 A.M.—which was brutal for a single guy living in New York—to get everything ready for the traders. I clipped newspaper articles for them and made sure their order tickets were in place. It was a glorified gofer position. Did you have any interest in financial markets at the time? None at all. I was still wrapped up in the idealism of my previous academic life. I looked down on my M.B.A. My thoughts were, "What happens to all the learning and academics I've done? Does it all just get shoved away for the rest of my life?" The job in the foreign exchange department didn't help matters at all. If anything, it turned me off to trading because of all the day-today friction. The job was my first introduction to Americans; I had been surrounded by Canadians all my life. Canadians are more laidback; they are more concerned about etiquette than going for the jugular or getting their point across. There were traders on the desk who would just scream at me all the time. Most times, I didn't even know why. Maybe it was because they needed someone to take it out on when their positions went bad, or maybe it was because I didn't do things quickly enough for them. I would go home every night upset because someone had shouted at me. How long did you stay at this job? For about six months. I left because I found out through the grapevine that I was about to be transferred to Toronto. At that point, I loved living in New York, and I had also just met my wife-to-be and STUART WALTON didn't want to leave her. Therefore, I took a job at the New York branch of another Canadian company, Wood Gundy. One attraction of the new job was that they offered to get me a green card; I had been in the United States on a temporary visa. What was the job you got? It was a little bit less of a flunky job. I went through Wood Gundy's training program and was placed on the equity desk. I was just an order taker, which was very

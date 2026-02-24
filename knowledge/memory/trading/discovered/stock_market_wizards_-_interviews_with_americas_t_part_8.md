@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.807512+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 8
+updated: '2026-02-24T16:30:21.807512+00:00'
+---
+
+
+
+## 2026-02-24
+
+boring. The customer was making the decision, and the floor broker was executing the trade; I was nothing more than an intermediary. I always laugh when brokers on the sell side of the stock business call themselves traders. Well they are not traders; they are just order takers. None of them are taking positions for the house or with their own money. At that point, I made the first trade for my own account. My girlfriend, who later became my wife, worked for Liz Claiborne. She kept telling me how great her company was doing: "I don't even have to call my customers, they're calling me." Since I didn't have any money to invest, I called my father for a loan. "Dad," I said, "I have a great idea; you just have to lend me some money." He loaned me $10,000, and I put it all into Liz Claiborne stock. The stock quickly went up three points, and I took my profits. But the worst thing you can do as a beginning trader is to have your first trade work. Within three weeks, I had lost not only all my profits from the Liz Claiborne trade, but also all the money my father had lent me. How did you do that? I was so taken with the success of my first trade that I started listening to all sorts of tips and rumors. The guy delivering my coffee in the morning could tell me about a stock, and I would buy it. I was cleaned out in three weeks. It took me five years, a little bit at a time, to pay back my father. What did your father say when you told him you had lost the money? "Well, I thought that you would," he said, "but I appreciated that you had an idea and wanted to follow through on it." Ironically, the Liz Claiborne stock, for which I had originally borrowed the money, continued to go straight up, quintupling in a year. What was your next trading experience? The Wood Gundy equity desk was another version of New York verbal abuse. Once again, I found myself at a job where the guys on the desk were constantly yelling at me. It was just regular day-to-day business, but I hated it. When I looked across the room to the bond trading desk, I noticed that everyone was very quiet. They weren't shouting at each other; they were very civil. That appealed to me. I got permission to switch to the bond trading desk. At the time, Wood Gundy was trying to become a major dealer in the U.S. bond market, and they had brought in a bunch of hired-gun traders. These guys were just blowing up left, right, and center. There were huge losses everywhere. One trader even hid his tickets to conceal his losses. Eventually almost everyone was fired, though I was still left, along with a few others. Were you happier on the bond desk? I had mixed feelings. I was certainly happy to get away from the verbal abuse. Also, the bond desk was very exciting because it traded huge position sizes compared with the equity desk. I liked the idea that I could make or lose five times as much as twenty people combined on the equity desk. But I didn't like being responsible for trading all sorts of illiquid

@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.804677+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 1
+updated: '2026-02-24T16:30:21.804677+00:00'
+---
+
+
+
+## 2026-02-24
+
+nd of a Winner 288 Wizard Lessons 298 Appendix: Options—Understanding the Basics 327 Index 33J Although I found most of the traders in this book through personal contacts in the industry, several money manager databases and texts provided helpful references. In particular, I would cite the following: Barclay MAP for Windows. This software program, which is updated monthly, allows searches of an impressively large database of hedge fund managers. The program is highly intuitive and permits the investor to extract and rank those trading programs that meet multiple user-defined criteria. (Barclay Trading Group: [641] 472-3456; www. barclaygrp.com.) Van Hedge Fund Advisors International Inc. (VAN). A hedge fund advisory service that compiles its own hedge fund indexes and maintains one of the largest hedge fund databases. The company provided me with the results of a computer search of hedge fund managers meeting my extremely restrictive set of criteria. ([615] 661-4748; www. hedgefund .com.) The CTA Report. A quarterly comprehensive compendium of CTA performance results, containing a well-designed two-page layout of tables and charts for each CTA. There is also an easy-to-use Web site for monthly updates. As the name implies, this service covers managers who specialize in futures trading; only a small portion of these managers focus on equity derivatives. (International Traders Research, Inc.: [858] 4590818; www. managedfutures. com.) The U.S. Offshore Funds Directory. An annual publication that con- ACKN01 IM tains one-page summaries and annual returns for over 700 offshore hedge funds. There is also a web link for updates. ([212] 371-5935; www. hedgefundnews .com) When I began my search for traders worthy of inclusion in this volume, my first call was to Doug Makepeace. He has built a career on finding and investing his own and client funds with exceptional traders. Doug was most generous in sharing information with me, even though doing so threatened his ability to invest additional funds with these traders in the future if they became too well known. Tom DeMark, a renowned technical analyst whose indicators are featured on many of the country's leading financial data services, was particularly vigorous in his efforts to help me find traders for this book. Tom is in a good position to provide such assistance, holding the unofficial world record as the technical analyst who has worked for the most (four) Market Wizards or their organizations. Marty Schwartz and Linda Raschke were two former Market Wizards ("former" referring to the books in which their interviews appeared, not their trading talent) who helped me find new Market Wizards for this book. Other industry contacts who were particularly helpful in aiding my search for great trading talent include: Sol Waksman and George Van; Bob Morris, Andy Good, Tony Cimirusti, Loran Fleckenstein, and Jason Perl. I find it extremely difficult to evaluate the writing quality of any book I am working on.

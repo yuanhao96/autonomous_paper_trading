@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.806446+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 5
+updated: '2026-02-24T16:30:21.806446+00:00'
+---
+
+
+
+## 2026-02-24
+
+although managing a nine-digit sum, he had no trading assistants, no back office staff, no marketing people, no programmers, not even a full-time secretary. His firm, Reindeer Capital, BACK FROM T H F A B Y S S consisted of Stuart Walton alone. His isolation was deliberate. After having gone wrong so often by listening to tips and opinions, he had come to realize the importance of not being influenced by others while trading. Walton was relaxed and outgoing. We talked for five hours straight without interruption. The time passed quickly. Is there some principle you wish to symbolize by the name, or is it just a matter of honoring your great-grandfather? I tell people that my great-grandfather added more value to society than I ever will. When did you first get involved in the markets? As soon as I graduated from McGill University with an M.B.A. I originally wanted to be a cartoonist. Is there some significance to the name of the firm or are you just partial to reindeer? The firm is named after my great-grandfather, William Gladstone Walton, who was given the nickname "Reindeer" for a famous trek he conceived and led. Much of what I know about him I learned from my grandfather, who passed away last year at the age of one hundred, narrowly missing the feat of having lived in three separate centuries. In 1892, at the age of twenty-three, Reindeer Walton lelt England to work as a missionary in northern Canada. He typically traveled over two thousand miles a year by canoe and dogsled, visiting his far-flung constituency—the Indians and Eskimos that lived around the Arctic Circle. One year, vast forest fires swept through northern Quebec, destroying almost all the region's vegetation and game, and leaving the native population at the brink of starvation. Reindeer Walton came up with the idea of herding the Siberian reindeer, which are also called caribou, from Alaska to northern Quebec. Through sheer perseverance, he convinced the Canadian government to finance the trek, which he organized and led. It took him five years, from 1921 to 1925, to herd three thousand reindeer across northern Canada. Reindeer are not like cattle; they move only when they want to move, and they go in all different directions. How did he keep them herded together? Caribou will follow the feeding path. He used a lot of foresight in choosing the right route. He succeeded in getting three-quarters of the herd to migrate; the remainder died or dispersed. His trek permanently changed the migration patterns for Siberian reindeer. The portion of the herd that survived flourished in northern Quebec, and he became a local hero. A cartoonist with an M.B.A.? Were you planning to be the world's first business cartoonist? No, the cartoonist ambitions came earlier. When I graduated from college, I definitely wanted to be a cartoonist. 1 sat down with the head of the art department, and he told me, "If you feel you know how to draw and represent the human body as well as one of the masters

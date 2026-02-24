@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.807883+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 9
+updated: '2026-02-24T16:30:21.807883+00:00'
+---
+
+
+
+## 2026-02-24
+
+issues, most of which were overseas bonds. The Japanese would call me at 2 or 3 A.M., and I would have to make bids or offers on huge sums of illiquid bonds without even knowing where the market was. And because I was sleepy, it was possible to give them the wrong quote. If you gave them a quote that was off by 100 basis points, they would hold you to it. You could have a $ 1 million loss on an obvious error, and they would still insist on the trade being valid. Did that ever happen to you? Oh yes. You had a $ 1 million error? Well I didn't have a $1 million error, but I had a $300,000 error. Just because you gave them the wrong quote. I was sleepy. I thought the yield was 9.5 percent when it was really 10.5 percent. BACK FROM T H E A Is it normal to be held on a trade on a quote that is obviously an error.'' It certainly wouldn't be considered normal in North America, and I doubt that it would be the case anymore in Japan. How did you do on balance in your trading? I did well and was promoted as the youngest vice president at Wood Gundy. On what basis were you making buy and sell decisions? I didn't have any methodology. I almost got to the point where I thought the market was random. But you must have been doing something right if you were making money. Was it just a matter of gut feel? All the trading I do involves gut feel. But at that point in my life, I think I was bailed out because there was a major bull market in bonds, and my instincts were apparently good enough to keep me off the short side for the most part. In my best year, I made about $700,000 for the desk, which is really nothing, considering it has to be split among so many different people. One time, over drinks with my boss, I said, "We're not really trading these bonds; we're really investing, just like one of our accounts. And if that is what we're doing, there are better things to invest in." "Don't go off half-cocked," he said. "We just have to keep dodging and weaving." It was at that point, after three years, that I really started to burn out. I went as long as I did because it was exciting having the responsibility of trading that much money. By that point, had you developed a passion for trading? Yes, I knew it was something I loved to do. I liked the idea that it was me against the markets. I just didn't care for the markets I was trading. One major source of frustration was that the bond issues we were trading in New York were highly illiquid. I decided to transfer to the main office of Wood Gundy in Toronto because there I could trade Canadian government bond securities, which were far more liquid. At first I was very happy to be in the main office, trading liquid bond markets, with lots of activity. After six months, however, I realized that I didn't want to work in Canada. It's a country club environment where success has more to do with politics than with your performance. I was also getting very sick of bonds and interest rates. Why? Because it is such a

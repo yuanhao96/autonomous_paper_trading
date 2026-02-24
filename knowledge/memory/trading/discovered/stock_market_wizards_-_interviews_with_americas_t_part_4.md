@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.806082+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 4
+updated: '2026-02-24T16:30:21.806082+00:00'
+---
+
+
+
+## 2026-02-24
+
+had obviously retained a good portion of the gained weight. Oops. "Okay, okay," you're saying, "a slightly amusing anecdote—maybe— but what does this have to do with trading or investing?" Simply this: If you're too busy picking the lint off your jacket, you're liable to miss the plane. In other words, don't get so caught up in the details that you miss the big picture. Here are some examples of market myopia: > a trader who does exhaustive research trying to identify the most promising new technology companies but overlooks the fact that a 70 percent price rise in the sector during the past six months implies an unusually high-risk investment environment > a trader who scrutinizes a company's financial statements and reports but fails to realize that the company's soaring profits have been due to a single product whose future sales are threatened by the imminent entry of new competitors K a trader who is engrossed with finding better timing-entry methods but virtually ignores such critical questions as: When and how will positions be exited? How will risk be controlled? All of these examples contain the same basic message: Maintain a whole-picture perspective. Focus on the entire market and the sector, not just the individual stock. Be attentive to qualitative factors, not just the available quantitative information. Develop a trading plan that encompasses all the aspects of trading, not just the entry strategy. STUART WALTON Back from the Abyss In June 1999, at the peak Of his career, after eight years establishing one of the. most extraordinary stock trading track records of the 1990s, and with $ 150 million under management, Stuart Walton returned all money to his investors and walked away from trading completely. The emotional repercussions of a marital breakup were interfering with his ability to focus on trading, and he did not feel it was right to manage money until he could once again devote "100 percent energy and enthusiasm" to the task. In the preceding eight years, he had achieved an astounding 115 percent average annual compounded return in trading profits (92 percent for his clients after deducting management fees), with annual returns ranging from a high of 274 percent to a low of 63 percent (excluding the 1999 partial year). Stuart Walton's career as a trader is marked by a string of contradictions and paradoxes. He wanted to be an artist or a writer; he became a trader. Though he valued academics and disdained the financial world, the markets became his profession. He once hated trading so much that he awoke feeling that he couldn't do it for another day and quit his job that morning; several years later, the markets were his endeavor and passion. His initial forays into stock trading were marked by such ineptitude that he nearly went bankrupt, yet he subsequently became so skilled that he more than doubled his money annually. I visited Walton, a Canadian expatriate, at his office in downtown San Francisco. I discovered that,

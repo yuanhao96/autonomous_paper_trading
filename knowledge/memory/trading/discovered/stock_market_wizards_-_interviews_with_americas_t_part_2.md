@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.805316+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 2
+updated: '2026-02-24T16:30:21.805316+00:00'
+---
+
+
+
+## 2026-02-24
+
+I lose all sense of perspective. For this reason, it is invaluable to have someone to provide objective feedback as the book is being written. Enter my wife, Jo Ann, who read the final draft of each chapter as soon as it was completed. Her promptness in performing this task was not a reflection of her eagerness to read the material—in fact, few topics interest her less than the financial markets—but rather a resignation to the inevitable in the face of my unrelenting nagging. ("Have you read it yet?") Jo Ann provided honest comments—sometimes brutally so—and very helpful suggestions, nearly all of which were accepted. Whatever the defects of this book in its final form, I can only assure the reader they would have been that much worse without Jo Ann's input. PROLOGUE An Inauspicious Beginning Men are from Mars because they missed the flight to Venus. When to leave for the airport has always been a subject that my wife and I have viewed from different perspectives—my view: late enough to make it exciting; my wife's view: early enough to allow for a traffic jam, a flat tire, airport shopping, and a full course meal before the flight. For years I left for airports without allowing for any spare time and never missed a flight. About eighteen months ago, I moved to Martha's Vineyard, where the travel time to the airport can be accurately estimated because of the limited traffic off-season and because the airport is so small—sort of like the one in the one in the old TV series Wings, only smaller. (At least it was when I began this book; a new airport has since opened.) One morning, only a few months after we had moved to Martha's Vineyard, my wife, Jo Ann, and I were scheduled to fly to Boston. I was so cocky about the predictability of getting to the airport on time that I left our house—approximately a twenty-minute drive away—only thirty-five minutes before the scheduled departure time. The drive took a few minutes longer than expected, due to being stuck behind a slow driver on the no-passing, single-lane road; I realized I had cut it just a little bit too tight. "We'll still make it," I assured my wife, "but we won't have much extra time." She seemed skeptical—irrationally so, I thought. We pulled into the airport entrance only ten minutes before flight time. Even though the parking lot was only a stone's throw from the terminal, I dropped Jo Ann at the entrance, saying, "Let them know we're here." XI AN I N A U S P I C I O U S BEGINNING When I returned about one minute later, I found Jo Ann standing outside waiting for me with a troubled expression. Confused to see her there, I asked, "What's wrong?" "The plane left," she said in a voice that was a cross between disappointment and "I told you so." "What do you mean, the plane left?" I asked, glancing at my watch, even though I knew the exact time. "It's only eight minutes to ten." I went into the terminal, angry that the small prop plane had left without us before the scheduled time. "I don't

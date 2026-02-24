@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.805706+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 3
+updated: '2026-02-24T16:30:21.805706+00:00'
+---
+
+
+
+## 2026-02-24
+
+get it," I said to the woman at the airline counter, all prepared to be the aggrieved customer. She couldn't have been nicer. "Our planes leave as soon as everyone is here. Since we hadn't heard from you to tell us you were running late, we assumed you weren't coming. If you had called, we would have held the plane." And, you know, they would have, too; that's how Martha's Vineyard works. How could I be angry at anyone other than myself after that explanation? Fast-forward about six months—the beginning of the interview process for this book. I am scheduled to catch the first flight on an intricate itinerary that will take me to four states in four days for six interviews. This schedule has no leeway for missed flights. Wiser from experience, I make sure to leave early for the airport, allowing for plenty of extra time. On the drive there, Jo Ann, who is dropping me off, notices that I have lint on my blue blazer. She offers the helpful hint that I should ask the people at the airport counter for tape to brush it off. We arrive about thirty minutes early. I pull up to the curb and say good-bye to Jo Ann. After checking in and sitting for a while, I realize 1 have enough time to take care of my lint-laden jacket. I walk up to the counter and obtain the necessary tape. There are about a dozen people in the small waiting room. A few moments later there is an announcement for my flight: "Now boarding section one, seats one to eight." I pull out the red, plastic, envelope-size boarding pass and notice that it is emblazoned with the number 11. "How quaint," I muse, "that they would board such a small flight in two sections." I sit down and return to my lint-removal project. I'm sitting there absentmindedly, picking lint off my jacket. Suddenly I snap back into reality. I realize that it must be at least five or ten minutes since they called for the boarding of the first group of passengers. I look around the waiting area and, to my horror, I discover that it is virtually deserted. I jump up, run through the doors to the airstrip, and see a small plane with propellers whirring. "Wait!" I yell, waving my arms frantically as I rush toward the plane. I see my whole precisely orchestrated trip—all four days, four states, and six interviews of it—unraveling on the spot. The airline attendant intercepts me. I flash my large red boarding pass. "You're not going anywhere," he says firmly. At first I think he means that it's too late and I missed the plane. But then he adds, "Your section will be leaving in five minutes." That's when I learned that at the Martha's Vineyard airport "sections" refer to different planes! I slink back to my seat. The moment of panic having passed, my sense of awareness returns, and I am able to appreciate completely the full scope of my stupidity. The last time I felt that embarrassed I had just asked an infrequently seen relative when she was "expecting," only to learn subsequently that she had given birth two months earlier but

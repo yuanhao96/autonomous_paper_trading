@@ -1,0 +1,17 @@
+---
+created: '2026-02-24T16:30:21.808237+00:00'
+sources:
+- /Users/howard_openclaw/projects/investment-books-text/Stock Market Wizards - Interviews
+  with America's Top Stock Traders 2001.txt
+tags:
+- book
+- event_driven
+topic: Stock Market Wizards - Interviews with America's T — part 10
+updated: '2026-02-24T16:30:21.808237+00:00'
+---
+
+
+
+## 2026-02-24
+
+commodity. At our morning meeting a standard question always was: "What is going to happen today?" All the participants would give this spiel about why they thought the market was going up or down. They would talk about the influence of currency rate movements, fiscal and monetary policy, interest rate trends in the United States and other countries, and so on. When my turn came, I would simply say, "1 think the market is going down today." When they asked me why, I would answer, "Because it went up yesterday." They didn't know whether to take me seriously or not. I had reached the point where I thought the market was so efficient that if the price went up big one day, it was just as likely to go down the next day. One morning I woke up and realized that I didn't want to worry about interest rates again for the rest my life. I knew that I couldn't stand to trade another bond. I walked into work and quit, even though I had moved to Canada only seven months earlier. They couldn't believe it. You quit even though you didn't have another job? Oh yeah, I just couldn't stand it anymore. The ironic thing is that my wife called me the same day to tell me that she had quit her job, and I hadn't even hinted to her that I was going to quit mine. I knew she had been unhappy, but I didn't think she was on the verge of quitting. It was amazing that we both quit our jobs independently on the same day We decided to delay looking for new jobs so that we could take six months to travel across the United States, going from ski resort to ski resort. When we were at Lake Tahoe, we took a side trip to San Francisco. We loved the city and decided to move there. When we returned to Toronto after the end of our trip, we thought it would be a good idea to revisit San Francisco before actually moving, just to make sure that we still liked it as much as we had on our visit. While we were there, we looked for jobs, and we were both offered positions. We even found a house we liked and put in a bid that was accepted. We thought we were set. We flew back to Toronto, rented a truck, and moved our stuff to San Francisco. But when we got there, we found out that both jobs had fallen through. What was the job you thought you had? I had interviewed with a small venture capital firm. The person who interviewed me had also graduated from McGill. You must have thought that gave you the inside track. Yes, he was very enthusiastic. "Oh sure, we can use you. Come back out, and we will set you up." When I arrived in San Francisco, I kept calling him, but didn't receive any return phone calls. When I finally got through to him, he said, "Oh, we're not hiring M.B.A.s this year." It was a complete reversal from what he had told me before. I had put my life savings into the down payment for the house, so we hardly had any money left. Initially we weren't worried because we thought we would get jobs in a month or two. Month after month went by, however, and neither one of us got a job offer. I
