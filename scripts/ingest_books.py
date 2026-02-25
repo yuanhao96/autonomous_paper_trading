@@ -20,13 +20,14 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
+
 load_dotenv(dotenv_path=_PROJECT_ROOT / ".env")
 
-import yaml
+import yaml  # noqa: E402
 
-from knowledge.ingestion import fetch_book_text
-from knowledge.store import MarkdownMemory, _slugify
+from knowledge.ingestion import fetch_book_text  # noqa: E402
+from knowledge.store import MarkdownMemory, _slugify  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,7 +60,9 @@ def _load_books_config() -> dict[str, list[str]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Bulk-ingest investment books into knowledge base.")
+    parser = argparse.ArgumentParser(
+        description="Bulk-ingest investment books into knowledge base.",
+    )
     parser.add_argument("--chunks", type=int, default=10,
                         help="Max chunks to load per book (default: 10)")
     parser.add_argument("--dry-run", action="store_true",
@@ -102,8 +105,6 @@ def main() -> None:
         topic_ids = book_topics.get(filename, [])
         topic_hint = topic_ids[0] if topic_ids else "trading"
         tags = ["book"] + (topic_ids if topic_ids else ["trading", "investment"])
-
-        book_slug = filename.replace(".txt", "").replace(" ", "_").lower()[:60]
 
         # Check if already ingested using the same slug formula as store_discovered.
         # topic_name = f"{stem[:50]} — part 1" → _slugify → filename

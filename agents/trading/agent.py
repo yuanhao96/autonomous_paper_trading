@@ -17,7 +17,7 @@ import yaml
 from agents.trading.state import StateManager
 from core.preferences import load_preferences
 from knowledge.curriculum import CurriculumTracker
-from knowledge.ingestion import fetch_alpaca_news, fetch_arxiv, fetch_book_text, fetch_wikipedia
+from knowledge.ingestion import fetch_alpaca_news, fetch_book_text
 from knowledge.learning_controller import LearningController
 from knowledge.store import MarkdownMemory
 from knowledge.synthesizer import KnowledgeSynthesizer
@@ -76,6 +76,39 @@ class TradingAgent:
         # Register default strategies.
         self._registry.register(SMACrossoverStrategy())
         self._registry.register(RSIMeanReversionStrategy())
+
+        # Load promoted strategies from the promoter (if any exist).
+        # Falls back to raw survivors from the evolution store if no promoted
+        # strategies are available yet.
+        try:
+            from evolution.promoter import StrategyPromoter
+            from strategies.spec import StrategySpec
+            from strategies.template_engine import compile_spec
+
+            promoter = StrategyPromoter()
+            promoted_specs = promoter.get_promoted()
+            if promoted_specs:
+                loaded = 0
+                for spec_dict in promoted_specs:
+                    try:
+                        spec = StrategySpec.from_dict(spec_dict)
+                        strategy = compile_spec(spec)
+                        self._registry.register(strategy)
+                        loaded += 1
+                    except Exception:
+                        logger.warning("Failed to compile promoted strategy")
+                if loaded:
+                    logger.info("Loaded %d promoted strategies", loaded)
+            else:
+                # Fallback: load raw survivors from evolution store.
+                from evolution.store import EvolutionStore
+
+                store = EvolutionStore()
+                loaded = self._registry.load_survivors_from_store(store)
+                if loaded:
+                    logger.info("Loaded %d evolved strategies from evolution store", loaded)
+        except Exception:
+            logger.debug("No evolved strategies loaded (evolution store may not exist yet)")
 
         logger.info(
             "TradingAgent initialised (mock=%s, strategies=%s)",
@@ -259,6 +292,49 @@ class TradingAgent:
         return added_names
 
     # ------------------------------------------------------------------
+    # Evolution helpers
+    # ------------------------------------------------------------------
+
+    def _load_evolution_settings(self) -> dict[str, Any]:
+        """Load evolution settings from ``config/settings.yaml``."""
+        config_path = Path("config/settings.yaml")
+        if not config_path.exists():
+            return {}
+        try:
+            with open(config_path, "r") as fh:
+                data = yaml.safe_load(fh) or {}
+            evo = data.get("evolution", {})
+            return evo if isinstance(evo, dict) else {}
+        except Exception:
+            logger.exception("Failed to load evolution settings")
+            return {}
+
+    def _check_promotions(self) -> list[str]:
+        """Check if any paper-testing strategies are ready for promotion.
+
+        Returns a list of newly promoted strategy names.
+        """
+        try:
+            from evolution.promoter import StrategyPromoter
+
+            settings = self._load_evolution_settings()
+            promo_cfg = settings.get("promotion", {})
+            testing_days = int(promo_cfg.get("testing_days", 5))
+            min_signals = int(promo_cfg.get("min_signals", 1))
+
+            promoter = StrategyPromoter()
+            ready = promoter.check_ready_for_promotion(testing_days, min_signals)
+            promoted: list[str] = []
+            for name in ready:
+                if promoter.promote(name):
+                    promoted.append(name)
+                    logger.info("Promoted strategy '%s' to live trading", name)
+            return promoted
+        except Exception:
+            logger.debug("Promotion check skipped (promoter may not exist yet)")
+            return []
+
+    # ------------------------------------------------------------------
     # Evolution cycle
     # ------------------------------------------------------------------
 
@@ -384,6 +460,28 @@ class TradingAgent:
 
         summary = "\n".join(lines)
         logger.info(summary)
+
+        # Check for strategies ready to be promoted or retired.
+        newly_promoted = self._check_promotions()
+        if newly_promoted:
+            # Reload newly promoted strategies into the registry.
+            try:
+                from evolution.promoter import StrategyPromoter
+                from strategies.spec import StrategySpec
+                from strategies.template_engine import compile_spec
+
+                promoter = StrategyPromoter()
+                for spec_dict in promoter.get_promoted():
+                    name = spec_dict.get("name", "")
+                    if name in newly_promoted and self._registry.get(name) is None:
+                        try:
+                            spec = StrategySpec.from_dict(spec_dict)
+                            strategy = compile_spec(spec)
+                            self._registry.register(strategy)
+                        except Exception:
+                            logger.warning("Failed to compile newly promoted strategy '%s'", name)
+            except Exception:
+                logger.debug("Failed to reload newly promoted strategies")
 
         # Persist updated state.
         try:
@@ -647,6 +745,18 @@ class TradingAgent:
             + "\n".join(f"  - {s}" for s in studied)
         )
         logger.info(summary)
+
+        # Optionally trigger an evolution cycle after learning.
+        if studied:
+            try:
+                settings = self._load_evolution_settings()
+                if settings.get("auto_trigger_after_learning", False):
+                    logger.info("Auto-triggering evolution cycle after learning session")
+                    evo_summary = self.run_evolution_cycle(trigger="knowledge_acquired")
+                    summary += f"\n\nEvolution: {evo_summary}"
+            except Exception:
+                logger.exception("Failed to auto-trigger evolution cycle after learning")
+
         return summary
 
     # ------------------------------------------------------------------

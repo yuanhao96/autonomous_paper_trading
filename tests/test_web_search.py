@@ -1,9 +1,7 @@
 """Tests for fetch_web_search() in knowledge.ingestion."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from knowledge.store import Document
 
@@ -63,7 +61,9 @@ class TestFetchWebSearch:
         )
 
         with patch("knowledge.ingestion._ddgs_text_search", return_value=mock_results):
-            with patch("knowledge.ingestion.fetch_article", return_value=full_article) as mock_fetch:
+            with patch(
+                "knowledge.ingestion.fetch_article", return_value=full_article,
+            ) as mock_fetch:
                 docs = fetch_web_search("test topic", max_results=2, fetch_top_articles=1)
 
         # 2 snippets + 1 full article = 3 documents

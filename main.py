@@ -258,7 +258,8 @@ def _auto_push_learning_updates(learning_summary: str = "") -> None:
             text=True,
             timeout=60,
         )
-        if commit.returncode != 0 and "nothing to commit" in (commit.stdout + commit.stderr).lower():
+        combined = (commit.stdout + commit.stderr).lower()
+        if commit.returncode != 0 and "nothing to commit" in combined:
             logger.info("No commit created (nothing to commit).")
             return
         elif commit.returncode != 0:
@@ -367,6 +368,15 @@ def _dispatch_action(action: str, query: str, notify: bool, mock: bool) -> None:
             global_registry.register(SMACrossoverStrategy())
             global_registry.register(RSIMeanReversionStrategy())
 
+        # Load evolved strategies so they can be backtested by name.
+        try:
+            from evolution.store import EvolutionStore
+
+            evo_store = EvolutionStore()
+            global_registry.load_survivors_from_store(evo_store)
+        except Exception:
+            pass
+
         from openclaw.tools.run_backtest import handle
         parts = query.split() if query else []
         params: dict = {}
@@ -422,6 +432,17 @@ def _run_daily_cycle(mock: bool, tickers: list[str]) -> None:
         registry.register(SMACrossoverStrategy())
         registry.register(RSIMeanReversionStrategy())
         logger.info("Registered default strategies: %s", registry.list_strategies())
+
+    # Load evolved strategies from the evolution store (if any exist).
+    try:
+        from evolution.store import EvolutionStore
+
+        store = EvolutionStore()
+        loaded = registry.load_survivors_from_store(store)
+        if loaded:
+            logger.info("Loaded %d evolved strategies from evolution store", loaded)
+    except Exception:
+        logger.debug("No evolved strategies loaded (evolution store may not exist yet)")
 
     # Load state.
     state_mgr = StateManager()

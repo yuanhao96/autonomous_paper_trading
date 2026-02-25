@@ -30,14 +30,8 @@ from knowledge.learning_state import TopicLearningState
 from knowledge.store import Document, MarkdownMemory
 from knowledge.synthesizer import KnowledgeSynthesizer, StructuredKnowledge
 from knowledge.tools import (
-    AlpacaNewsTool,
-    ArxivTool,
-    BookChunkTool,
-    DuckDuckGoTool,
     KnowledgeTool,
-    MemorySearchTool,
     ToolInput,
-    WikipediaTool,
     default_tools,
 )
 
@@ -245,7 +239,10 @@ class LearningController:
 
         # --- 4. Synthesize all evidence so far ---
         if not state.evidence_pool:
-            logger.warning("Round %d: evidence pool is empty, skipping synthesis.", state.round_idx + 1)
+            logger.warning(
+                "Round %d: evidence pool is empty, skipping synthesis.",
+                state.round_idx + 1,
+            )
             state.log_round(tools_used, 0)
             state.round_idx += 1
             return state

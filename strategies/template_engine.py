@@ -47,9 +47,16 @@ class TemplateStrategy(Strategy):
     def describe(self) -> str:
         return self._spec.description or f"Template strategy: {self._spec.name}"
 
+    _REQUIRED_COLUMNS = {"Open", "High", "Low", "Close", "Volume"}
+
     def generate_signals(self, data: pd.DataFrame) -> list[Signal]:
         """Compute indicators and evaluate entry/exit conditions."""
         if len(data) < 2:
+            return []
+
+        missing = self._REQUIRED_COLUMNS - set(data.columns)
+        if missing:
+            logger.warning("Data missing required columns %s; returning no signals", missing)
             return []
 
         # 1. Compute all indicators.
@@ -116,7 +123,12 @@ class TemplateStrategy(Strategy):
         if ind.output_key in values:
             return  # Already computed.
 
-        func = INDICATOR_REGISTRY[ind.name]
+        func = INDICATOR_REGISTRY.get(ind.name)
+        if func is None:
+            logger.warning("Indicator '%s' not found in registry; skipping", ind.name)
+            values[ind.output_key] = pd.Series(dtype=float)
+            return
+
         params = dict(ind.params)
 
         # Handle nesting: if source references another indicator's output_key.
@@ -125,14 +137,22 @@ class TemplateStrategy(Strategy):
             # Compute the dependency first.
             self._compute_single(spec_map[source], data, values, spec_map)
 
-        if isinstance(source, str) and source in values:
-            # Build a temporary DataFrame with the dependent indicator as the source column.
-            temp_data = data.copy()
-            temp_data[source] = values[source]
-            params["source"] = source
-            result = func(temp_data, **params)
-        else:
-            result = func(data, **params)
+        try:
+            if isinstance(source, str) and source in values:
+                # Build a temporary DataFrame with the dependent indicator as the source column.
+                temp_data = data.copy()
+                temp_data[source] = values[source]
+                params["source"] = source
+                result = func(temp_data, **params)
+            else:
+                result = func(data, **params)
+        except Exception:
+            logger.warning(
+                "Indicator '%s' (output_key='%s') computation failed; using empty series",
+                ind.name, ind.output_key, exc_info=True,
+            )
+            values[ind.output_key] = pd.Series(dtype=float)
+            return
 
         if ind.name in MULTI_OUTPUT_INDICATORS:
             # Multi-output: store each sub-key with suffix.
