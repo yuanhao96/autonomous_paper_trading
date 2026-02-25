@@ -27,8 +27,8 @@ Python trading logic is called from OpenClaw via tool/subprocess. OpenClaw handl
 - **Platform**: OpenClaw (Node.js >=22)
 - **Trading Logic**: Python 3.11+
 - **Market Data**: `yfinance` (free) + `alpaca-trade-api` (paper trading execution)
-- **Data Store**: SQLite for trade logs, strategy versions
-- **LLM**: Moonshot (Kimi) API via OpenAI-compatible client (`moonshot-v1-32k` default). Set MOONSHOT_API_KEY in .env
+- **Data Store**: SQLite for trade logs, strategy versions, evolution state, auditor patterns
+- **LLM**: Moonshot (Kimi) API via OpenAI-compatible client (`claude-sonnet-4-5` default). Set MOONSHOT_API_KEY in .env
 - **Knowledge Store**: Markdown files with YAML front-matter for structured knowledge; BM25 full-text search via `rank_bm25`
 - **Human Preferences**: `config/preferences.yaml` (human-only write, agent read-only)
 - **Testing**: pytest
@@ -88,8 +88,9 @@ autonomou_evolving_investment/
 │   │   ├── agent.py           # Main trading agent loop
 │   │   └── state.py           # Persistent state (goals, plan, performance)
 │   └── auditor/               # Auditor Agent: inspection, bias detection
-│       ├── agent.py           # Auditor loop
-│       ├── checks/            # Specific audit checks (look-ahead bias, overfitting, etc.)
+│       ├── agent.py           # Auditor loop + audit_strategy_spec() for V2 evolution
+│       ├── layer2.py          # V2: LLM-powered analysis + self-evolving pattern promotion
+│       ├── checks/            # Specific audit checks (look-ahead bias, overfitting, auto-promoted)
 │       └── knowledge.py       # Auditor's own knowledge of trading biases/exploits
 ├── knowledge/
 │   ├── ingestion.py           # Fetch articles, SEC filings, earnings, news, pro analysis
@@ -108,8 +109,11 @@ autonomou_evolving_investment/
 │           └── daily_log/     # Auditor daily log (gitignored)
 ├── strategies/
 │   ├── base.py                # Abstract Strategy interface (generate_signals, backtest, score)
-│   ├── registry.py            # Strategy registry; load/save/version strategies
-│   └── generator.py           # LLM-driven strategy generation and mutation
+│   ├── registry.py            # Strategy registry; load/save/version strategies + load_survivors_from_store
+│   ├── indicators.py          # V2: 8 indicator functions (SMA, EMA, RSI, ADX, ATR, OBV, MACD, BB)
+│   ├── spec.py                # V2: Declarative StrategySpec schema (indicators, conditions, risk)
+│   ├── template_engine.py     # V2: Compiles StrategySpec → executable TemplateStrategy
+│   └── generator.py           # V2: LLM-driven strategy spec generation and mutation
 ├── trading/
 │   ├── paper_broker.py        # Alpaca paper trading API wrapper
 │   ├── executor.py            # Signal → order execution with risk checks
@@ -117,17 +121,23 @@ autonomou_evolving_investment/
 ├── evaluation/
 │   ├── metrics.py             # Sharpe, drawdown, win rate, P&L calculations
 │   ├── backtester.py          # Walk-forward backtesting against historical OHLCV
-│   └── reporter.py            # Performance reports for evolution loop + human
+│   ├── reporter.py            # Performance reports for evolution loop + human
+│   ├── multi_period.py        # V2: Multi-period backtesting across 6 historical regimes
+│   └── tournament.py          # V2: Tournament selection (backtest all, rank, top N survive)
 ├── evolution/
-│   ├── planner.py             # LLM generates improvement tasks from performance gaps
-│   ├── modifier.py            # Applies code/config changes proposed by planner
-│   └── validator.py           # Tests + smoke backtests before changes go live
+│   ├── cycle.py               # V2: Top-level evolution cycle orchestrator
+│   ├── planner.py             # V2: Assembles generation context from knowledge + history
+│   └── store.py               # V2: SQLite persistence for cycles, specs, feedback, exhaustion
 ├── config/
 │   ├── preferences.yaml       # Human-only: risk tolerance, trading horizon, return targets
 │   ├── settings.yaml          # Runtime config: schedule intervals, model names, books_dir
 │   ├── curriculum.yaml        # Trading knowledge curriculum definition
 │   ├── books.yaml             # Maps curriculum topic_id → list of book filenames
 │   └── prompts/               # Versioned prompt templates for LLM components
+│       ├── strategy_generation.txt   # V2: Strategy spec generation prompt
+│       ├── strategy_mutation.txt     # V2: Strategy improvement from feedback
+│       ├── auditor_layer2.txt        # V2: LLM analysis script generation
+│       └── auditor_feedback.txt      # V2: Constructive feedback generation
 ├── data/                      # gitignored
 │   └── market/                # Cached OHLCV data
 ├── logs/                      # gitignored
@@ -175,18 +185,22 @@ evolution_permissions:
 
 ## Staged Implementation
 
-### V1 — Foundation (current target)
+### V1 — Foundation (complete)
 - Knowledge ingestion + curriculum progression
 - Simple paper trading with manually-approved strategies
 - Daily performance reports via OpenClaw messaging
 - Preferences YAML + helper agent for human modification
 - Basic auditor that checks backtest results for obvious biases
 
-### V2 — Autonomous Strategy Development
-- Agent writes strategy code + indicators from knowledge base
-- Walk-forward backtesting with agent-designed metrics
-- Auditor reviews all code changes and backtest results
-- Promotion pipeline: backtest passes audit → paper trade N days → auto-promote
+### V2 — Autonomous Strategy Development (complete)
+- LLM generates declarative JSON strategy specs (not raw Python)
+- 8 technical indicators + 7 condition operators in template engine
+- Multi-period backtesting across 6 historical regimes with weighted scoring
+- Tournament selection: 10 candidates per batch, top 3 survive
+- Auditor Layer 2: LLM generates analysis scripts, executes sandboxed, produces constructive feedback
+- Self-evolving auditor: recurring patterns auto-promoted to Layer 1 checks
+- Full evolution cycle orchestration with SQLite persistence
+- CLI: `python main.py --action evolve`
 
 ### V3 — Full Self-Evolution
 - Agent modifies its own framework (backtester, data pipelines, UI)
@@ -199,6 +213,8 @@ evolution_permissions:
 ```bash
 pip install -r requirements.txt          # Install dependencies
 python main.py                           # Start agent (connects to OpenClaw)
+python main.py --action learn            # Run nightly learning session
+python main.py --action evolve           # Run one evolution cycle
 pytest tests/                            # Run all tests
 pytest tests/test_backtester.py -v       # Run single test file
 ruff check . && mypy .                   # Lint

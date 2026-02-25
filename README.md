@@ -75,14 +75,20 @@ python main.py --dry-run
 # Run a daily trading cycle (Alpaca paper trading is the default)
 python main.py
 
-# Run with real Alpaca paper trading API
-python main.py --mock   # use local SQLite instead of Alpaca
+# Use local SQLite mock broker instead of Alpaca
+python main.py --mock
 
 # Focus on specific tickers
 python main.py --tickers AAPL,MSFT,GOOG
+
+# Run a nightly learning session
+python main.py --action learn
+
+# Run one evolution cycle (generate → backtest → tournament → audit)
+python main.py --action evolve
 ```
 
-## V1 Features
+## V1 Features (Foundation)
 
 - **Knowledge Curriculum** -- Four-stage structured learning progression (Foundations, Strategy Families, Risk Management, Advanced) with per-topic mastery tracked in markdown front-matter and assessed by LLM.
 - **Curriculum Auto-Discovery** -- During `main.py --action learn`, high-signal concepts from synthesis can be auto-added to `config/curriculum.yaml` (deduped, capped per topic) so new topics enter future learning queues.
@@ -95,6 +101,20 @@ python main.py --tickers AAPL,MSFT,GOOG
 - **LLM Integration** -- Centralized Moonshot (Kimi) API wrapper (OpenAI-compatible) with automatic retries, exponential backoff, and structured call logging.
 - **Markdown Knowledge Memory** -- Structured markdown files with YAML front-matter for storing synthesized financial knowledge. BM25 full-text search via `rank_bm25`. Git-versionable and human-readable.
 - **Investment Book Library** -- 120+ curated trading and investment books (converted from PDF to plain text) mapped to curriculum topics. Each nightly learning session supplements Wikipedia/arXiv content with relevant book excerpts.
+
+## V2 Features (Autonomous Strategy Development)
+
+- **Indicator Library** -- 8 technical indicators (SMA, EMA, RSI, ADX, ATR, OBV, MACD, Bollinger Bands) implemented as pure-computation functions in `strategies/indicators.py`. Multi-output indicators (MACD, Bollinger) return `dict[str, Series]` with named keys.
+- **Declarative Strategy Spec** -- LLM generates JSON strategy specs (`strategies/spec.py`), not raw Python. Specs declare indicators, entry/exit conditions (with 7 operators: `cross_above`, `cross_below`, `greater_than`, `less_than`, `between`, `slope_positive`, `percent_change`), and risk parameters. One level of indicator nesting and one level of condition nesting (ALL_OF / ANY_OF).
+- **Template Engine** -- `strategies/template_engine.py` compiles a `StrategySpec` into an executable `TemplateStrategy` compatible with the existing backtester. Handles indicator dependency resolution, multi-output expansion, and composite condition evaluation.
+- **LLM Strategy Generation** -- `strategies/generator.py` calls the LLM to produce batches of strategy specs. Each call uses a diversity index to encourage variety. Supports mutation of existing specs given auditor feedback.
+- **Multi-Period Backtesting** -- `evaluation/multi_period.py` runs strategies across 6 historical regimes (GFC, Low-vol Grind, Melt-up + Vol Spike, COVID Cycle, Rate Hiking Bear, Current) with configurable weights. Composite score = weighted average Sharpe. Strategies failing a minimum Sharpe floor in any period are disqualified.
+- **Tournament Selection** -- `evaluation/tournament.py` backtests a batch of compiled strategies, ranks them by composite score, and selects the top N survivors (default 3 of 10).
+- **Auditor Layer 2 (LLM Analysis)** -- `agents/auditor/layer2.py` asks the LLM to write a Python analysis script, executes it in a sandboxed subprocess (timeout 30s, restricted env, no network), parses structured JSON findings, then generates constructive feedback for the planner.
+- **Self-Evolving Auditor** -- Recurring Layer 2 patterns are tracked in SQLite. When a pattern occurs 3+ times with a false positive rate below 20%, it is auto-promoted to a Layer 1 check (`agents/auditor/checks/auto_*.py`).
+- **Evolution Cycle Orchestration** -- `evolution/cycle.py` wires together: planner → generator → compiler → tournament → auditor → store. Limited to 1 cycle per day. Exhaustion detection flags plateau after N consecutive cycles with no score improvement.
+- **Evolution Persistence** -- `evolution/store.py` uses SQLite to track cycles, strategy specs, audit feedback, and exhaustion state. Recent winners and feedback are fed back into the next generation cycle.
+- **Evolved Strategy Loading** -- `strategies/registry.py` can load the most recent tournament survivors from the evolution store at agent startup, so evolved strategies participate in live paper trading.
 
 ## Learning Sources
 
@@ -168,22 +188,51 @@ This file is the agent's constitution. Only humans may edit it.
 
 | Section | Key Fields |
 |---------|------------|
-| `llm` | `model` (default `moonshot-v1-32k`), `max_retries`, `retry_base_delay` |
+| `llm` | `model` (default `claude-sonnet-4-5`), `max_retries`, `retry_base_delay` |
 | `schedule` | Cron expressions for market scans, evaluations, reports, learning, evolution |
 | `data` | `cache_dir`, `knowledge_dir`, `books_dir`, `web_search_max_results`, `web_search_fetch_articles` |
 | `database` | SQLite paths for trades and agent state |
 | `logging` | `llm_log_file`, `trade_log_file`, `level` |
 | `learning` | Multi-round learning controls plus optional `auto_add_discovered_topics` (default true) and `auto_add_max_per_topic` (default 2) |
+| `evolution` | `batch_size` (10), `survivor_count` (3), `max_cycles_per_day` (1), `min_sharpe_floor` (-0.5), `backtest_ticker` ("SPY"), `periods` (6 historical regimes with weights), `exhaustion_detection` (plateau detection config) |
+
+## Evolution Cycle
+
+The V2 evolution cycle is the core autonomous strategy development loop. Running `python main.py --action evolve` executes one full cycle:
+
+```
+Knowledge Base  ──►  Planner  ──►  LLM Generator (batch of 10 specs)
+                                        │
+                                        ▼
+                                  Template Compiler
+                                        │
+                                        ▼
+                              Multi-Period Backtester
+                              (6 historical regimes)
+                                        │
+                                        ▼
+                                Tournament Selection
+                                  (top 3 survive)
+                                        │
+                                        ▼
+                              Auditor (Layer 1 + Layer 2)
+                                        │
+                                        ▼
+                              SQLite Persistence
+                              (winners fed into next cycle)
+```
+
+Each cycle is limited to once per day. The planner feeds recent winners, past audit feedback, and knowledge summaries into the LLM prompt to improve diversity and quality over time. Exhaustion detection flags when the last N cycles show no score improvement.
 
 ## Roadmap
 
-### V1 -- Foundation (current)
+### V1 -- Foundation (complete)
 
 Knowledge ingestion and curriculum progression, simple paper trading with manually-approved strategies, daily performance reports, preferences YAML with human-only modification, and a basic auditor that checks backtest results for obvious biases.
 
-### V2 -- Autonomous Strategy Development
+### V2 -- Autonomous Strategy Development (complete)
 
-The Trading Agent writes strategy code and indicators from its knowledge base. Walk-forward backtesting with agent-designed metrics. The Auditor reviews all code changes and backtest results. A promotion pipeline gates progression: backtest passes audit, paper-trades for N days, then auto-promotes.
+The LLM generates declarative JSON strategy specs (not raw Python). A template engine compiles specs into executable strategies. Multi-period backtesting across 6 historical regimes with tournament selection. The Auditor gains LLM-powered Layer 2 analysis with constructive feedback and self-evolving checks. Full evolution cycle orchestration with SQLite persistence.
 
 ### V3 -- Full Self-Evolution
 
