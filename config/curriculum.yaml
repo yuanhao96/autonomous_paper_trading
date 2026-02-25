@@ -1,112 +1,124 @@
-# Trading Knowledge Curriculum
-# The trading agent progresses through stages sequentially.
-# Stage N+1 unlocks when Stage N reaches the mastery threshold.
-
-mastery_threshold: 0.7  # 70% mastery required to advance
-
+mastery_threshold: 0.7
 stages:
-  - name: "Foundations"
-    stage_number: 1
-    description: "Core market knowledge and basic concepts"
-    topics:
-      - id: market_microstructure
-        name: "Market Microstructure"
-        description: "How exchanges work, order books, bid-ask spreads, market makers"
-        mastery_criteria: "Can explain how a limit order becomes a trade"
-      - id: order_types
-        name: "Order Types"
-        description: "Market, limit, stop, stop-limit, trailing stop orders"
-        mastery_criteria: "Can choose the right order type for a given scenario"
-      - id: basic_ta
-        name: "Basic Technical Analysis"
-        description: "Support/resistance, trends, moving averages, volume analysis"
-        mastery_criteria: "Can identify trend direction and key levels on a chart"
-      - id: basic_fa
-        name: "Basic Fundamental Analysis"
-        description: "P/E, P/B, revenue growth, earnings, balance sheet basics"
-        mastery_criteria: "Can evaluate whether a stock is overvalued using basic ratios"
-      - id: market_hours
-        name: "Market Hours & Sessions"
-        description: "Pre-market, regular hours, after-hours, global session overlaps"
-        mastery_criteria: "Can explain liquidity differences across sessions"
-      - id: asset_classes
-        name: "Asset Classes"
-        description: "Equities, bonds, commodities, forex, ETFs, REITs"
-        mastery_criteria: "Can describe correlation patterns between major asset classes"
-
-  - name: "Strategy Families"
-    stage_number: 2
-    description: "Core trading strategy archetypes"
-    topics:
-      - id: momentum
-        name: "Momentum Strategies"
-        description: "Trend following, breakouts, relative strength, time-series momentum"
-        mastery_criteria: "Can design a basic momentum strategy with entry/exit rules"
-      - id: mean_reversion
-        name: "Mean Reversion"
-        description: "RSI oversold/overbought, Bollinger Band bounces, pairs trading"
-        mastery_criteria: "Can identify mean-reverting conditions and set appropriate bounds"
-      - id: pairs_trading
-        name: "Pairs Trading"
-        description: "Cointegration, spread trading, statistical arbitrage basics"
-        mastery_criteria: "Can test for cointegration and design a pairs trade"
-      - id: event_driven
-        name: "Event-Driven Strategies"
-        description: "Earnings plays, FDA approvals, M&A, macro events"
-        mastery_criteria: "Can assess event probability and position accordingly"
-      - id: factor_models
-        name: "Factor Models"
-        description: "Fama-French factors, quality, low volatility, size, value"
-        mastery_criteria: "Can construct a multi-factor portfolio ranking"
-
-  - name: "Risk Management"
-    stage_number: 3
-    description: "Portfolio construction and risk control"
-    topics:
-      - id: kelly_criterion
-        name: "Kelly Criterion"
-        description: "Optimal bet sizing, fractional Kelly, practical applications"
-        mastery_criteria: "Can calculate Kelly fraction and explain why fractional Kelly is preferred"
-      - id: portfolio_theory
-        name: "Modern Portfolio Theory"
-        description: "Efficient frontier, diversification, correlation-based allocation"
-        mastery_criteria: "Can construct a minimum-variance portfolio from a set of assets"
-      - id: drawdown_management
-        name: "Drawdown Management"
-        description: "Max drawdown limits, recovery analysis, risk-of-ruin"
-        mastery_criteria: "Can implement a drawdown-based position reduction strategy"
-      - id: position_sizing
-        name: "Position Sizing"
-        description: "Fixed fractional, volatility-based, risk parity approaches"
-        mastery_criteria: "Can size positions using ATR-based volatility targeting"
-
-  - name: "Advanced Topics"
-    stage_number: 4
-    description: "Sophisticated techniques and cross-domain knowledge"
-    topics:
-      - id: regime_detection
-        name: "Market Regime Detection"
-        description: "Hidden Markov models, volatility regimes, trend vs range markets"
-        mastery_criteria: "Can classify current market regime and adjust strategy accordingly"
-      - id: sentiment_analysis
-        name: "Sentiment Analysis"
-        description: "News sentiment, social media signals, put/call ratios, VIX"
-        mastery_criteria: "Can incorporate sentiment signals into a trading decision"
-      - id: options_basics
-        name: "Options Basics"
-        description: "Calls, puts, Greeks, basic strategies (covered calls, spreads)"
-        mastery_criteria: "Can explain when to use options vs equity positions"
-      - id: cross_asset_signals
-        name: "Cross-Asset Signals"
-        description: "Bond-equity correlation, commodity-equity links, FX impacts"
-        mastery_criteria: "Can identify when cross-asset signals confirm or contradict equity moves"
-
+- name: Foundations
+  stage_number: 1
+  description: Core market knowledge and basic concepts
+  topics:
+  - id: market_microstructure
+    name: Market Microstructure
+    description: How exchanges work, order books, bid-ask spreads, market makers
+    mastery_criteria: Can explain how a limit order becomes a trade
+  - id: order_types
+    name: Order Types
+    description: Market, limit, stop, stop-limit, trailing stop orders
+    mastery_criteria: Can choose the right order type for a given scenario
+  - id: basic_ta
+    name: Basic Technical Analysis
+    description: Support/resistance, trends, moving averages, volume analysis
+    mastery_criteria: Can identify trend direction and key levels on a chart
+  - id: basic_fa
+    name: Basic Fundamental Analysis
+    description: P/E, P/B, revenue growth, earnings, balance sheet basics
+    mastery_criteria: Can evaluate whether a stock is overvalued using basic ratios
+  - id: market_hours
+    name: Market Hours & Sessions
+    description: Pre-market, regular hours, after-hours, global session overlaps
+    mastery_criteria: Can explain liquidity differences across sessions
+  - id: asset_classes
+    name: Asset Classes
+    description: Equities, bonds, commodities, forex, ETFs, REITs
+    mastery_criteria: Can describe correlation patterns between major asset classes
+  - id: price-to-earnings_pe_ratio
+    name: Price-to-Earnings (P/E) Ratio
+    description: Discovered during study of 'Basic Fundamental Analysis'.
+    mastery_criteria: Can explain and apply Price-to-Earnings (P/E) Ratio in a concrete
+      trading scenario
+  - id: trailing_pe
+    name: Trailing P/E
+    description: Discovered during study of 'Basic Fundamental Analysis'.
+    mastery_criteria: Can explain and apply Trailing P/E in a concrete trading scenario
+  - id: after-hourspre-market_trading
+    name: After-hours/pre-market trading
+    description: Discovered during study of 'Market Hours & Sessions'.
+    mastery_criteria: Can explain and apply After-hours/pre-market trading in a concrete
+      trading scenario
+  - id: ecns_electronic_communication_networks
+    name: ECNs (Electronic Communication Networks)
+    description: Discovered during study of 'Market Hours & Sessions'.
+    mastery_criteria: Can explain and apply ECNs (Electronic Communication Networks)
+      in a concrete trading scenario
+- name: Strategy Families
+  stage_number: 2
+  description: Core trading strategy archetypes
+  topics:
+  - id: momentum
+    name: Momentum Strategies
+    description: Trend following, breakouts, relative strength, time-series momentum
+    mastery_criteria: Can design a basic momentum strategy with entry/exit rules
+  - id: mean_reversion
+    name: Mean Reversion
+    description: RSI oversold/overbought, Bollinger Band bounces, pairs trading
+    mastery_criteria: Can identify mean-reverting conditions and set appropriate bounds
+  - id: pairs_trading
+    name: Pairs Trading
+    description: Cointegration, spread trading, statistical arbitrage basics
+    mastery_criteria: Can test for cointegration and design a pairs trade
+  - id: event_driven
+    name: Event-Driven Strategies
+    description: Earnings plays, FDA approvals, M&A, macro events
+    mastery_criteria: Can assess event probability and position accordingly
+  - id: factor_models
+    name: Factor Models
+    description: Fama-French factors, quality, low volatility, size, value
+    mastery_criteria: Can construct a multi-factor portfolio ranking
+- name: Risk Management
+  stage_number: 3
+  description: Portfolio construction and risk control
+  topics:
+  - id: kelly_criterion
+    name: Kelly Criterion
+    description: Optimal bet sizing, fractional Kelly, practical applications
+    mastery_criteria: Can calculate Kelly fraction and explain why fractional Kelly
+      is preferred
+  - id: portfolio_theory
+    name: Modern Portfolio Theory
+    description: Efficient frontier, diversification, correlation-based allocation
+    mastery_criteria: Can construct a minimum-variance portfolio from a set of assets
+  - id: drawdown_management
+    name: Drawdown Management
+    description: Max drawdown limits, recovery analysis, risk-of-ruin
+    mastery_criteria: Can implement a drawdown-based position reduction strategy
+  - id: position_sizing
+    name: Position Sizing
+    description: Fixed fractional, volatility-based, risk parity approaches
+    mastery_criteria: Can size positions using ATR-based volatility targeting
+- name: Advanced Topics
+  stage_number: 4
+  description: Sophisticated techniques and cross-domain knowledge
+  topics:
+  - id: regime_detection
+    name: Market Regime Detection
+    description: Hidden Markov models, volatility regimes, trend vs range markets
+    mastery_criteria: Can classify current market regime and adjust strategy accordingly
+  - id: sentiment_analysis
+    name: Sentiment Analysis
+    description: News sentiment, social media signals, put/call ratios, VIX
+    mastery_criteria: Can incorporate sentiment signals into a trading decision
+  - id: options_basics
+    name: Options Basics
+    description: Calls, puts, Greeks, basic strategies (covered calls, spreads)
+    mastery_criteria: Can explain when to use options vs equity positions
+  - id: cross_asset_signals
+    name: Cross-Asset Signals
+    description: Bond-equity correlation, commodity-equity links, FX impacts
+    mastery_criteria: Can identify when cross-asset signals confirm or contradict
+      equity moves
 ongoing:
-  - id: daily_news
-    name: "Daily News Ingestion"
-    description: "Market-moving news, earnings announcements, macro data releases"
-    frequency: daily
-  - id: professional_analysis
-    name: "Professional Trader Analysis"
-    description: "Curated analysis from experienced traders, filtered by relevance"
-    frequency: daily
+- id: daily_news
+  name: Daily News Ingestion
+  description: Market-moving news, earnings announcements, macro data releases
+  frequency: daily
+- id: professional_analysis
+  name: Professional Trader Analysis
+  description: Curated analysis from experienced traders, filtered by relevance
+  frequency: daily
