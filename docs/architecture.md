@@ -159,7 +159,7 @@ Standard trading performance calculations: annualized Sharpe ratio (with configu
 
 **`evaluation/backtester.py`**
 
-Walk-forward backtesting engine. Splits historical data into rolling train/test windows (configurable via `BacktestConfig`: train window 252 days, test window 63 days, step 21 days by default). For each window, the strategy sees only the test slice. Trades are simulated: buy at next day's open after a buy signal, sell at the next sell signal or end of window.
+Walk-forward backtesting engine. Splits historical data into rolling train/test windows (configurable via `BacktestConfig`: train window 252 days, test window 63 days, step 21 days by default). For each window, the strategy sees only the test slice (starting at bar 1 to avoid single-bar edge cases). Trades are simulated: buy at next day's open after a buy signal, sell at the next sell signal or end of window. Price lookups are guarded against KeyError and NaN to handle sparse or incomplete data gracefully.
 
 - Input: `Strategy` object, OHLCV `DataFrame`.
 - Output: `BacktestResult` with trades, equity curve, metrics, and window count.
@@ -186,7 +186,7 @@ Abstract base class that all trading strategies must implement. Defines four req
 
 **`strategies/registry.py`**
 
-In-memory registry of named strategies. Provides `register()`, `get()`, `list_strategies()`, and `get_all()`. A module-level singleton `registry` is used across the application.
+In-memory registry of named strategies. Provides `register()`, `unregister()`, `get()`, `list_strategies()`, and `get_all()`. A module-level singleton `registry` is used across the application. Also provides `load_survivors_from_store(store)` to load evolved strategies from the evolution SQLite store at agent startup.
 
 **`strategies/sma_crossover.py`**
 
@@ -198,13 +198,13 @@ RSI Mean Reversion strategy. Generates buy signals when the 14-period RSI drops 
 
 **`strategies/generator.py`**
 
-LLM-driven strategy generation and mutation. Uses the knowledge base and performance gaps to propose new strategies or modify existing ones.
+LLM-driven strategy generation and mutation. Uses the knowledge base and performance gaps to propose new strategies or modify existing ones. Includes `validate_spec_against_preferences()` which checks every generated spec against human risk limits from `preferences.yaml` (stop-loss vs max drawdown, position concentration). Specs that violate preferences are rejected before entering the tournament.
 
 ### `agents/` -- Trading Agent and Auditor Agent
 
 **`agents/trading/agent.py`**
 
-Main trading agent loop. Orchestrates the daily cycle: load preferences, register strategies, fetch market data, generate signals, execute through the risk-checked broker, and update state.
+Main trading agent loop. Orchestrates the daily cycle: load preferences, register strategies (including promoted/evolved strategies from the evolution store), fetch market data, generate signals, execute through the risk-checked broker, check for newly promotable strategies, and update state. At startup, loads promoted strategies via `StrategyPromoter` with fallback to raw evolution store survivors. After signal execution, calls `_check_promotions()` to auto-promote strategies that have completed their paper-testing period. Optionally triggers `run_evolution_cycle()` after learning sessions when configured.
 
 **`agents/trading/state.py`**
 
@@ -224,6 +224,41 @@ An audit passes only when there are zero critical findings. The auditor has read
 **`agents/auditor/checks/`**
 
 Individual audit check modules: `look_ahead_bias.py`, `overfitting.py`, `survivorship_bias.py`, `data_quality.py`. Each exports a check function that returns a list of `Finding` objects with severity levels (`critical`, `warning`, `info`).
+
+**`agents/auditor/layer2.py`** (V2)
+
+LLM-driven auditor that generates Python analysis code, runs it in a sandboxed subprocess, parses structured findings, and produces constructive feedback. Before execution, `validate_code()` performs AST-based validation to block 15 forbidden module imports (os, subprocess, sys, shutil, socket, http, urllib, ctypes, importlib, pathlib, multiprocessing, threading, signal, webbrowser, ftplib, smtplib, telnetlib) and 7 forbidden built-in calls (eval, exec, \_\_import\_\_, compile, open, breakpoint, exit, quit). Also contains `PatternPromoter` which tracks recurring Layer 2 findings in SQLite and auto-promotes patterns with 3+ occurrences and <20% false positive rate to Layer 1 check files.
+
+- Input: `StrategySpec`, `MultiPeriodResult`.
+- Output: `Layer2Analysis` (findings, feedback, raw code, execution status).
+- Key classes: `Layer2Auditor`, `PatternPromoter`.
+
+### `evolution/` -- Autonomous Strategy Evolution (V2)
+
+**`evolution/store.py`**
+
+SQLite persistence for evolution cycle state. Tracks cycles, strategy specs with scores/ranks, audit feedback, and exhaustion metrics. Provides `can_run_today()` to enforce the daily cycle limit and `check_exhaustion()` to detect score plateaus.
+
+- Key class: `EvolutionStore`.
+
+**`evolution/planner.py`**
+
+Builds generation context from the knowledge base (BM25 search), recent winners, past audit feedback, and preferences. Delegates to `StrategyGenerator` for the actual LLM calls.
+
+- Key class: `EvolutionPlanner`.
+
+**`evolution/cycle.py`**
+
+Top-level orchestrator that wires together: planner → generator → compiler → tournament → auditor → promotion → store. Limited to 1 cycle per day. After tournament selection, submits survivors as promotion candidates and checks for strategies ready to be promoted.
+
+- Key class: `EvolutionCycle`.
+
+**`evolution/promoter.py`**
+
+Manages the full strategy promotion lifecycle in SQLite: `candidate` → `paper_testing` → `promoted` → `retired`. Tracks paper-testing start dates and signal counts. Strategies are promoted when they complete the configurable testing period (default 5 days) with sufficient signals. Retired strategies can be re-submitted as new candidates.
+
+- Key class: `StrategyPromoter`.
+- Config: `evolution.promotion.testing_days` (default 5), `evolution.promotion.min_signals` (default 1).
 
 ### `openclaw/` -- Platform Integration
 

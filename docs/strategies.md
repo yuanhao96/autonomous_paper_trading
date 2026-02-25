@@ -185,6 +185,15 @@ registry.register(BollingerBreakoutStrategy())
 - Provide a descriptive `reason` string -- it appears in execution logs and reports.
 - Use only data available at the current bar. Accessing future data (e.g., `shift(-1)`) will trigger critical findings in the auditor's look-ahead bias check.
 
+### Template engine robustness (V2)
+
+The `TemplateStrategy` compiled from `StrategySpec` includes several defensive guards:
+
+- **Column validation** -- `generate_signals()` checks that the DataFrame contains required OHLCV columns (`Open`, `High`, `Low`, `Close`, `Volume`) and returns an empty list if any are missing.
+- **NaN-safe indicators** -- If an indicator computation fails or produces all-NaN output, the template engine logs a warning and substitutes an empty Series rather than crashing.
+- **Unknown indicators** -- References to indicators not in `INDICATOR_REGISTRY` are skipped with a warning.
+- **Preference enforcement** -- Generated specs are validated against `preferences.yaml` risk limits. Specs with `stop_loss_pct` exceeding `max_drawdown_pct` or implying excessive position concentration are rejected before compilation.
+
 ---
 
 ## How the Registry Works
@@ -198,6 +207,9 @@ from strategies.registry import registry
 
 # Register a strategy instance
 registry.register(my_strategy)
+
+# Remove a strategy by name (returns True if found)
+registry.unregister("old_strategy")
 
 # Look up a strategy by name
 strategy = registry.get("sma_crossover")  # returns Strategy or None
@@ -213,7 +225,9 @@ all_strategies = registry.get_all()  # returns list[Strategy]
 
 - The registry is a module-level singleton: `registry = StrategyRegistry()`. All imports share the same instance.
 - Strategies are keyed by their `name` property. Registering a strategy with the same name as an existing one replaces it.
-- The daily trading cycle in `main.py` auto-registers the default strategies (SMA Crossover, RSI Mean Reversion) if the registry is empty.
+- `unregister(name)` removes a strategy by name (used when retiring strategies from the promotion pipeline).
+- The daily trading cycle in `main.py` auto-registers the default strategies (SMA Crossover, RSI Mean Reversion) and any promoted/evolved strategies from the evolution store.
+- `load_survivors_from_store(store)` loads the most recent tournament survivors, compiles them via the template engine, and registers them.
 
 ---
 
