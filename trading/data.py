@@ -138,6 +138,69 @@ def get_ohlcv(
     return df
 
 
+def _range_cache_key(ticker: str, interval: str, start: str, end: str) -> str:
+    """Build the cache filename for a date-range query."""
+    return f"{ticker.upper()}_{interval}_{start}_{end}.parquet"
+
+
+def get_ohlcv_range(
+    ticker: str,
+    start: str,
+    end: str,
+    interval: str = "1d",
+) -> pd.DataFrame:
+    """Fetch OHLCV data for a fixed date range, using a local parquet cache.
+
+    Parameters
+    ----------
+    ticker:
+        Stock symbol (e.g. ``"SPY"``).
+    start:
+        Start date as ISO string (e.g. ``"2020-01-01"``).
+    end:
+        End date as ISO string (e.g. ``"2021-12-31"``).
+    interval:
+        Bar interval understood by yfinance (e.g. ``"1d"``).
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns ``Open, High, Low, Close, Volume``.
+        Index is ``DatetimeIndex`` named ``Date``.
+    """
+    cache_dir = _load_cache_dir()
+    filename = _range_cache_key(ticker, interval, start, end)
+    cache_path = cache_dir / filename
+
+    if cache_path.exists():
+        logger.info("Range cache hit for %s (%s to %s)", ticker, start, end)
+        df: pd.DataFrame = pd.read_parquet(cache_path)
+        df.attrs["ticker"] = ticker.upper()
+        return df
+
+    logger.info("Range cache miss for %s (%s to %s); fetching", ticker, start, end)
+
+    yf_ticker = yf.Ticker(ticker)
+    df = yf_ticker.history(start=start, end=end, interval=interval)
+
+    if df.empty:
+        logger.warning("yfinance returned empty DataFrame for %s (%s to %s)", ticker, start, end)
+        return df
+
+    standard_cols = ["Open", "High", "Low", "Close", "Volume"]
+    available = [c for c in standard_cols if c in df.columns]
+    df = df[available]
+
+    try:
+        df.to_parquet(cache_path)
+        logger.info("Cached %d rows for %s range to %s", len(df), ticker, cache_path)
+    except Exception:
+        logger.exception("Failed to write range cache file %s", cache_path)
+
+    df.attrs["ticker"] = ticker.upper()
+    return df
+
+
 def get_multiple(
     tickers: list[str],
     period: str = "1y",

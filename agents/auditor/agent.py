@@ -36,6 +36,7 @@ class AuditReport:
     findings: list[Finding] = field(default_factory=list)
     summary: str = ""
     timestamp: str = ""
+    feedback: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +154,60 @@ class AuditorAgent:
             logger.exception("data_quality check raised an exception")
 
         return self._build_report(all_findings)
+
+    def audit_strategy_spec(
+        self,
+        spec: "strategies.spec.StrategySpec",  # noqa: F821
+        multi_period_result: "evaluation.multi_period.MultiPeriodResult",  # noqa: F821
+    ) -> AuditReport:
+        """Run Layer 1 + Layer 2 audits on a strategy spec with backtest results.
+
+        Parameters
+        ----------
+        spec:
+            The declarative strategy specification.
+        multi_period_result:
+            Aggregated backtest results across multiple periods.
+
+        Returns
+        -------
+        AuditReport
+            Combined report with findings from both layers and constructive feedback.
+        """
+        all_findings: list[Finding] = []
+
+        # Layer 1: Run standard checks on the best period's backtest result.
+        for pr in multi_period_result.period_results:
+            bt = pr.backtest_result
+            try:
+                layer1_findings = check_look_ahead_bias(bt, "")
+                all_findings.extend(layer1_findings)
+            except Exception:
+                logger.exception("Layer 1 check failed for period '%s'", pr.period.name)
+
+            # Data quality on equity curve.
+            if bt.equity_curve is not None and isinstance(bt.equity_curve, pd.Series):
+                try:
+                    eq_df = bt.equity_curve.to_frame(name="Close")
+                    all_findings.extend(check_data_quality(eq_df))
+                except Exception:
+                    logger.exception("Data quality check failed")
+
+        # Layer 2: LLM analysis.
+        feedback = ""
+        try:
+            from agents.auditor.layer2 import Layer2Auditor
+
+            layer2 = Layer2Auditor()
+            analysis = layer2.analyze(spec, multi_period_result)
+            all_findings.extend(analysis.findings)
+            feedback = analysis.feedback
+        except Exception:
+            logger.exception("Layer 2 analysis failed")
+
+        report = self._build_report(all_findings)
+        report.feedback = feedback
+        return report
 
     # ------------------------------------------------------------------
     # Internal helpers

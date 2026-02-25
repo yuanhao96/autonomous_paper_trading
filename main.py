@@ -84,6 +84,7 @@ def _parse_args() -> argparse.Namespace:
             "learn", "weekly_review",
             "query_portfolio", "query_performance",
             "query_knowledge", "run_backtest",
+            "evolve",
         ],
         default=None,
         help="Specific action to run (used by OpenClaw cron jobs and tool calls).",
@@ -344,6 +345,18 @@ def _dispatch_action(action: str, query: str, notify: bool, mock: bool) -> None:
             result = "Error: --query is required for query_knowledge."
         else:
             result = asyncio.run(handle({"query": query}))
+
+    elif action == "evolve":
+        from evolution.cycle import EvolutionCycle
+
+        cycle = EvolutionCycle()
+        evo_result = cycle.run(trigger="manual")
+        result = (
+            f"Evolution cycle {evo_result.cycle_id}: "
+            f"generated {evo_result.specs_generated}, "
+            f"compiled {evo_result.specs_compiled}, "
+            f"best score {evo_result.best_score:.3f}"
+        )
 
     elif action == "run_backtest":
         # Populate the module-level registry so the tool handler can find strategies.

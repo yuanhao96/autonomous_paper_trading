@@ -259,6 +259,39 @@ class TradingAgent:
         return added_names
 
     # ------------------------------------------------------------------
+    # Evolution cycle
+    # ------------------------------------------------------------------
+
+    def run_evolution_cycle(self, trigger: str = "manual") -> str:
+        """Run one evolution cycle to generate and evaluate strategy candidates.
+
+        Creates an ``EvolutionCycle`` wired with the agent's memory and
+        curriculum instances, runs it, and returns a human-readable summary.
+        """
+        from evolution.cycle import EvolutionCycle
+        from evolution.store import EvolutionStore
+
+        try:
+            store = EvolutionStore()
+            cycle = EvolutionCycle(store=store)
+            result = cycle.run(trigger=trigger)
+
+            summary = (
+                f"Evolution cycle {result.cycle_id}: "
+                f"generated {result.specs_generated} specs, "
+                f"compiled {result.specs_compiled}, "
+                f"best score {result.best_score:.3f}"
+            )
+            if result.exhaustion_detected:
+                summary += " (exhaustion detected)"
+
+            logger.info(summary)
+            return summary
+        except Exception:
+            logger.exception("Evolution cycle failed")
+            return "Evolution cycle failed."
+
+    # ------------------------------------------------------------------
     # Daily trading cycle
     # ------------------------------------------------------------------
 

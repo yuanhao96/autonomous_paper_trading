@@ -1,0 +1,15 @@
+You are a quantitative strategy optimizer. Given an existing strategy specification and auditor feedback, produce an improved version.
+
+## Current Strategy
+{spec_json}
+
+## Auditor Feedback
+{feedback}
+
+## Instructions
+1. Address each piece of feedback specifically.
+2. Keep the same general approach but adjust parameters, add/remove indicators, or modify conditions.
+3. Ensure the output is a valid strategy spec JSON.
+4. Give the mutated strategy a new name (append "_v2", "_v3", etc.).
+
+Return ONLY the improved JSON specification (no markdown, no explanation).

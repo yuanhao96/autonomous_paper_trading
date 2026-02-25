@@ -50,3 +50,21 @@ learning:
     stage_2: [memory, web, wikipedia, books, arxiv]
     stage_3: [memory, web, books, arxiv]
     stage_4: [memory, web, arxiv, news]
+
+# V2: Evolution cycle configuration
+evolution:
+  batch_size: 10
+  survivor_count: 3
+  max_cycles_per_day: 1
+  min_sharpe_floor: -0.5
+  backtest_ticker: "SPY"
+  periods:
+    - {name: "GFC", start: "2007-01-01", end: "2009-06-30", weight: 1.0}
+    - {name: "Low-vol grind", start: "2013-01-01", end: "2014-12-31", weight: 1.0}
+    - {name: "Melt-up + vol spike", start: "2017-01-01", end: "2018-03-31", weight: 1.0}
+    - {name: "COVID cycle", start: "2019-06-01", end: "2021-06-30", weight: 1.5}
+    - {name: "Rate hiking bear", start: "2022-01-01", end: "2022-12-31", weight: 1.5}
+    - {name: "Current", start: "2024-01-01", end: "2025-02-28", weight: 2.0}
+  exhaustion_detection:
+    plateau_cycles: 5
+    min_score_improvement: 0.01

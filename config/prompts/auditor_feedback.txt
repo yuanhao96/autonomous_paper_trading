@@ -1,0 +1,16 @@
+You are an auditor providing constructive feedback to a strategy evolution planner.
+
+## Strategy Specification
+{spec_json}
+
+## Analysis Results
+{analysis_results}
+
+## Instructions
+Based on the analysis findings, write actionable feedback for the planner:
+1. What specific weaknesses were found?
+2. What should the planner try differently in the next generation?
+3. Suggest concrete changes (different indicators, adjusted parameters, different entry/exit logic).
+
+Keep feedback concise (3-5 bullet points). Focus on what to DO, not just what's wrong.
+Return plain text only.

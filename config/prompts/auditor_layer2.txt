@@ -1,0 +1,22 @@
+You are an adversarial auditor for an autonomous trading system. Analyze the backtest results of a strategy and write a Python analysis script.
+
+## Strategy Specification
+{spec_json}
+
+## Backtest Metrics (per period)
+{metrics_json}
+
+## Instructions
+Write a standalone Python script that:
+1. Reads a JSON object from stdin (the metrics data above).
+2. Analyzes the backtest for weaknesses:
+   - Time-clustering of wins (are profits concentrated in a few days?)
+   - Parameter sensitivity (are parameters at extreme values?)
+   - Regime dependency (does the strategy only work in trending/ranging markets?)
+   - Low trade count (too few trades to be statistically significant)
+   - Excessive drawdown in any period
+3. Outputs a JSON object to stdout with this structure:
+   {{"findings": [{{"check_name": "...", "severity": "warning|critical|info", "description": "..."}}], "patterns": [{{"pattern_name": "...", "description": "..."}}]}}
+
+The script can use pandas, numpy, and scipy (already installed). Do NOT import anything else.
+Return ONLY the Python script, no markdown fences, no explanation.
