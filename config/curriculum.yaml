@@ -47,6 +47,64 @@ stages:
     description: Discovered during study of 'Market Hours & Sessions'.
     mastery_criteria: Can explain and apply ECNs (Electronic Communication Networks)
       in a concrete trading scenario
+  - id: asset_class
+    name: Asset class
+    description: Discovered during study of 'Asset Classes'.
+    mastery_criteria: Can explain and apply Asset class in a concrete trading scenario
+  - id: forex_diversification
+    name: Forex diversification
+    description: Discovered during study of 'Asset Classes'.
+    mastery_criteria: Can explain and apply Forex diversification in a concrete trading
+      scenario
+  - id: forward_pe
+    name: Forward P/E
+    description: Discovered during study of 'Price-to-Earnings (P/E) Ratio'.
+    mastery_criteria: Can explain and apply Forward P/E in a concrete trading scenario
+  - id: earnings_per_share_eps
+    name: Earnings Per Share (EPS)
+    description: Discovered during study of 'Price-to-Earnings (P/E) Ratio'.
+    mastery_criteria: Can explain and apply Earnings Per Share (EPS) in a concrete
+      trading scenario
+  - id: trailing_pe_ratio
+    name: Trailing P/E Ratio
+    description: Discovered during study of 'Trailing P/E'.
+    mastery_criteria: Can explain and apply Trailing P/E Ratio in a concrete trading
+      scenario
+  - id: forward_pe_ratio
+    name: Forward P/E Ratio
+    description: Discovered during study of 'Trailing P/E'.
+    mastery_criteria: Can explain and apply Forward P/E Ratio in a concrete trading
+      scenario
+  - id: session_overlaps
+    name: Session overlaps
+    description: Discovered during study of 'After-hours/pre-market trading'.
+    mastery_criteria: Can explain and apply Session overlaps in a concrete trading
+      scenario
+  - id: liquidity_and_volatility_patterns
+    name: Liquidity and volatility patterns
+    description: Discovered during study of 'After-hours/pre-market trading'.
+    mastery_criteria: Can explain and apply Liquidity and volatility patterns in a
+      concrete trading scenario
+  - id: electronic_communication_networks_ecns
+    name: Electronic Communication Networks (ECNs)
+    description: Discovered during study of 'ECNs (Electronic Communication Networks)'.
+    mastery_criteria: Can explain and apply Electronic Communication Networks (ECNs)
+      in a concrete trading scenario
+  - id: limit_order_books
+    name: Limit order books
+    description: Discovered during study of 'ECNs (Electronic Communication Networks)'.
+    mastery_criteria: Can explain and apply Limit order books in a concrete trading
+      scenario
+  - id: currency_diversification
+    name: Currency diversification
+    description: Discovered during study of 'Asset class'.
+    mastery_criteria: Can explain and apply Currency diversification in a concrete
+      trading scenario
+  - id: intermarket_analysis
+    name: Intermarket analysis
+    description: Discovered during study of 'Asset class'.
+    mastery_criteria: Can explain and apply Intermarket analysis in a concrete trading
+      scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
