@@ -10,7 +10,9 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
@@ -214,6 +216,69 @@ def _send_openclaw_message(message: str) -> None:
         logging.getLogger(__name__).warning("Failed to send OpenClaw message: %s", exc)
 
 
+def _auto_push_learning_updates(learning_summary: str = "") -> None:
+    """Commit and push repo changes after a learning session.
+
+    Enabled by default. Set AUTO_PUSH_AFTER_LEARNING=false to disable.
+    """
+    logger = logging.getLogger(__name__)
+    enabled = os.getenv("AUTO_PUSH_AFTER_LEARNING", "true").strip().lower()
+    if enabled in {"0", "false", "no", "off"}:
+        logger.info("AUTO_PUSH_AFTER_LEARNING disabled; skipping git push.")
+        return
+
+    try:
+        # Quick dirty check (porcelain output empty => no changes)
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(_PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+        if not status.stdout.strip():
+            logger.info("No repo changes after learning session; nothing to push.")
+            return
+
+        subprocess.run(["git", "add", "-A"], cwd=str(_PROJECT_ROOT), check=True, timeout=30)
+
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        first_line = (learning_summary or "").splitlines()[0][:120]
+        msg = f"chore: nightly learning update ({ts})"
+        if first_line:
+            msg += f"\n\n{first_line}"
+
+        # Commit may fail if nothing staged after add/race; tolerate that.
+        commit = subprocess.run(
+            ["git", "commit", "-m", msg],
+            cwd=str(_PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if commit.returncode != 0 and "nothing to commit" in (commit.stdout + commit.stderr).lower():
+            logger.info("No commit created (nothing to commit).")
+            return
+        elif commit.returncode != 0:
+            logger.warning("Auto-commit failed: %s", (commit.stderr or commit.stdout).strip())
+            return
+
+        push = subprocess.run(
+            ["git", "push", "origin", "main"],
+            cwd=str(_PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if push.returncode == 0:
+            logger.info("Auto-pushed nightly learning updates to origin/main.")
+        else:
+            logger.warning("Auto-push failed: %s", (push.stderr or push.stdout).strip())
+    except Exception as exc:
+        logger.warning("Auto-push after learning failed: %s", exc)
+
+
 def _dispatch_action(action: str, query: str, notify: bool, mock: bool) -> None:
     """Dispatch a single named action and optionally notify via OpenClaw.
 
@@ -257,6 +322,7 @@ def _dispatch_action(action: str, query: str, notify: bool, mock: bool) -> None:
     elif action == "learn":
         agent = TradingAgent(mock=mock)
         result = agent.run_learning_session()
+        _auto_push_learning_updates(result)
 
     elif action == "weekly_review":
         agent = TradingAgent(mock=mock)
