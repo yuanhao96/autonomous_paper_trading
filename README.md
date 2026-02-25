@@ -123,6 +123,30 @@ done
 The `config/books.yaml` file maps each curriculum `topic_id` to a list of relevant book filenames.
 Override the books directory with the `BOOKS_DIR` environment variable.
 
+### Knowledge Maintenance
+
+PDF conversion sometimes produces empty or near-empty chunks (table-of-contents
+lines, page numbers, single-word entries). Use the purge script to remove them:
+
+```bash
+# Dry-run — print what would be deleted (default)
+python scripts/purge_junk_knowledge.py
+
+# Also remove entire books where ≥ 80 % of parts are junk fragments
+python scripts/purge_junk_knowledge.py --purge-bad-books
+
+# Execute deletion
+python scripts/purge_junk_knowledge.py --purge-bad-books --execute
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dir` | `knowledge/memory/trading/discovered` | Target directory |
+| `--threshold` | `100` | Minimum body character count to keep a file |
+| `--purge-bad-books` | off | Delete all parts of books where ≥ `--book-junk-pct` % of parts are junk |
+| `--book-junk-pct` | `80` | Junk-part percentage that triggers whole-book removal |
+| `--execute` | off | Dry-run by default; add this flag to actually delete |
+
 ## Configuration Reference
 
 ### `config/preferences.yaml` (Human-Controlled)
