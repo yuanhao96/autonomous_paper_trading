@@ -19,8 +19,8 @@ data/market/
 data/*.db
 data/
 
-# Knowledge memory (daily logs are ephemeral)
-knowledge/memory/*/daily_log/
+# Knowledge memory
+# Keep daily logs versioned for auditability of nightly learning sessions.
 
 # Logs
 logs/
