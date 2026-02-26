@@ -199,6 +199,71 @@ class TestValidation:
         errors = spec.validate()
         assert errors == []
 
+    def test_ohlcv_columns_accepted_in_conditions(self) -> None:
+        """Price columns (Close, Open, etc.) should be valid condition operands."""
+        spec = StrategySpec(
+            name="price_ref_test",
+            version="0.1.0",
+            description="test OHLCV column references",
+            indicators=[
+                IndicatorSpec(name="sma", params={"period": 20}, output_key="sma_val"),
+                IndicatorSpec(
+                    name="bollinger_bands", params={"period": 20}, output_key="bb",
+                ),
+            ],
+            entry_conditions=CompositeCondition(
+                logic="ALL_OF",
+                conditions=[
+                    ConditionSpec(
+                        operator="greater_than", left="Close", right="sma_val",
+                    ),
+                    ConditionSpec(
+                        operator="less_than", left="Close", right="bb_upper",
+                    ),
+                ],
+            ),
+            exit_conditions=CompositeCondition(
+                logic="ALL_OF",
+                conditions=[
+                    ConditionSpec(
+                        operator="less_than", left="Close", right="sma_val",
+                    ),
+                ],
+            ),
+        )
+        errors = spec.validate()
+        assert errors == []
+
+    def test_all_ohlcv_columns_accepted(self) -> None:
+        """All 5 OHLCV columns should pass validation."""
+        for col in ("Open", "High", "Low", "Close", "Volume"):
+            spec = StrategySpec(
+                name=f"{col.lower()}_test",
+                version="0.1.0",
+                description=f"test {col} reference",
+                indicators=[
+                    IndicatorSpec(name="sma", params={"period": 20}, output_key="sma_val"),
+                ],
+                entry_conditions=CompositeCondition(
+                    logic="ALL_OF",
+                    conditions=[
+                        ConditionSpec(
+                            operator="greater_than", left=col, right="sma_val",
+                        ),
+                    ],
+                ),
+                exit_conditions=CompositeCondition(
+                    logic="ALL_OF",
+                    conditions=[
+                        ConditionSpec(
+                            operator="less_than", left=col, right="sma_val",
+                        ),
+                    ],
+                ),
+            )
+            errors = spec.validate()
+            assert errors == [], f"{col} should be accepted but got: {errors}"
+
     def test_invalid_logic(self) -> None:
         spec = _make_sma_crossover_spec()
         spec.entry_conditions.logic = "SOME_OF"

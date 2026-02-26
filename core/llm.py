@@ -66,13 +66,19 @@ def _get_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
         api_key = os.getenv("KIMI_CODE_API_KEY")
-        if not api_key:
-            raise EnvironmentError(
-                "KIMI_CODE_API_KEY is not set. "
-                "Add it to your .env file (get it from kimi.com/code/console)."
-            )
-        base_url = os.getenv("KIMI_CODE_BASE_URL", KIMI_CODE_BASE_URL)
-        _client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+        if api_key:
+            base_url = os.getenv("KIMI_CODE_BASE_URL", KIMI_CODE_BASE_URL)
+            _client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+            logger.info("Using Kimi Code API")
+        else:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise EnvironmentError(
+                    "No LLM API key found. Set KIMI_CODE_API_KEY or "
+                    "ANTHROPIC_API_KEY in your .env file."
+                )
+            _client = anthropic.Anthropic(api_key=api_key)
+            logger.info("Using Anthropic API")
     return _client
 
 

@@ -86,6 +86,87 @@ def pattern_db(tmp_path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
+class TestStripForbiddenCode:
+    """Tests for Layer2Auditor.strip_forbidden_code()."""
+
+    def test_strips_import_sys(self) -> None:
+        code = "import sys\nimport json\ndata = json.load(sys.stdin)\nprint(data)\n"
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        assert "import sys" not in cleaned
+        assert "import json" in cleaned
+
+    def test_strips_from_os_import(self) -> None:
+        code = "from os import path\nimport json\nprint('ok')\n"
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        assert "os" not in cleaned
+        assert "import json" in cleaned
+
+    def test_strips_combined_forbidden_import(self) -> None:
+        code = "import sys, os\nimport json\nprint('hi')\n"
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        assert "import sys" not in cleaned
+        assert "import os" not in cleaned
+        assert "import json" in cleaned
+
+    def test_keeps_mixed_import_nonforbidden(self) -> None:
+        code = "import json, sys\nprint('hi')\n"
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        # json should survive, sys should be removed.
+        assert "json" in cleaned
+        assert "sys" not in cleaned
+
+    def test_strips_open_call(self) -> None:
+        code = "f = open('test.txt')\nprint('ok')\n"
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        assert "open(" not in cleaned
+        # The call should be replaced with None.
+        assert "None" in cleaned
+
+    def test_strips_eval_call(self) -> None:
+        code = "result = eval('1+1')\nprint(result)\n"
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        assert "eval(" not in cleaned
+
+    def test_clean_code_passes_validation(self) -> None:
+        """Code with forbidden imports should pass validation after stripping."""
+        code = (
+            "import sys, json\n"
+            "data = json.loads('{}')\n"
+            "print(json.dumps({'findings': [], 'patterns': []}))\n"
+        )
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        violations = Layer2Auditor.validate_code(cleaned)
+        assert violations == []
+
+    def test_rewrites_sys_stdin(self) -> None:
+        """sys.stdin references should be replaced with a safe _STDIN reader."""
+        code = (
+            "import sys, json\n"
+            "data = json.load(sys.stdin)\n"
+            "print(json.dumps(data))\n"
+        )
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        assert "sys" not in cleaned
+        assert "_STDIN" in cleaned
+        assert "import io as _io" in cleaned
+        # Should still pass validation.
+        violations = Layer2Auditor.validate_code(cleaned)
+        assert violations == []
+
+    def test_no_stdin_preamble_when_not_needed(self) -> None:
+        """Don't inject _STDIN preamble if sys.stdin wasn't used."""
+        code = "import sys\nprint('hello')\n"
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        assert "_STDIN" not in cleaned
+        assert "_io" not in cleaned
+
+    def test_syntax_error_returned_as_is(self) -> None:
+        code = "import sys\ndef foo(:\n"
+        cleaned = Layer2Auditor.strip_forbidden_code(code)
+        # Can't parse, returned unchanged.
+        assert cleaned == code
+
+
 class TestLayer2Auditor:
     def test_build_analysis_context(
         self, sample_spec: StrategySpec, sample_multi_period_result: MultiPeriodResult
@@ -138,10 +219,11 @@ class TestLayer2Auditor:
             "{spec_json} {analysis_results}",  # auditor_feedback template
         ]
 
-        # First LLM call: analysis code. Second: feedback.
+        # First LLM call: analysis code (with stray `import sys` that
+        # strip_forbidden_code should handle).  Second: feedback.
         analysis_code = (
             "import sys, json\n"
-            "data = json.load(sys.stdin)\n"
+            "data = json.loads('{}')\n"
             "result = {'findings': ["
             "{'check_name': 'mock', 'severity': 'info', "
             "'description': 'test'}], 'patterns': []}\n"

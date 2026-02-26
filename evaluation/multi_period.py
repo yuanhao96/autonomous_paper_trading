@@ -13,7 +13,7 @@ from typing import Any
 
 import yaml
 
-from evaluation.backtester import Backtester, BacktestResult
+from evaluation.backtester import BacktestConfig, Backtester, BacktestResult
 from strategies.base import Strategy
 from trading.data import get_ohlcv_range
 
@@ -112,12 +112,19 @@ class MultiPeriodBacktester:
         min_sharpe_floor: float = -0.5,
         ticker: str = "SPY",
         data_fetcher: Any = None,
+        backtest_config: BacktestConfig | None = None,
     ) -> None:
         self._periods = periods or load_period_configs()
         self._min_sharpe_floor = min_sharpe_floor
         self._ticker = ticker
         self._data_fetcher = data_fetcher or get_ohlcv_range
-        self._backtester = Backtester()
+        # Shorter windows so all historical periods (including ~250-day ones) fit.
+        config = backtest_config or BacktestConfig(
+            train_window_days=120,
+            test_window_days=40,
+            step_days=20,
+        )
+        self._backtester = Backtester(config=config)
 
     def run(self, strategy: Strategy) -> MultiPeriodResult:
         """Backtest *strategy* across all configured periods."""

@@ -14,6 +14,9 @@ Each indicator is computed on OHLCV data. Use the "name" field to reference them
 
 Nesting: You can set an indicator's "source" to another indicator's output_key (one level deep). Example: EMA of RSI.
 
+## Price Columns Available in Conditions
+You can reference raw OHLCV columns directly in condition left/right fields: **Open**, **High**, **Low**, **Close**, **Volume**. Example: `"left": "Close", "right": "bb_upper"` to compare price against the upper Bollinger Band.
+
 ## Available Condition Operators
 - **cross_above**(left, right) — left crosses above right (prev: left<=right, cur: left>right)
 - **cross_below**(left, right) — left crosses below right

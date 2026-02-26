@@ -130,6 +130,110 @@ class Layer2Auditor:
     })
 
     @classmethod
+    def strip_forbidden_code(cls, code: str) -> str:
+        """Remove forbidden imports and calls from LLM-generated code.
+
+        Uses AST to surgically remove violating nodes so the rest of the
+        script can still run.  Returns the cleaned source code.
+        """
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return code  # Can't parse — return as-is for validate_code to flag.
+
+        nodes_to_remove: list[ast.stmt] = []
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                # Remove entire import if ALL names are forbidden.
+                all_forbidden = all(
+                    alias.name.split(".")[0] in cls._FORBIDDEN_IMPORTS
+                    for alias in node.names
+                )
+                if all_forbidden:
+                    nodes_to_remove.append(node)
+                else:
+                    # Keep only non-forbidden names.
+                    node.names = [
+                        alias for alias in node.names
+                        if alias.name.split(".")[0] not in cls._FORBIDDEN_IMPORTS
+                    ]
+
+            elif isinstance(node, ast.ImportFrom):
+                if node.module and node.module.split(".")[0] in cls._FORBIDDEN_IMPORTS:
+                    nodes_to_remove.append(node)
+
+        # Remove flagged statements from the module body (and any
+        # function/class bodies).
+        if nodes_to_remove:
+            remove_set = set(id(n) for n in nodes_to_remove)
+            for parent in ast.walk(tree):
+                for field_name, field_value in ast.iter_fields(parent):
+                    if isinstance(field_value, list):
+                        new_list = [
+                            item for item in field_value
+                            if not (isinstance(item, ast.stmt) and id(item) in remove_set)
+                        ]
+                        # Avoid empty bodies (replace with `pass`).
+                        if (
+                            len(new_list) < len(field_value)
+                            and len(new_list) == 0
+                            and field_name == "body"
+                        ):
+                            new_list = [ast.Pass()]
+                        setattr(parent, field_name, new_list)
+
+            ast.fix_missing_locations(tree)
+
+        # Second pass: replace forbidden calls with None (a no-op expression).
+        class _CallRewriter(ast.NodeTransformer):
+            def visit_Call(self, node: ast.Call) -> ast.AST:
+                self.generic_visit(node)
+                func = node.func
+                name = None
+                if isinstance(func, ast.Name):
+                    name = func.id
+                elif isinstance(func, ast.Attribute):
+                    name = func.attr
+                if name and name in cls._FORBIDDEN_CALLS:
+                    return ast.copy_location(
+                        ast.Constant(value=None), node,
+                    )
+                return node
+
+        tree = _CallRewriter().visit(tree)
+
+        # Third pass: rewrite `sys.stdin` references to use a safe
+        # stdin reader, since we just stripped `import sys`.
+        class _StdinRewriter(ast.NodeTransformer):
+            found_stdin = False
+
+            def visit_Attribute(self, node: ast.Attribute) -> ast.AST:
+                self.generic_visit(node)
+                if (
+                    node.attr == "stdin"
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id == "sys"
+                ):
+                    self.found_stdin = True
+                    return ast.copy_location(ast.Name(id="_STDIN", ctx=ast.Load()), node)
+                return node
+
+        rewriter = _StdinRewriter()
+        tree = rewriter.visit(tree)
+
+        # If we rewrote any sys.stdin refs, prepend a _STDIN helper.
+        if rewriter.found_stdin:
+            preamble = ast.parse(
+                "import io as _io\n_STDIN = _io.TextIOWrapper(_io.FileIO(0))\n"
+            )
+            tree.body = preamble.body + tree.body
+
+        ast.fix_missing_locations(tree)
+
+        return ast.unparse(tree)
+
+    @classmethod
     def validate_code(cls, code: str) -> list[str]:
         """Validate LLM-generated Python code using AST analysis.
 
@@ -175,7 +279,11 @@ class Layer2Auditor:
         self, code: str, context_json: str
     ) -> tuple[bool, str]:
         """Execute analysis code in a sandboxed subprocess."""
-        # Validate code before execution.
+        # Strip forbidden imports/calls before validation so that
+        # LLM-generated code with stray `import sys` etc. can still run.
+        code = self.strip_forbidden_code(code)
+
+        # Validate the cleaned code.
         violations = self.validate_code(code)
         if violations:
             msg = "Code validation failed: " + "; ".join(violations)

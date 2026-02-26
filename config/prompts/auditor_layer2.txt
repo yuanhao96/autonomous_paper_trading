@@ -18,5 +18,20 @@ Write a standalone Python script that:
 3. Outputs a JSON object to stdout with this structure:
    {{"findings": [{{"check_name": "...", "severity": "warning|critical|info", "description": "..."}}], "patterns": [{{"pattern_name": "...", "description": "..."}}]}}
 
-The script can use pandas, numpy, and scipy (already installed). Do NOT import anything else.
+## CRITICAL — Import Restrictions
+Your script may ONLY import from this whitelist:
+  import json
+  import math
+  import statistics
+  import pandas as pd
+  import numpy as np
+  from scipy import stats  (or other scipy submodules)
+
+DO NOT import any of the following (the script will be rejected if you do):
+  os, sys, subprocess, shutil, socket, http, urllib, ctypes, importlib,
+  pathlib, multiprocessing, threading, signal, webbrowser, ftplib, smtplib,
+  telnetlib
+
+DO NOT call: eval(), exec(), open(), __import__(), compile(), breakpoint(), exit(), quit()
+
 Return ONLY the Python script, no markdown fences, no explanation.
