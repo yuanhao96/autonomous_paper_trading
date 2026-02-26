@@ -24,14 +24,15 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
+
 load_dotenv(dotenv_path=_PROJECT_ROOT / ".env")
 
-from knowledge.curriculum import CurriculumTracker
-from knowledge.learning_controller import LearningController
-from knowledge.store import MarkdownMemory, Document
-from knowledge.synthesizer import KnowledgeSynthesizer, StructuredKnowledge
-from knowledge.ingestion import fetch_web_search, fetch_wikipedia
+from knowledge.curriculum import CurriculumTracker  # noqa: E402
+from knowledge.ingestion import fetch_web_search, fetch_wikipedia  # noqa: E402
+from knowledge.learning_controller import LearningController  # noqa: E402
+from knowledge.store import Document, MarkdownMemory  # noqa: E402
+from knowledge.synthesizer import KnowledgeSynthesizer, StructuredKnowledge  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,7 +72,10 @@ def _local_synthesize(
     Good enough to test the full pipeline end-to-end.
     """
     # Build keyword list from topic name and description.
-    stop_words = {"the", "a", "an", "and", "or", "for", "to", "in", "of", "is", "are", "how", "what"}
+    stop_words = {
+        "the", "a", "an", "and", "or", "for", "to",
+        "in", "of", "is", "are", "how", "what",
+    }
     words = re.findall(r'[a-z]+', (topic_name + " " + topic_description).lower())
     keywords = [w for w in words if w not in stop_words and len(w) > 2]
 
@@ -79,7 +83,11 @@ def _local_synthesize(
     relevant_sentences = _extract_sentences(all_text, keywords, max_sentences=20)
 
     # Build summary from top sentences.
-    summary = " ".join(relevant_sentences[:5]) if relevant_sentences else f"Content related to {topic_name}."
+    summary = (
+        " ".join(relevant_sentences[:5])
+        if relevant_sentences
+        else f"Content related to {topic_name}."
+    )
 
     # Extract capitalized multi-word phrases as potential concepts.
     concept_pattern = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b')
@@ -105,9 +113,16 @@ def _local_synthesize(
         implications = [f"Understanding {topic_name} is essential for informed trading decisions."]
 
     # Risk factors: sentences mentioning risk.
-    risk_sentences = _extract_sentences(all_text, ["risk", "danger", "loss", "caution", "warning"], max_sentences=5)
+    risk_sentences = _extract_sentences(
+        all_text,
+        ["risk", "danger", "loss", "caution", "warning"],
+        max_sentences=5,
+    )
     if not risk_sentences:
-        risk_sentences = [f"Insufficient knowledge of {topic_name} can lead to poor trading outcomes."]
+        risk_sentences = [
+            f"Insufficient knowledge of {topic_name} "
+            "can lead to poor trading outcomes."
+        ]
 
     return StructuredKnowledge(
         summary=summary[:500],
@@ -475,8 +490,10 @@ def main() -> None:
                         help="Skip Wikipedia fetches (use only book knowledge).")
     parser.add_argument("--skip-web", action="store_true",
                         help="Skip web search (use only books + Wikipedia).")
-    parser.add_argument("--no-controller", action="store_true",
-                        help="Use legacy fixed pipeline (Steps 1/2/2b) instead of multi-round controller.")
+    parser.add_argument(
+        "--no-controller", action="store_true",
+        help="Use legacy fixed pipeline instead of multi-round controller.",
+    )
     args = parser.parse_args()
 
     tracker = CurriculumTracker(
@@ -538,7 +555,9 @@ def main() -> None:
             print(f"    Mastery: [{bar}] {score:.0%}")
             print(f"    Sources: {r['documents_used']} documents")
             if r.get("rounds_used") is not None:
-                print(f"    Rounds:  {r['rounds_used']} | Source diversity: {r.get('source_diversity', '?')} tool(s)")
+                rounds = r['rounds_used']
+                diversity = r.get('source_diversity', '?')
+                print(f"    Rounds:  {rounds} | Source diversity: {diversity} tool(s)")
             if r.get("gaps"):
                 print(f"    Gaps: {', '.join(r['gaps'][:3])}")
             if r.get("key_concepts"):

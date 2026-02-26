@@ -53,6 +53,7 @@ learning:
 
 # V2: Evolution cycle configuration
 evolution:
+  auto_trigger_after_learning: false  # Set true to run evolution cycle after each learning session
   batch_size: 10
   survivor_count: 3
   max_cycles_per_day: 1
@@ -65,6 +66,9 @@ evolution:
     - {name: "COVID cycle", start: "2019-06-01", end: "2021-06-30", weight: 1.5}
     - {name: "Rate hiking bear", start: "2022-01-01", end: "2022-12-31", weight: 1.5}
     - {name: "Current", start: "2024-01-01", end: "2025-02-28", weight: 2.0}
+  promotion:
+    testing_days: 5       # Days a strategy must paper-test before promotion
+    min_signals: 1        # Minimum signals generated during testing period
   exhaustion_detection:
     plateau_cycles: 5
     min_score_improvement: 0.01

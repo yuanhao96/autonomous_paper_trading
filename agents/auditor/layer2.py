@@ -6,6 +6,7 @@ produces actionable feedback, and promotes recurring patterns to Layer 1.
 
 from __future__ import annotations
 
+import ast
 import json
 import logging
 import re
@@ -115,10 +116,72 @@ class Layer2Auditor:
 
         return result
 
+    # Modules that must not appear in LLM-generated analysis code.
+    _FORBIDDEN_IMPORTS = frozenset({
+        "os", "subprocess", "sys", "shutil", "socket", "http", "urllib",
+        "ctypes", "importlib", "pathlib", "multiprocessing", "threading",
+        "signal", "webbrowser", "ftplib", "smtplib", "telnetlib",
+    })
+
+    # Built-in function names that must not be called.
+    _FORBIDDEN_CALLS = frozenset({
+        "eval", "exec", "__import__", "compile", "open",
+        "breakpoint", "exit", "quit",
+    })
+
+    @classmethod
+    def validate_code(cls, code: str) -> list[str]:
+        """Validate LLM-generated Python code using AST analysis.
+
+        Returns a list of violation descriptions.  An empty list means the
+        code passed validation.
+        """
+        violations: list[str] = []
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError as exc:
+            violations.append(f"Syntax error: {exc}")
+            return violations
+
+        for node in ast.walk(tree):
+            # Check import statements.
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    top = alias.name.split(".")[0]
+                    if top in cls._FORBIDDEN_IMPORTS:
+                        violations.append(f"Forbidden import: {alias.name}")
+
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    top = node.module.split(".")[0]
+                    if top in cls._FORBIDDEN_IMPORTS:
+                        violations.append(f"Forbidden import: {node.module}")
+
+            # Check function calls to forbidden builtins.
+            elif isinstance(node, ast.Call):
+                func = node.func
+                name = None
+                if isinstance(func, ast.Name):
+                    name = func.id
+                elif isinstance(func, ast.Attribute):
+                    name = func.attr
+                if name and name in cls._FORBIDDEN_CALLS:
+                    violations.append(f"Forbidden call: {name}()")
+
+        return violations
+
     def _execute_analysis(
         self, code: str, context_json: str
     ) -> tuple[bool, str]:
         """Execute analysis code in a sandboxed subprocess."""
+        # Validate code before execution.
+        violations = self.validate_code(code)
+        if violations:
+            msg = "Code validation failed: " + "; ".join(violations)
+            logger.warning("Layer 2: %s", msg)
+            return False, msg
+
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".py", delete=False
         ) as f:

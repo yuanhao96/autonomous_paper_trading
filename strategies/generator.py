@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 
 from core.llm import call_llm, load_prompt_template
+from core.preferences import Preferences, load_preferences
 from strategies.spec import StrategySpec
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,37 @@ class GenerationResult:
 # ---------------------------------------------------------------------------
 
 
+def validate_spec_against_preferences(
+    spec: StrategySpec, prefs: Preferences
+) -> list[str]:
+    """Check that a strategy spec respects human preferences.
+
+    Returns a list of violation descriptions.  Empty means the spec is
+    within bounds.
+    """
+    violations: list[str] = []
+
+    # Stop-loss must not exceed the max drawdown preference.
+    if spec.risk.stop_loss_pct > prefs.max_drawdown_pct:
+        violations.append(
+            f"stop_loss_pct ({spec.risk.stop_loss_pct}%) exceeds "
+            f"max_drawdown_pct ({prefs.max_drawdown_pct}%)"
+        )
+
+    # Max positions should not imply a single-position concentration
+    # above max_position_pct (equal-weight assumption).
+    if spec.risk.max_positions > 0:
+        implied_pct = 100.0 / spec.risk.max_positions
+        if implied_pct > prefs.max_position_pct * 2:
+            violations.append(
+                f"max_positions ({spec.risk.max_positions}) implies "
+                f"{implied_pct:.0f}% per position, exceeding "
+                f"max_position_pct ({prefs.max_position_pct}%) by more than 2x"
+            )
+
+    return violations
+
+
 class StrategyGenerator:
     """Generate StrategySpec instances via LLM."""
 
@@ -58,10 +90,18 @@ class StrategyGenerator:
         """Generate a batch of strategy specs.
 
         Calls the LLM ``batch_size`` times with increasing diversity indices.
-        Each response is parsed as JSON and validated.
+        Each response is parsed as JSON and validated.  Specs that violate
+        human preferences are rejected.
         """
         template = load_prompt_template("strategy_generation")
         result = GenerationResult()
+
+        # Load preferences for post-generation validation.
+        try:
+            prefs = load_preferences()
+        except Exception:
+            logger.warning("Could not load preferences; skipping preference validation")
+            prefs = None
 
         for i in range(1, self._batch_size + 1):
             prompt = template.format(
@@ -83,6 +123,17 @@ class StrategyGenerator:
 
                 spec = self._parse_response(raw)
                 if spec is not None:
+                    # Validate against human preferences.
+                    if prefs is not None:
+                        violations = validate_spec_against_preferences(spec, prefs)
+                        if violations:
+                            logger.warning(
+                                "Spec '%s' violates preferences: %s",
+                                spec.name, "; ".join(violations),
+                            )
+                            result.parse_failures += 1
+                            continue
+
                     # Deduplicate names by appending variant index.
                     spec.name = f"{spec.name}_v{i}"
                     spec.metadata["variant_index"] = i

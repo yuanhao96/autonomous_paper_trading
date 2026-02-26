@@ -14,12 +14,12 @@ import logging
 import os
 import re
 import textwrap
-from pathlib import Path
 import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Final
 
 from knowledge.store import Document
@@ -540,7 +540,7 @@ def fetch_arxiv(query: str, max_results: int = 5) -> list[Document]:
             Document(
                 title=title,
                 content=summary,
-                source=arxiv_id or url,
+                source=arxiv_id or query,
                 timestamp=_parse_rfc822_to_iso(published) if published else _utcnow_iso(),
                 topic_tags=["arxiv", "q-fin", query.lower()],
             )

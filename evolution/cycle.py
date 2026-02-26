@@ -19,6 +19,7 @@ from evaluation.multi_period import (
 )
 from evaluation.tournament import Tournament, TournamentResult
 from evolution.planner import EvolutionPlanner
+from evolution.promoter import StrategyPromoter
 from evolution.store import EvolutionStore
 from knowledge.store import MarkdownMemory
 from strategies.generator import StrategyGenerator
@@ -65,10 +66,12 @@ class EvolutionCycle:
         auditor: AuditorAgent | None = None,
         layer2_auditor: Layer2Auditor | None = None,
         store: EvolutionStore | None = None,
+        promoter: StrategyPromoter | None = None,
         settings: dict[str, Any] | None = None,
     ) -> None:
         self._settings = settings or load_evolution_settings()
         self._store = store or EvolutionStore()
+        self._promoter = promoter or StrategyPromoter()
 
         batch_size = int(self._settings.get("batch_size", 10))
         survivor_count = int(self._settings.get("survivor_count", 3))
@@ -195,7 +198,36 @@ class EvolutionCycle:
                     cycle_id, mp_result.strategy_name,
                 )
 
-        # 7. Complete cycle.
+        # 7. Submit survivors as promotion candidates.
+        for mp_result in tournament_result.survivors:
+            spec = spec_map.get(mp_result.strategy_name)
+            if spec is None:
+                continue
+            try:
+                self._promoter.submit_candidate(
+                    name=mp_result.strategy_name,
+                    spec_json=json.dumps(spec.to_dict()),
+                    score=mp_result.composite_score,
+                )
+                self._promoter.start_testing(mp_result.strategy_name)
+            except Exception:
+                logger.exception(
+                    "Cycle %d: failed to submit candidate '%s'",
+                    cycle_id, mp_result.strategy_name,
+                )
+
+        # 8. Check if any paper-testing strategies are ready for promotion.
+        promo_cfg = self._settings.get("promotion", {})
+        testing_days = int(promo_cfg.get("testing_days", 5))
+        min_signals = int(promo_cfg.get("min_signals", 1))
+        ready = self._promoter.check_ready_for_promotion(testing_days, min_signals)
+        for name in ready:
+            try:
+                self._promoter.promote(name)
+            except Exception:
+                logger.exception("Cycle %d: failed to promote '%s'", cycle_id, name)
+
+        # 9. Complete cycle.
         best_score = max(
             (r.composite_score for r in tournament_result.all_results),
             default=0.0,
@@ -203,7 +235,7 @@ class EvolutionCycle:
         result.best_score = best_score
         self._store.complete_cycle(cycle_id, best_score)
 
-        # 8. Check exhaustion.
+        # 10. Check exhaustion.
         exhaustion_cfg = self._settings.get("exhaustion_detection", {})
         plateau_cycles = int(exhaustion_cfg.get("plateau_cycles", 5))
         min_improvement = float(exhaustion_cfg.get("min_score_improvement", 0.01))

@@ -147,9 +147,11 @@ class Backtester:
                 continue
 
             # Roll through the test window day-by-day so strategies that
-            # look at the last row emit one signal per bar.
+            # look at the last row emit one signal per bar.  Start at i=1
+            # so the strategy always receives at least 2 bars (many
+            # indicators and condition operators require the last 2 values).
             daily_signals: list[tuple[pd.Timestamp, object]] = []
-            for i in range(len(test_data)):
+            for i in range(1, len(test_data)):
                 slice_data = test_data.iloc[: i + 1]
                 bar_signals = strategy.generate_signals(slice_data)
                 for sig in bar_signals:
@@ -230,8 +232,11 @@ class Backtester:
             exec_date = later_dates[0]
 
             if action == "buy" and not in_position:
-                entry_price = float(data.loc[exec_date, "Open"])
-                if entry_price <= 0:
+                try:
+                    entry_price = float(data.loc[exec_date, "Open"])
+                except (KeyError, TypeError):
+                    continue
+                if entry_price <= 0 or pd.isna(entry_price):
                     continue
                 shares = equity / entry_price
                 entry_date = exec_date
@@ -239,7 +244,10 @@ class Backtester:
                 in_position = True
 
             elif action == "sell" and in_position:
-                exit_price = float(data.loc[exec_date, "Open"])
+                try:
+                    exit_price = float(data.loc[exec_date, "Open"])
+                except (KeyError, TypeError):
+                    continue
                 pnl = (exit_price - entry_price) * shares
                 return_pct = (exit_price - entry_price) / entry_price if entry_price else 0.0
                 equity += pnl
@@ -260,7 +268,12 @@ class Backtester:
         # Close any open position at the last close of the window.
         if in_position and not data.empty:
             last_date = data.index[-1]
-            exit_price = float(data.loc[last_date, "Close"])
+            try:
+                exit_price = float(data.loc[last_date, "Close"])
+            except (KeyError, TypeError):
+                return trades, equity
+            if pd.isna(exit_price):
+                return trades, equity
             pnl = (exit_price - entry_price) * shares
             return_pct = (exit_price - entry_price) / entry_price if entry_price else 0.0
             equity += pnl

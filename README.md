@@ -114,7 +114,12 @@ python main.py --action evolve
 - **Self-Evolving Auditor** -- Recurring Layer 2 patterns are tracked in SQLite. When a pattern occurs 3+ times with a false positive rate below 20%, it is auto-promoted to a Layer 1 check (`agents/auditor/checks/auto_*.py`).
 - **Evolution Cycle Orchestration** -- `evolution/cycle.py` wires together: planner → generator → compiler → tournament → auditor → store. Limited to 1 cycle per day. Exhaustion detection flags plateau after N consecutive cycles with no score improvement.
 - **Evolution Persistence** -- `evolution/store.py` uses SQLite to track cycles, strategy specs, audit feedback, and exhaustion state. Recent winners and feedback are fed back into the next generation cycle.
-- **Evolved Strategy Loading** -- `strategies/registry.py` can load the most recent tournament survivors from the evolution store at agent startup, so evolved strategies participate in live paper trading.
+- **Strategy Promotion Pipeline** -- `evolution/promoter.py` manages the full strategy lifecycle: `candidate` → `paper_testing` → `promoted` → `retired`. Survivors from tournament selection are submitted as candidates, tested for a configurable period (default 5 days), and auto-promoted when they meet signal-count gates. Promoted strategies are loaded at agent startup; retired strategies are unregistered.
+- **Auditor Code Safety** -- Before executing any LLM-generated analysis script, the Layer 2 auditor performs AST-based validation: 15 forbidden module imports (os, subprocess, sys, socket, etc.) and 7 forbidden built-in calls (eval, exec, open, etc.) are blocked at parse time.
+- **Preferences Enforcement** -- `strategies/generator.py` validates every generated strategy spec against human risk limits from `preferences.yaml`. Specs where `stop_loss_pct` exceeds `max_drawdown_pct` or where `max_positions` implies excessive concentration are rejected before entering the tournament.
+- **Template Engine Robustness** -- OHLCV column validation at entry, NaN-safe indicator computation with graceful fallback, and unknown-indicator handling prevent crashes on malformed or sparse data.
+- **Backtester Robustness** -- Walk-forward roll starts at bar 1 (not 0) to avoid 1-bar slices, price lookups are guarded against KeyError and NaN, and end-of-window closes handle missing data gracefully.
+- **Evolved Strategy Loading** -- `strategies/registry.py` loads promoted strategies (with fallback to raw evolution store survivors) at agent startup, so evolved strategies participate in live paper trading.
 
 ## Learning Sources
 
@@ -194,7 +199,7 @@ This file is the agent's constitution. Only humans may edit it.
 | `database` | SQLite paths for trades and agent state |
 | `logging` | `llm_log_file`, `trade_log_file`, `level` |
 | `learning` | Multi-round learning controls plus optional `auto_add_discovered_topics` (default true) and `auto_add_max_per_topic` (default 2) |
-| `evolution` | `batch_size` (10), `survivor_count` (3), `max_cycles_per_day` (1), `min_sharpe_floor` (-0.5), `backtest_ticker` ("SPY"), `periods` (6 historical regimes with weights), `exhaustion_detection` (plateau detection config) |
+| `evolution` | `batch_size` (10), `survivor_count` (3), `max_cycles_per_day` (1), `min_sharpe_floor` (-0.5), `backtest_ticker` ("SPY"), `periods` (6 historical regimes with weights), `exhaustion_detection` (plateau detection config), `promotion` (`testing_days` default 5, `min_signals` default 1) |
 
 ## Evolution Cycle
 
@@ -220,6 +225,10 @@ Knowledge Base  ──►  Planner  ──►  LLM Generator (batch of 10 specs)
                                         ▼
                               SQLite Persistence
                               (winners fed into next cycle)
+                                        │
+                                        ▼
+                              Promotion Pipeline
+                              (candidate → paper_testing → promoted)
 ```
 
 Each cycle is limited to once per day. The planner feeds recent winners, past audit feedback, and knowledge summaries into the LLM prompt to improve diversity and quality over time. Exhaustion detection flags when the last N cycles show no score improvement.

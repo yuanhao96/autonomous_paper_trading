@@ -24,6 +24,13 @@ class StrategyRegistry:
         """Add *strategy* to the registry, keyed by its ``name``."""
         self._strategies[strategy.name] = strategy
 
+    def unregister(self, name: str) -> bool:
+        """Remove the strategy registered under *name*.
+
+        Returns ``True`` if the strategy was found and removed.
+        """
+        return self._strategies.pop(name, None) is not None
+
     def get(self, name: str) -> Strategy | None:
         """Return the strategy registered under *name*, or ``None``."""
         return self._strategies.get(name)

@@ -95,7 +95,10 @@ def detect_conflicts(claims: list[dict]) -> list[dict]:
                             "claim_b": c2.get("claim", ""),
                             "source_a": c1.get("source_title", ""),
                             "source_b": c2.get("source_title", ""),
-                            "reason": f"Opposing assertions detected (shared concepts: {', '.join(list(shared)[:3])})",
+                            "reason": (
+                                "Opposing assertions detected "
+                                f"(shared concepts: {', '.join(list(shared)[:3])})"
+                            ),
                         })
                         break
     return conflicts

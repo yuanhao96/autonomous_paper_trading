@@ -10,28 +10,27 @@ import pytest
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from knowledge.evaluator import (
+from knowledge.evaluator import (  # noqa: E402
     detect_conflicts,
     marginal_gain,
     score_document_relevance,
     score_source_quality,
 )
-from knowledge.learning_state import TopicLearningState
-from knowledge.store import Document
-from knowledge.tools import (
-    AlpacaNewsTool,
+from knowledge.learning_state import TopicLearningState  # noqa: E402
+from knowledge.store import Document  # noqa: E402
+from knowledge.tools import (  # noqa: E402
     MemorySearchTool,
     ToolInput,
     ToolOutput,
-    WikipediaTool,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
-def _make_doc(title: str = "Test", content: str = "Test content", tool_name: str = "memory") -> Document:
+def _make_doc(
+    title: str = "Test", content: str = "Test content", tool_name: str = "memory",
+) -> Document:
     doc = Document(title=title, content=content, source="test", topic_tags=[])
     doc.meta = {
         "tool_name": tool_name,
@@ -110,7 +109,9 @@ class TestScoreDocumentRelevance:
         assert 0.0 <= score <= 1.0
 
     def test_higher_for_matching_content(self):
-        relevant = _make_doc(content="Momentum trading uses RSI and moving average crossover signals.")
+        relevant = _make_doc(
+            content="Momentum trading uses RSI and moving average crossover signals.",
+        )
         irrelevant = _make_doc(content="The weather is nice today and the birds are singing.")
         s1 = score_document_relevance(relevant, "Momentum Trading RSI")
         s2 = score_document_relevance(irrelevant, "Momentum Trading RSI")
@@ -146,8 +147,16 @@ class TestScoreSourceQuality:
 class TestDetectConflicts:
     def test_finds_opposing_sentiment(self):
         claims = [
-            {"claim": "Momentum strategies always increase returns in trending markets.", "source_title": "Book A", "confidence": 0.8},
-            {"claim": "Momentum strategies never guarantee returns in markets.", "source_title": "Book B", "confidence": 0.7},
+            {
+                "claim": "Momentum strategies always increase returns in trending markets.",
+                "source_title": "Book A",
+                "confidence": 0.8,
+            },
+            {
+                "claim": "Momentum strategies never guarantee returns in markets.",
+                "source_title": "Book B",
+                "confidence": 0.7,
+            },
         ]
         conflicts = detect_conflicts(claims)
         assert isinstance(conflicts, list)
@@ -270,9 +279,10 @@ class TestSelectToolsWebAlways:
     """Web search must be selected at every stage, every round."""
 
     def _ctrl(self):
+        from unittest.mock import MagicMock
+
         from knowledge.learning_controller import LearningController
         from knowledge.tools import default_tools
-        from unittest.mock import MagicMock
         memory = MagicMock()
         memory.search.return_value = []
         synthesizer = MagicMock()
@@ -323,7 +333,12 @@ class TestPlanSubQuestions:
         ctrl.per_topic_budget = 50000
         ctrl._tool_map = {}
 
-        mock_response = '["What is market microstructure?", "How do order books work?", "What are bid-ask spreads?", "Who are market makers?"]'
+        mock_response = (
+            '["What is market microstructure?", '
+            '"How do order books work?", '
+            '"What are bid-ask spreads?", '
+            '"Who are market makers?"]'
+        )
         with patch("knowledge.learning_controller.call_llm", return_value=mock_response):
             questions = ctrl.plan_sub_questions("Market Microstructure", "How exchanges work", 1)
 
