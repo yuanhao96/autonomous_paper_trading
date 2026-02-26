@@ -181,3 +181,40 @@ class TestCheckPortfolioHealth:
         portfolio = _portfolio(total_equity=0.0)
         warnings = risk_mgr.check_portfolio_health(portfolio)
         assert any("zero or negative" in w.lower() for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# Tests — daily loss gate actually blocks when wired to real daily_pnl
+# ---------------------------------------------------------------------------
+
+
+class TestDailyLossGateIntegration:
+    """Verify that real daily_pnl (not hardcoded 0.0) blocks buy orders."""
+
+    def test_loss_below_threshold_allows_buy(self, risk_mgr: RiskManager) -> None:
+        """A small daily loss should not block buys."""
+        # max_daily_loss_pct=3 on 100k => threshold is -3000.
+        portfolio = _portfolio(total_equity=100_000.0, daily_pnl=-1_000.0)
+        order = OrderRequest(
+            ticker="AAPL", side="buy", quantity=5,
+            order_type="limit", limit_price=100.0,
+        )
+        result = risk_mgr.check_order(order, portfolio)
+        assert result.approved is True
+
+    def test_loss_at_exact_threshold_blocks_buy(self, risk_mgr: RiskManager) -> None:
+        """Daily loss at exactly the threshold should block buys."""
+        portfolio = _portfolio(total_equity=100_000.0, daily_pnl=-3_000.0)
+        order = OrderRequest(
+            ticker="AAPL", side="buy", quantity=5,
+            order_type="limit", limit_price=100.0,
+        )
+        result = risk_mgr.check_order(order, portfolio)
+        assert result.approved is False
+
+    def test_sell_allowed_despite_loss_breach(self, risk_mgr: RiskManager) -> None:
+        """Sell orders should still be allowed even if daily loss breached."""
+        portfolio = _portfolio(total_equity=100_000.0, daily_pnl=-5_000.0)
+        order = OrderRequest(ticker="AAPL", side="sell", quantity=5, order_type="market")
+        result = risk_mgr.check_order(order, portfolio)
+        assert result.approved is True

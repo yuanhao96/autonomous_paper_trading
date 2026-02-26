@@ -504,7 +504,7 @@ def _run_daily_cycle(mock: bool, tickers: list[str]) -> None:
             total_equity=portfolio.total_equity,
             cash=portfolio.cash,
             positions=positions_dict,
-            daily_pnl=0.0,  # Approximate; full tracking is a future enhancement.
+            daily_pnl=portfolio.daily_pnl,
         )
 
         results = execute_signals(

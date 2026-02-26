@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 
+import yaml
+
 from core.preferences import load_preferences
 from evolution.store import EvolutionStore
 from knowledge.store import MarkdownMemory
@@ -35,10 +37,13 @@ class EvolutionPlanner:
         # Knowledge summary from memory.
         knowledge_summary = ""
         try:
-            docs = self._memory.search("trading strategy indicators technical analysis", limit=5)
+            docs = self._memory.search(
+                "trading strategy indicators technical analysis", n_results=5,
+            )
             if docs:
                 knowledge_summary = "\n".join(
-                    f"- {doc.title}: {doc.content[:200]}" for doc in docs[:5]
+                    f"- {doc.get('path', 'unknown')}: {doc.get('content', '')[:200]}"
+                    for doc in docs[:5]
                 )
         except Exception:
             logger.exception("Failed to search knowledge memory")
@@ -63,9 +68,18 @@ class EvolutionPlanner:
         except Exception:
             logger.exception("Failed to load preferences")
 
-        # Exhaustion notes.
+        # Exhaustion notes — use config values to match cycle's detection.
         exhaustion_notes = ""
-        if self._store.check_exhaustion():
+        try:
+            with open("config/settings.yaml") as f:
+                settings = yaml.safe_load(f) or {}
+            evo_cfg = settings.get("evolution", {})
+            ex_cfg = evo_cfg.get("exhaustion_detection", {})
+            plateau_cycles = int(ex_cfg.get("plateau_cycles", 5))
+            min_improvement = float(ex_cfg.get("min_score_improvement", 0.01))
+        except Exception:
+            plateau_cycles, min_improvement = 5, 0.01
+        if self._store.check_exhaustion(plateau_cycles, min_improvement):
             exhaustion_notes = (
                 "WARNING: Recent cycles show score plateau. "
                 "Try radically different approaches."

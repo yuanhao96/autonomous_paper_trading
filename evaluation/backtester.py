@@ -54,6 +54,8 @@ class BacktestConfig:
     train_window_days: int = 252
     test_window_days: int = 63
     step_days: int = 21
+    slippage_pct: float = 0.0
+    commission_per_trade: float = 0.0
 
 
 @dataclass
@@ -158,7 +160,7 @@ class Backtester:
                     daily_signals.append((slice_data.index[-1], sig))
 
             window_trades, equity = self._simulate_window(
-                daily_signals, test_data, equity
+                daily_signals, test_data, equity, cfg,
             )
             all_trades.extend(window_trades)
 
@@ -193,6 +195,7 @@ class Backtester:
         daily_signals: list[tuple[pd.Timestamp, object]],
         data: pd.DataFrame,
         equity: float,
+        config: BacktestConfig | None = None,
     ) -> tuple[list[dict], float]:
         """Simulate trades within a single test window.
 
@@ -202,17 +205,24 @@ class Backtester:
         - A *sell* signal (or end-of-window) closes the open position.
         - Only one position is held at a time within a window.
         - Position size is 100 % of current equity (simplified).
+        - Slippage is applied to entry/exit prices (works against trader).
+        - Commission is deducted from P&L on each completed trade.
 
         Parameters
         ----------
         daily_signals:
             List of (bar_date, signal) tuples from the day-by-day roll.
+        config:
+            BacktestConfig with slippage_pct and commission_per_trade.
 
         Returns
         -------
         tuple[list[dict], float]
             (list_of_trade_records, updated_equity)
         """
+        slippage = config.slippage_pct if config else 0.0
+        commission = config.commission_per_trade if config else 0.0
+
         trades: list[dict] = []
         in_position = False
         entry_price: float = 0.0
@@ -233,11 +243,13 @@ class Backtester:
 
             if action == "buy" and not in_position:
                 try:
-                    entry_price = float(data.loc[exec_date, "Open"])
+                    raw_price = float(data.loc[exec_date, "Open"])
                 except (KeyError, TypeError):
                     continue
-                if entry_price <= 0 or pd.isna(entry_price):
+                if raw_price <= 0 or pd.isna(raw_price):
                     continue
+                # Slippage: buy at a worse (higher) price.
+                entry_price = raw_price * (1.0 + slippage)
                 shares = equity / entry_price
                 entry_date = exec_date
                 entry_ticker = signal.ticker
@@ -245,10 +257,12 @@ class Backtester:
 
             elif action == "sell" and in_position:
                 try:
-                    exit_price = float(data.loc[exec_date, "Open"])
+                    raw_price = float(data.loc[exec_date, "Open"])
                 except (KeyError, TypeError):
                     continue
-                pnl = (exit_price - entry_price) * shares
+                # Slippage: sell at a worse (lower) price.
+                exit_price = raw_price * (1.0 - slippage)
+                pnl = (exit_price - entry_price) * shares - commission
                 return_pct = (exit_price - entry_price) / entry_price if entry_price else 0.0
                 equity += pnl
                 trades.append(
@@ -269,12 +283,14 @@ class Backtester:
         if in_position and not data.empty:
             last_date = data.index[-1]
             try:
-                exit_price = float(data.loc[last_date, "Close"])
+                raw_price = float(data.loc[last_date, "Close"])
             except (KeyError, TypeError):
                 return trades, equity
-            if pd.isna(exit_price):
+            if pd.isna(raw_price):
                 return trades, equity
-            pnl = (exit_price - entry_price) * shares
+            # Slippage: sell at a worse (lower) price.
+            exit_price = raw_price * (1.0 - slippage)
+            pnl = (exit_price - entry_price) * shares - commission
             return_pct = (exit_price - entry_price) / entry_price if entry_price else 0.0
             equity += pnl
             trades.append(

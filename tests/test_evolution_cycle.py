@@ -194,6 +194,7 @@ class TestEvolutionCycle:
         mock_report = MagicMock()
         mock_report.findings = []
         mock_report.feedback = "Looks good"
+        mock_report.passed = True
         auditor.audit_strategy_spec.return_value = mock_report
 
         cycle = EvolutionCycle(
@@ -252,6 +253,7 @@ class TestEvolutionCycle:
         mock_report = MagicMock()
         mock_report.findings = []
         mock_report.feedback = ""
+        mock_report.passed = True
         auditor.audit_strategy_spec.return_value = mock_report
 
         cycle = EvolutionCycle(
@@ -270,6 +272,183 @@ class TestEvolutionCycle:
         # Second run should be blocked.
         result2 = cycle.run(trigger="test")
         assert result2.specs_generated == 0
+
+
+class TestAuditBlocksPromotion:
+    """Verify that audit failures prevent strategy promotion."""
+
+    @patch("strategies.generator.call_llm")
+    @patch("strategies.generator.load_prompt_template")
+    def test_failed_audit_blocks_promotion(
+        self,
+        mock_template,
+        mock_llm,
+        store: EvolutionStore,
+        backtester: MultiPeriodBacktester,
+        tmp_path: Path,
+    ) -> None:
+        """Strategies that fail audit should NOT be submitted as candidates."""
+        from evolution.promoter import StrategyPromoter
+
+        mock_template.return_value = (
+            "{variant_index} {batch_size} {knowledge_summary} "
+            "{past_winners} {past_feedback} {preferences_summary}"
+        )
+        spec = _valid_spec()
+        mock_llm.return_value = json.dumps(spec.to_dict())
+
+        generator = StrategyGenerator(batch_size=2)
+        memory = MagicMock(spec=MarkdownMemory)
+        memory.search.return_value = []
+        planner = EvolutionPlanner(memory, generator, store)
+        tournament = Tournament(backtester, survivor_count=2)
+
+        # Auditor returns a FAILED report.
+        auditor = MagicMock()
+        mock_report = MagicMock()
+        mock_report.findings = [MagicMock(
+            check_name="test", severity="critical", description="bad",
+        )]
+        mock_report.feedback = "Fix this"
+        mock_report.passed = False
+        auditor.audit_strategy_spec.return_value = mock_report
+
+        promoter = StrategyPromoter(
+            db_path=str(tmp_path / "promo.db"),
+        )
+
+        cycle = EvolutionCycle(
+            planner=planner,
+            backtester=backtester,
+            tournament=tournament,
+            auditor=auditor,
+            store=store,
+            promoter=promoter,
+            settings={
+                "batch_size": 2, "survivor_count": 2,
+                "exhaustion_detection": {},
+            },
+        )
+
+        result = cycle.run(trigger="test")
+        assert result.specs_generated > 0
+
+        # No candidates should be submitted because audit failed.
+        candidates = promoter.get_candidates()
+        assert len(candidates) == 0
+
+    @patch("strategies.generator.call_llm")
+    @patch("strategies.generator.load_prompt_template")
+    def test_audit_exception_blocks_promotion(
+        self,
+        mock_template,
+        mock_llm,
+        store: EvolutionStore,
+        backtester: MultiPeriodBacktester,
+        tmp_path: Path,
+    ) -> None:
+        """If auditor raises an exception, strategy should NOT be promoted."""
+        from evolution.promoter import StrategyPromoter
+
+        mock_template.return_value = (
+            "{variant_index} {batch_size} {knowledge_summary} "
+            "{past_winners} {past_feedback} {preferences_summary}"
+        )
+        spec = _valid_spec()
+        mock_llm.return_value = json.dumps(spec.to_dict())
+
+        generator = StrategyGenerator(batch_size=2)
+        memory = MagicMock(spec=MarkdownMemory)
+        memory.search.return_value = []
+        planner = EvolutionPlanner(memory, generator, store)
+        tournament = Tournament(backtester, survivor_count=2)
+
+        # Auditor raises an exception.
+        auditor = MagicMock()
+        auditor.audit_strategy_spec.side_effect = RuntimeError("LLM down")
+
+        promoter = StrategyPromoter(
+            db_path=str(tmp_path / "promo.db"),
+        )
+
+        cycle = EvolutionCycle(
+            planner=planner,
+            backtester=backtester,
+            tournament=tournament,
+            auditor=auditor,
+            store=store,
+            promoter=promoter,
+            settings={
+                "batch_size": 2, "survivor_count": 2,
+                "exhaustion_detection": {},
+            },
+        )
+
+        result = cycle.run(trigger="test")
+        assert result.specs_generated > 0
+
+        # No candidates because auditor crashed.
+        candidates = promoter.get_candidates()
+        assert len(candidates) == 0
+
+
+class TestExhaustionBlocksCycle:
+    """Verify that exhaustion detection blocks new cycles."""
+
+    def test_exhaustion_skips_generation(
+        self, store: EvolutionStore, backtester: MultiPeriodBacktester,
+    ) -> None:
+        """When exhaustion is detected, cycle should abort before generation."""
+        # Seed 5 identical-score cycles to trigger exhaustion.
+        for _ in range(5):
+            cid = store.start_cycle("test")
+            store.complete_cycle(cid, 0.500)
+
+        auditor = MagicMock()
+        cycle = EvolutionCycle(
+            backtester=backtester,
+            auditor=auditor,
+            store=store,
+            settings={
+                "batch_size": 2,
+                "survivor_count": 1,
+                "exhaustion_detection": {
+                    "plateau_cycles": 5,
+                    "min_score_improvement": 0.01,
+                },
+            },
+        )
+
+        # Bypass daily limit (seeded cycles completed "today") so
+        # the exhaustion check actually runs.
+        with patch.object(store, "can_run_today", return_value=True):
+            result = cycle.run(trigger="test")
+
+        assert result.exhaustion_detected is True
+        assert result.specs_generated == 0
+        assert result.cycle_id == 0  # No cycle started.
+
+
+class TestFeedbackRetrieval:
+    """Verify that past feedback is loaded and passed to the generator."""
+
+    def test_planner_loads_feedback(self, store: EvolutionStore) -> None:
+        # Save some feedback.
+        cid = store.start_cycle("test")
+        store.save_feedback(cid, "strat_a", "Reduce drawdown", [])
+        store.save_feedback(cid, "strat_b", "Add stop loss", [])
+        store.complete_cycle(cid, 0.5)
+
+        memory = MagicMock(spec=MarkdownMemory)
+        memory.search.return_value = []
+        generator = MagicMock(spec=StrategyGenerator)
+        planner = EvolutionPlanner(memory, generator, store)
+
+        context = planner.plan_generation()
+
+        assert len(context.past_feedback) == 2
+        assert "Reduce drawdown" in context.past_feedback
+        assert "Add stop loss" in context.past_feedback
 
 
 class TestRegistrySurvivorLoading:

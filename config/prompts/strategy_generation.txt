@@ -9,8 +9,8 @@ Each indicator is computed on OHLCV data. Use the "name" field to reference them
 - **adx**(period=14) → Average Directional Index (trend strength, 0-100)
 - **atr**(period=14) → Average True Range (volatility measure)
 - **obv**() → On-Balance Volume (cumulative volume-price indicator)
-- **macd**(fast=12, slow=26, signal=9, source="Close") → Multi-output: line, signal, histogram. Access as {output_key}_line, {output_key}_signal, {output_key}_histogram.
-- **bollinger_bands**(period=20, std_dev=2.0, source="Close") → Multi-output: upper, middle, lower. Access as {output_key}_upper, {output_key}_middle, {output_key}_lower.
+- **macd**(fast=12, slow=26, signal=9, source="Close") → Multi-output: line, signal, histogram. Access as {{output_key}}_line, {{output_key}}_signal, {{output_key}}_histogram.
+- **bollinger_bands**(period=20, std_dev=2.0, source="Close") → Multi-output: upper, middle, lower. Access as {{output_key}}_upper, {{output_key}}_middle, {{output_key}}_lower.
 
 Nesting: You can set an indicator's "source" to another indicator's output_key (one level deep). Example: EMA of RSI.
 
@@ -19,9 +19,9 @@ Nesting: You can set an indicator's "source" to another indicator's output_key (
 - **cross_below**(left, right) — left crosses below right
 - **greater_than**(left, right) — left > right on last bar (right can be a float constant like "70.0")
 - **less_than**(left, right) — left < right on last bar
-- **between**(left, params: {low, high}) — low <= left <= high
-- **slope_positive**(left, params: {lookback}) — linear regression slope > 0 over lookback bars
-- **percent_change**(left, params: {lookback, threshold}) — pct change > threshold over lookback bars
+- **between**(left, params: {{low, high}}) — low <= left <= high
+- **slope_positive**(left, params: {{lookback}}) — linear regression slope > 0 over lookback bars
+- **percent_change**(left, params: {{lookback, threshold}}) — pct change > threshold over lookback bars
 
 ## Risk Constraints
 {preferences_summary}

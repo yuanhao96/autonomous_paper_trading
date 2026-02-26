@@ -357,7 +357,7 @@ class LearningController:
         (StructuredKnowledge, TopicLearningState)
             Final synthesized knowledge and the full learning state for audit.
         """
-        stage = getattr(topic, "stage", 1)
+        stage = getattr(topic, "stage_number", 1)
         topic_name = getattr(topic, "name", str(topic))
         topic_desc = getattr(topic, "description", "")
 

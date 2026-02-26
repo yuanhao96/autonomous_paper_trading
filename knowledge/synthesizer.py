@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from core.llm import call_llm, load_prompt_template
 from knowledge.store import Document
@@ -27,6 +27,8 @@ class StructuredKnowledge:
     risk_factors: list[str]
     curriculum_relevance: dict[str, float]  # topic_id -> relevance score 0-1
     source_documents: list[str]  # source URLs/titles
+    claims: list[dict] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
 
 
 def _parse_json_response(raw: str) -> dict:
@@ -149,6 +151,8 @@ class KnowledgeSynthesizer:
                 parsed.get("curriculum_relevance", {})
             ),
             source_documents=source_refs,
+            claims=list(parsed.get("claims", [])),
+            gaps=_ensure_string_list(parsed.get("gaps", [])),
         )
 
     def assess_mastery(

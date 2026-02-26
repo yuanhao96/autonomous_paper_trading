@@ -110,6 +110,21 @@ class EvolutionCycle:
             logger.info("Evolution cycle already ran today; skipping.")
             return result
 
+        # 1b. Check exhaustion — skip if recent cycles show no improvement.
+        exhaustion_cfg = self._settings.get("exhaustion_detection", {})
+        plateau_cycles = int(exhaustion_cfg.get("plateau_cycles", 5))
+        min_improvement = float(
+            exhaustion_cfg.get("min_score_improvement", 0.01)
+        )
+        if self._store.check_exhaustion(plateau_cycles, min_improvement):
+            logger.warning(
+                "Evolution exhaustion detected (last %d cycles show "
+                "< %.4f improvement); skipping generation.",
+                plateau_cycles, min_improvement,
+            )
+            result.exhaustion_detected = True
+            return result
+
         # 2. Start cycle.
         cycle_id = self._store.start_cycle(trigger)
         result.cycle_id = cycle_id
@@ -168,14 +183,21 @@ class EvolutionCycle:
                 is_survivor=is_survivor,
             )
 
-        # 6. Audit survivors.
+        # 6. Audit survivors — track which ones pass.
+        audit_passed: set[str] = set()
         for mp_result in tournament_result.survivors:
             spec = spec_map.get(mp_result.strategy_name)
             if spec is None:
+                logger.warning(
+                    "Cycle %d: no spec found for survivor '%s'; skipping audit",
+                    cycle_id, mp_result.strategy_name,
+                )
                 continue
 
             try:
-                audit_report = self._auditor.audit_strategy_spec(spec, mp_result)
+                audit_report = self._auditor.audit_strategy_spec(
+                    spec, mp_result,
+                )
                 result.audit_results.append(audit_report)
 
                 findings_dicts = [
@@ -192,14 +214,26 @@ class EvolutionCycle:
                     feedback=audit_report.feedback,
                     findings=findings_dicts,
                 )
+
+                if audit_report.passed:
+                    audit_passed.add(mp_result.strategy_name)
+                else:
+                    logger.warning(
+                        "Cycle %d: audit FAILED for '%s' — "
+                        "will not promote",
+                        cycle_id, mp_result.strategy_name,
+                    )
             except Exception:
                 logger.exception(
-                    "Cycle %d: audit failed for '%s'",
+                    "Cycle %d: audit exception for '%s' — "
+                    "will not promote",
                     cycle_id, mp_result.strategy_name,
                 )
 
-        # 7. Submit survivors as promotion candidates.
+        # 7. Submit only audit-passed survivors as promotion candidates.
         for mp_result in tournament_result.survivors:
+            if mp_result.strategy_name not in audit_passed:
+                continue
             spec = spec_map.get(mp_result.strategy_name)
             if spec is None:
                 continue
@@ -235,12 +269,9 @@ class EvolutionCycle:
         result.best_score = best_score
         self._store.complete_cycle(cycle_id, best_score)
 
-        # 10. Check exhaustion.
-        exhaustion_cfg = self._settings.get("exhaustion_detection", {})
-        plateau_cycles = int(exhaustion_cfg.get("plateau_cycles", 5))
-        min_improvement = float(exhaustion_cfg.get("min_score_improvement", 0.01))
+        # 10. Check exhaustion (post-cycle — for reporting only).
         result.exhaustion_detected = self._store.check_exhaustion(
-            plateau_cycles, min_improvement
+            plateau_cycles, min_improvement,
         )
 
         logger.info(

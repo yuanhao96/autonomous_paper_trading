@@ -184,3 +184,80 @@ class TestSubmitOrderSell:
             broker.submit_order("AAPL", "buy", 5)
             with pytest.raises(ValueError, match="Cannot sell"):
                 broker.submit_order("AAPL", "sell", 10)
+
+
+# ---------------------------------------------------------------------------
+# Tests — daily P&L tracking
+# ---------------------------------------------------------------------------
+
+
+class TestDailyPnL:
+    def test_initial_daily_pnl_is_zero(self, broker: PaperBroker) -> None:
+        """First portfolio call of the day should set baseline and return 0."""
+        with _mock_current_price(100.0):
+            portfolio = broker.get_portfolio()
+        assert portfolio.daily_pnl == pytest.approx(0.0)
+
+    def test_daily_pnl_reflects_gains(self, broker: PaperBroker) -> None:
+        """After buying and price increasing, daily P&L should be positive."""
+        # Establish baseline at $100k.
+        with _mock_current_price(100.0):
+            broker.get_portfolio()  # Sets opening equity = 100k.
+
+        # Buy 100 shares at $100.
+        with _mock_current_price(100.0):
+            broker.submit_order("AAPL", "buy", 100)
+
+        # Price goes up to $110 → equity = 90k cash + 100*110 = 101k.
+        with _mock_current_price(110.0):
+            portfolio = broker.get_portfolio()
+        assert portfolio.daily_pnl == pytest.approx(1_000.0)
+
+    def test_daily_pnl_reflects_losses(self, broker: PaperBroker) -> None:
+        """After buying and price dropping, daily P&L should be negative."""
+        with _mock_current_price(100.0):
+            broker.get_portfolio()  # Baseline = 100k.
+            broker.submit_order("AAPL", "buy", 100)
+
+        # Price drops to $90 → equity = 90k + 100*90 = 99k.
+        with _mock_current_price(90.0):
+            portfolio = broker.get_portfolio()
+        assert portfolio.daily_pnl == pytest.approx(-1_000.0)
+
+    def test_reset_daily_pnl(self, broker: PaperBroker) -> None:
+        """reset_daily_pnl() should zero out the daily P&L."""
+        with _mock_current_price(100.0):
+            broker.get_portfolio()
+            broker.submit_order("AAPL", "buy", 100)
+
+        with _mock_current_price(110.0):
+            portfolio = broker.get_portfolio()
+            assert portfolio.daily_pnl == pytest.approx(1_000.0)
+
+            # Reset baseline to current equity.
+            broker.reset_daily_pnl()
+            portfolio = broker.get_portfolio()
+            assert portfolio.daily_pnl == pytest.approx(0.0)
+
+    def test_day_boundary_resets_baseline(self, broker: PaperBroker) -> None:
+        """When day_date changes, the baseline should auto-reset."""
+        with _mock_current_price(100.0):
+            broker.get_portfolio()  # Baseline for today.
+            broker.submit_order("AAPL", "buy", 100)
+
+        # Simulate next day by changing the stored day_date.
+        broker._set_opening_equity(100_000.0, "2020-01-01")
+
+        # Now equity is still 100k but baseline is from "yesterday".
+        # _ensure_day_baseline will see different day and reset.
+        with _mock_current_price(110.0):
+            portfolio = broker.get_portfolio()
+        # New day → baseline reset to current equity → daily_pnl = 0.
+        assert portfolio.daily_pnl == pytest.approx(0.0)
+
+    def test_portfolio_dataclass_has_daily_pnl(self, broker: PaperBroker) -> None:
+        """Portfolio dataclass should expose daily_pnl field."""
+        with _mock_current_price(100.0):
+            portfolio = broker.get_portfolio()
+        assert hasattr(portfolio, "daily_pnl")
+        assert isinstance(portfolio.daily_pnl, float)
