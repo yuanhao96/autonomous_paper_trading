@@ -12,6 +12,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -221,12 +222,16 @@ def _auto_push_learning_updates(learning_summary: str = "") -> None:
     """Commit and push repo changes after a learning session.
 
     Enabled by default. Set AUTO_PUSH_AFTER_LEARNING=false to disable.
+    Uses pull--rebase with retry to handle concurrent pushes.
     """
     logger = logging.getLogger(__name__)
     enabled = os.getenv("AUTO_PUSH_AFTER_LEARNING", "true").strip().lower()
     if enabled in {"0", "false", "no", "off"}:
         logger.info("AUTO_PUSH_AFTER_LEARNING disabled; skipping git push.")
         return
+
+    max_retries = 3
+    retry_delay = 2  # seconds
 
     try:
         # Quick dirty check (porcelain output empty => no changes)
@@ -266,17 +271,52 @@ def _auto_push_learning_updates(learning_summary: str = "") -> None:
             logger.warning("Auto-commit failed: %s", (commit.stderr or commit.stdout).strip())
             return
 
-        push = subprocess.run(
-            ["git", "push", "origin", "main"],
-            cwd=str(_PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if push.returncode == 0:
-            logger.info("Auto-pushed nightly learning updates to origin/main.")
-        else:
-            logger.warning("Auto-push failed: %s", (push.stderr or push.stdout).strip())
+        # Pull-before-push with retry loop
+        for attempt in range(1, max_retries + 1):
+            # 1. Pull with rebase
+            pull = subprocess.run(
+                ["git", "pull", "--rebase", "origin", "main"],
+                cwd=str(_PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if pull.returncode != 0:
+                logger.warning(
+                    "Auto-pull failed (attempt %d/%d): %s",
+                    attempt, max_retries, (pull.stderr or pull.stdout).strip()
+                )
+                if attempt < max_retries:
+                    time.sleep(retry_delay)
+                    continue
+                logger.warning("Auto-push gave up after pull failures.")
+                return
+
+            # 2. Push
+            push = subprocess.run(
+                ["git", "push", "origin", "main"],
+                cwd=str(_PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if push.returncode == 0:
+                logger.info("Auto-pushed learning updates to origin/main (attempt %d).", attempt)
+                return
+            elif "rejected" in (push.stderr or "").lower():
+                logger.warning(
+                    "Push rejected, retrying... (attempt %d/%d)",
+                    attempt, max_retries
+                )
+                if attempt < max_retries:
+                    time.sleep(retry_delay)
+                    continue
+                logger.warning("Auto-push gave up after %d retries.", max_retries)
+                return
+            else:
+                logger.warning("Auto-push failed: %s", (push.stderr or push.stdout).strip())
+                return
+
     except Exception as exc:
         logger.warning("Auto-push after learning failed: %s", exc)
 
