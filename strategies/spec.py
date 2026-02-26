@@ -28,6 +28,10 @@ VALID_OPERATORS: set[str] = {
 
 VALID_LOGIC: set[str] = {"ALL_OF", "ANY_OF"}
 
+# Raw OHLCV columns that can be referenced in conditions alongside
+# indicator output_keys (the template engine resolves them from the DataFrame).
+PRICE_COLUMNS: set[str] = {"Open", "High", "Low", "Close", "Volume"}
+
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -230,9 +234,10 @@ class StrategySpec:
                 for sub in _multi_keys:
                     output_keys.add(f"{ind.output_key}_{sub}")
 
-        # Validate conditions.
-        errors.extend(self._validate_composite(self.entry_conditions, output_keys, "entry"))
-        errors.extend(self._validate_composite(self.exit_conditions, output_keys, "exit"))
+        # Validate conditions.  OHLCV columns are valid operands too.
+        valid_refs = output_keys | PRICE_COLUMNS
+        errors.extend(self._validate_composite(self.entry_conditions, valid_refs, "entry"))
+        errors.extend(self._validate_composite(self.exit_conditions, valid_refs, "exit"))
 
         return errors
 
