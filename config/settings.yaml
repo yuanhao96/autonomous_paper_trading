@@ -51,6 +51,11 @@ learning:
     stage_3: [memory, web, books, arxiv]
     stage_4: [memory, web, arxiv, news]
 
+# Backtesting realism settings
+backtesting:
+  slippage_pct: 0.001        # 0.1% slippage per trade (10 bps)
+  commission_per_trade: 1.0  # $1 per completed round-trip trade
+
 # V2: Evolution cycle configuration
 evolution:
   auto_trigger_after_learning: false  # Set true to run evolution cycle after each learning session

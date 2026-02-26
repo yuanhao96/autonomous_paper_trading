@@ -26,6 +26,7 @@ class Document:
     source: str
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     topic_tags: list[str] = field(default_factory=list)
+    meta: dict = field(default_factory=dict)
 
 
 def _slugify(text: str) -> str:

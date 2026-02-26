@@ -175,3 +175,176 @@ class TestMetricsIntegration:
         assert m.max_drawdown >= 0.0
         assert 0.0 <= m.win_rate <= 1.0
         assert m.num_trades >= 0
+
+
+# ---------------------------------------------------------------------------
+# Tests — slippage and commission realism
+# ---------------------------------------------------------------------------
+
+
+class TestSlippageAndCommission:
+    """Verify that slippage degrades returns, commission accumulates,
+    and zero-slippage matches legacy behavior."""
+
+    def test_zero_slippage_matches_baseline(
+        self,
+        sample_ohlcv_data: pd.DataFrame,
+        short_config: BacktestConfig,
+    ) -> None:
+        """BacktestConfig with explicit 0.0 slippage/commission should
+        produce identical results to a config without those fields."""
+        baseline = Backtester(config=short_config)
+        explicit_zero = Backtester(config=BacktestConfig(
+            train_window_days=short_config.train_window_days,
+            test_window_days=short_config.test_window_days,
+            step_days=short_config.step_days,
+            slippage_pct=0.0,
+            commission_per_trade=0.0,
+        ))
+
+        r_base = baseline.run(BuySellStrategy(), sample_ohlcv_data)
+        r_zero = explicit_zero.run(BuySellStrategy(), sample_ohlcv_data)
+
+        assert r_base.metrics.total_pnl == pytest.approx(r_zero.metrics.total_pnl)
+        assert len(r_base.trades) == len(r_zero.trades)
+
+    def test_slippage_degrades_returns(
+        self,
+        sample_ohlcv_data: pd.DataFrame,
+    ) -> None:
+        """Adding slippage should reduce total P&L compared to zero slippage."""
+        cfg_no_slip = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.0, commission_per_trade=0.0,
+        )
+        cfg_with_slip = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.01, commission_per_trade=0.0,
+        )
+
+        r_clean = Backtester(config=cfg_no_slip).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        )
+        r_slip = Backtester(config=cfg_with_slip).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        )
+
+        # Slippage should reduce total P&L.
+        assert r_slip.metrics.total_pnl < r_clean.metrics.total_pnl
+
+    def test_commission_accumulates(
+        self,
+        sample_ohlcv_data: pd.DataFrame,
+    ) -> None:
+        """Commission should reduce total P&L proportionally to trade count."""
+        commission = 5.0
+        cfg_no_comm = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.0, commission_per_trade=0.0,
+        )
+        cfg_with_comm = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.0, commission_per_trade=commission,
+        )
+
+        r_clean = Backtester(config=cfg_no_comm).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        )
+        r_comm = Backtester(config=cfg_with_comm).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        )
+
+        num_trades = len(r_comm.trades)
+        assert num_trades > 0
+        expected_cost = num_trades * commission
+        # Total P&L difference should equal total commission paid.
+        pnl_diff = r_clean.metrics.total_pnl - r_comm.metrics.total_pnl
+        assert pnl_diff == pytest.approx(expected_cost, abs=0.01)
+
+    def test_slippage_affects_individual_trade_prices(
+        self,
+        sample_ohlcv_data: pd.DataFrame,
+    ) -> None:
+        """With slippage, entry prices should be higher and exit prices
+        lower compared to zero slippage."""
+        cfg_clean = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.0,
+        )
+        cfg_slip = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.005,
+        )
+
+        r_clean = Backtester(config=cfg_clean).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        )
+        r_slip = Backtester(config=cfg_slip).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        )
+
+        assert len(r_clean.trades) == len(r_slip.trades)
+        for t_clean, t_slip in zip(r_clean.trades, r_slip.trades):
+            # Entry should be worse (higher) with slippage.
+            assert t_slip["entry_price"] >= t_clean["entry_price"]
+            # Exit should be worse (lower) with slippage.
+            assert t_slip["exit_price"] <= t_clean["exit_price"]
+
+    def test_high_slippage_produces_losses(
+        self,
+        sample_ohlcv_data: pd.DataFrame,
+    ) -> None:
+        """Extreme slippage (5%) should reliably produce net losses."""
+        cfg = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.05, commission_per_trade=0.0,
+        )
+        result = Backtester(config=cfg).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        )
+
+        assert result.metrics.total_pnl < 0
+
+    def test_combined_slippage_and_commission(
+        self,
+        sample_ohlcv_data: pd.DataFrame,
+    ) -> None:
+        """Both slippage + commission together should degrade more than either alone."""
+        base = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+        )
+        slip_only = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.005,
+        )
+        comm_only = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            commission_per_trade=5.0,
+        )
+        both = BacktestConfig(
+            train_window_days=100, test_window_days=30, step_days=20,
+            slippage_pct=0.005, commission_per_trade=5.0,
+        )
+
+        pnl_base = Backtester(config=base).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        ).metrics.total_pnl
+        pnl_slip = Backtester(config=slip_only).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        ).metrics.total_pnl
+        pnl_comm = Backtester(config=comm_only).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        ).metrics.total_pnl
+        pnl_both = Backtester(config=both).run(
+            BuySellStrategy(), sample_ohlcv_data,
+        ).metrics.total_pnl
+
+        assert pnl_both < pnl_slip
+        assert pnl_both < pnl_comm
+        assert pnl_both < pnl_base
+
+    def test_config_defaults_are_zero(self) -> None:
+        """Default BacktestConfig should have zero slippage and commission."""
+        cfg = BacktestConfig()
+        assert cfg.slippage_pct == 0.0
+        assert cfg.commission_per_trade == 0.0

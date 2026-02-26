@@ -48,7 +48,7 @@ def _portfolio_to_state(portfolio: Portfolio) -> PortfolioState:
         total_equity=portfolio.total_equity,
         cash=portfolio.cash,
         positions=positions,
-        daily_pnl=0.0,  # V1: daily P&L tracking not yet implemented
+        daily_pnl=portfolio.daily_pnl,
     )
 
 

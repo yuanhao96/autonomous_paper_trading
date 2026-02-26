@@ -63,6 +63,7 @@ class Portfolio:
     cash: float
     positions: list[Position] = field(default_factory=list)
     timestamp: str = ""
+    daily_pnl: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +139,9 @@ class PaperBroker:
                 """
                 CREATE TABLE IF NOT EXISTS account (
                     id   INTEGER PRIMARY KEY CHECK (id = 1),
-                    cash REAL NOT NULL
+                    cash REAL NOT NULL,
+                    opening_equity REAL,
+                    day_date TEXT
                 )
                 """
             )
@@ -150,6 +153,20 @@ class PaperBroker:
                     (_INITIAL_CASH,),
                 )
                 logger.info("Initialised mock account with $%.2f cash", _INITIAL_CASH)
+            else:
+                # Migrate: add columns if missing (pre-existing DB).
+                cols = {
+                    r[1]
+                    for r in cur.execute("PRAGMA table_info(account)").fetchall()
+                }
+                if "opening_equity" not in cols:
+                    cur.execute(
+                        "ALTER TABLE account ADD COLUMN opening_equity REAL"
+                    )
+                if "day_date" not in cols:
+                    cur.execute(
+                        "ALTER TABLE account ADD COLUMN day_date TEXT"
+                    )
             con.commit()
         finally:
             con.close()
@@ -190,6 +207,62 @@ class PaperBroker:
             con.commit()
         finally:
             con.close()
+
+    # -- Daily P&L helpers --------------------------------------------------
+
+    def _get_opening_equity(self) -> tuple[float | None, str | None]:
+        """Return (opening_equity, day_date) from the account row."""
+        con = self._connect()
+        try:
+            row = con.execute(
+                "SELECT opening_equity, day_date FROM account WHERE id = 1"
+            ).fetchone()
+            if row is None:
+                return None, None
+            return row[0], row[1]
+        finally:
+            con.close()
+
+    def _set_opening_equity(self, equity: float, day: str) -> None:
+        con = self._connect()
+        try:
+            con.execute(
+                "UPDATE account SET opening_equity = ?, day_date = ? WHERE id = 1",
+                (equity, day),
+            )
+            con.commit()
+        finally:
+            con.close()
+
+    def _ensure_day_baseline(self, current_equity: float) -> float:
+        """Ensure an opening equity baseline exists for today.
+
+        If the stored day_date differs from today (or is NULL), reset the
+        baseline to *current_equity* and return 0.0 daily P&L. Otherwise
+        return the P&L relative to the stored opening_equity.
+        """
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        opening, stored_day = self._get_opening_equity()
+        if stored_day != today or opening is None:
+            self._set_opening_equity(current_equity, today)
+            return 0.0
+        return current_equity - opening
+
+    def reset_daily_pnl(self) -> None:
+        """Force-reset the daily P&L baseline to current equity.
+
+        Call this at the start of a new trading day or when the baseline
+        should be recalibrated.
+        """
+        if not self.mock:
+            return  # Alpaca handles this server-side.
+        portfolio = self._mock_get_portfolio_raw()
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        self._set_opening_equity(portfolio.total_equity, today)
+        logger.info(
+            "Daily P&L baseline reset to $%.2f for %s",
+            portfolio.total_equity, today,
+        )
 
     # -- Public API ---------------------------------------------------------
 
@@ -438,7 +511,8 @@ class PaperBroker:
             )
         return positions
 
-    def _mock_get_portfolio(self) -> Portfolio:
+    def _mock_get_portfolio_raw(self) -> Portfolio:
+        """Build portfolio snapshot without daily P&L (avoids recursion)."""
         cash = self._get_cash()
         positions = self._mock_get_positions()
         total_equity = cash + sum(p.market_value for p in positions)
@@ -448,6 +522,11 @@ class PaperBroker:
             positions=positions,
             timestamp=_now_iso(),
         )
+
+    def _mock_get_portfolio(self) -> Portfolio:
+        portfolio = self._mock_get_portfolio_raw()
+        portfolio.daily_pnl = self._ensure_day_baseline(portfolio.total_equity)
+        return portfolio
 
     def _mock_get_order_history(self, limit: int) -> list[Order]:
         con = self._connect()
@@ -534,11 +613,15 @@ class PaperBroker:
     def _alpaca_get_portfolio(self) -> Portfolio:
         account = self._api.get_account()
         positions = self._alpaca_get_positions()
+        # Alpaca provides last_equity (previous close equity) on the account.
+        equity = float(account.equity)
+        last_equity = float(getattr(account, "last_equity", equity))
         return Portfolio(
-            total_equity=float(account.equity),
+            total_equity=equity,
             cash=float(account.cash),
             positions=positions,
             timestamp=_now_iso(),
+            daily_pnl=equity - last_equity,
         )
 
     def _alpaca_get_order_history(self, limit: int) -> list[Order]:

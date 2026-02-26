@@ -85,3 +85,71 @@
 
 ### Patterns to Avoid
 - Don't try to fix E402 in scripts by moving sys.path into a conftest or similar — the scripts need to be standalone runnable.
+
+## Milestone: Evolution Error Handling & Feedback Loop (2026-02-25)
+
+### What Worked
+- Using `audit_passed: set[str]` to track which survivors pass audit before the promotion step is clean and readable.
+- Verifying existing wiring (feedback loop) before implementing saved time — the planner → store → generator → LLM prompt chain was already correct, just needed verification not reimplementation.
+- Moving exhaustion check to cycle start (step 1b) with early return is a minimal, safe change.
+
+### What Didn't Work
+- Exhaustion test initially failed because `can_run_today()` returned False before the exhaustion check ran (seeded cycles completed "today"). Fixed by patching `can_run_today` to return True in the test.
+
+### Patterns to Reuse
+- When testing early-exit logic that depends on ordering, patch the preceding early-exit check to ensure the check-under-test actually runs.
+- Verify existing wiring before building new: read the full call chain (store → planner → generator → prompt template) to confirm whether a gap actually exists.
+
+### Patterns to Avoid
+- Don't assume a gap exists without tracing the full call chain — the feedback loop was already wired correctly despite the acceptance criteria suggesting otherwise.
+
+## Milestone: Daily P&L Tracking (2026-02-25)
+
+### What Worked
+- Minimal change approach: added `opening_equity` + `day_date` columns to existing account table rather than creating new tables. Schema migration via ALTER TABLE for pre-existing DBs.
+- The `_ensure_day_baseline()` pattern cleanly handles both "first call of the day" (set baseline) and "subsequent calls" (compute delta) without explicit reset calls.
+- Replacing `daily_pnl=0.0` with `daily_pnl=portfolio.daily_pnl` in two files was the minimal change needed to activate the existing RiskManager gate.
+
+### What Didn't Work
+- Nothing notable — the milestone was well-scoped and all changes were straightforward.
+
+### Patterns to Reuse
+- "Ensure baseline" pattern: On first access, set a baseline value; on subsequent accesses, compute delta from baseline. Auto-resets when the context changes (new day, new session).
+- Schema migration in _init_db: Use PRAGMA table_info to check for missing columns and ALTER TABLE to add them. This handles upgrading existing databases without losing data.
+
+### Patterns to Avoid
+- Don't create separate P&L tables when the data naturally belongs as columns on an existing table (account).
+
+## Milestone: Integration Test Suite (2026-02-25)
+
+### What Worked
+- Organizing tests by user-visible flow (startup→execution, evolve→promote, error recovery, persistence) made it clear what each test verifies.
+- Using real (not mocked) components for most tests (compile_spec, EvolutionStore, StrategyPromoter, StateManager) caught a method name error (record_signal vs record_signals) that mocks would have hidden.
+
+### What Didn't Work
+- Initially used wrong method name `record_signal` instead of `record_signals` — caught by test execution.
+
+### Patterns to Reuse
+- Integration tests should use real components where possible; only mock external I/O (network, LLM calls, price fetching).
+- Test corrupted DB by writing garbage bytes to the file path, then assert the constructor raises.
+
+### Patterns to Avoid
+- Don't over-mock: if the component is local and deterministic, use the real one.
+
+## Milestone: Backtester Realism (Slippage & Commissions) (2026-02-25)
+
+### What Worked
+- Additive approach: only two fields added to BacktestConfig, one method signature changed. Zero risk of regression with default values of 0.0.
+- Testing commission accumulation via `pnl_diff == num_trades * commission` is a clean, deterministic assertion that validates the exact deduction logic.
+- Comparing trade-by-trade entry/exit prices between slippage and no-slippage runs validates the price adjustment direction (buy higher, sell lower).
+
+### What Didn't Work
+- Added `import numpy as np` to test file but never used it — caught by ruff. Minor issue.
+
+### Patterns to Reuse
+- Backward-compatible defaults: Adding new config fields with 0.0 defaults means all existing tests and callers work unchanged.
+- Pair-wise comparison testing: Run the same strategy with two configs (one clean, one with costs) and compare results. This pattern is more robust than hardcoding expected values.
+- Static method with optional config param: Passing `config: BacktestConfig | None = None` keeps the method as a static method while adding configurability.
+
+### Patterns to Avoid
+- Don't add imports speculatively — only import what you actually use in the file.

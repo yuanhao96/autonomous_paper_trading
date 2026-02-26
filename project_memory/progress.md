@@ -53,6 +53,46 @@ Close V1/V2 implementation gaps in the Autonomous Evolving Investment System. V1
   - [x] Dead code and unused imports removed
   - [x] No unused variables or unreachable code
 
+### Milestone: Evolution Error Handling & Feedback Loop
+- **Status**: completed
+- **Date completed**: 2026-02-25
+- **Summary**: Added audit-gating for promotion (only audit-passed strategies become candidates), exhaustion detection at cycle start that blocks generation, and verified the existing feedback loop (planner → store → generator → LLM prompt). 4 new test classes (6 tests) added, all 292 tests pass.
+- **Acceptance criteria met**:
+  - [x] Evolution cycle skips promotion for strategies whose audit failed or had critical findings
+  - [x] Exhaustion detection blocks generation at cycle start (not just logged at end)
+  - [x] Feedback loop verified: past audit feedback flows planner → generator → LLM prompt
+  - [x] Tests cover: audit failure blocks promotion, exhaustion blocks cycle, feedback retrieval
+
+### Milestone: Daily P&L Tracking
+- **Status**: completed
+- **Date completed**: 2026-02-25
+- **Summary**: Added daily P&L tracking to PaperBroker using opening_equity baseline stored in SQLite. Auto-resets on day boundary. Replaced hardcoded daily_pnl=0.0 in agent.py and main.py with actual Portfolio.daily_pnl. The max_daily_loss_pct RiskManager gate is now functional. 9 new tests added, all 301 tests pass.
+- **Acceptance criteria met**:
+  - [x] PaperBroker tracks realized + unrealized P&L per day
+  - [x] TradingAgent passes actual daily P&L to RiskManager.check_order()
+  - [x] max_daily_loss_pct gate actually blocks new buys when breached
+  - [x] Tests verify: P&L calculation accuracy, buy-block on loss breach, reset at day boundary
+
+### Milestone: Integration Test Suite
+- **Status**: completed
+- **Date completed**: 2026-02-25
+- **Summary**: Created comprehensive test_system_integration.py with 14 tests covering 4 categories: startup-to-execution flow, evolve-to-promotion pipeline, error recovery (corrupted DBs, LLM timeout), and state persistence (save/reload/update/append). All 315 tests pass.
+- **Acceptance criteria met**:
+  - [x] End-to-end test: agent startup → load promoted → generate signals → execute → state saved
+  - [x] End-to-end test: evolve → promote → strategy appears in next daily cycle
+  - [x] Error recovery test: corrupted DB, missing config, LLM timeout
+  - [x] Agent state persistence test: save → reload → state matches
+
+### Milestone: Backtester Realism (Slippage & Commissions)
+- **Status**: completed
+- **Date completed**: 2026-02-25
+- **Summary**: Added slippage_pct and commission_per_trade to BacktestConfig. Trade simulation applies percentage-based slippage (buy higher, sell lower) and deducts flat commission per trade. Configurable defaults in config/settings.yaml. 7 new tests verify slippage degrades returns, commission accumulates proportionally, and zero-slippage matches baseline. All 322 tests pass.
+- **Acceptance criteria met**:
+  - [x] BacktestConfig accepts slippage_pct and commission_per_trade parameters
+  - [x] Trade simulation applies slippage to entry/exit prices and deducts commissions from P&L
+  - [x] Default slippage/commission are configurable in config/settings.yaml
+  - [x] Tests verify: slippage degrades returns, commission accumulates, zero-slippage matches current behavior
+
 ## Current Milestone
 
-None — all milestones complete. Project goal achieved.
+None — all planned milestones are complete.
