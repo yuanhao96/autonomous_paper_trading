@@ -105,6 +105,33 @@ stages:
     description: Discovered during study of 'Asset class'.
     mastery_criteria: Can explain and apply Intermarket analysis in a concrete trading
       scenario
+  - id: foreign_exchange_risk
+    name: Foreign exchange risk
+    description: Discovered during study of 'Forex diversification'.
+    mastery_criteria: Can explain and apply Foreign exchange risk in a concrete trading
+      scenario
+  - id: transaction_risk
+    name: Transaction risk
+    description: Discovered during study of 'Forex diversification'.
+    mastery_criteria: Can explain and apply Transaction risk in a concrete trading
+      scenario
+  - id: trailing_pe_ttmltm
+    name: Trailing P/E (TTM/LTM)
+    description: Discovered during study of 'Forward P/E'.
+    mastery_criteria: Can explain and apply Trailing P/E (TTM/LTM) in a concrete trading
+      scenario
+  - id: peg_ratio
+    name: PEG Ratio
+    description: Discovered during study of 'Forward P/E'.
+    mastery_criteria: Can explain and apply PEG Ratio in a concrete trading scenario
+  - id: basic_eps
+    name: Basic EPS
+    description: Discovered during study of 'Earnings Per Share (EPS)'.
+    mastery_criteria: Can explain and apply Basic EPS in a concrete trading scenario
+  - id: diluted_eps
+    name: Diluted EPS
+    description: Discovered during study of 'Earnings Per Share (EPS)'.
+    mastery_criteria: Can explain and apply Diluted EPS in a concrete trading scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
