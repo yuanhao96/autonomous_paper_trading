@@ -159,6 +159,36 @@ stages:
     description: Discovered during study of 'Session overlaps'.
     mastery_criteria: Can explain and apply Bid-ask spreads in a concrete trading
       scenario
+  - id: limit_orders_vs_market_orders
+    name: Limit orders vs market orders
+    description: Discovered during study of 'Liquidity and volatility patterns'.
+    mastery_criteria: Can explain and apply Limit orders vs market orders in a concrete
+      trading scenario
+  - id: price_discovery
+    name: Price discovery
+    description: Discovered during study of 'Liquidity and volatility patterns'.
+    mastery_criteria: Can explain and apply Price discovery in a concrete trading
+      scenario
+  - id: alternative_trading_systems_ats
+    name: Alternative Trading Systems (ATS)
+    description: Discovered during study of 'Electronic Communication Networks (ECNs)'.
+    mastery_criteria: Can explain and apply Alternative Trading Systems (ATS) in a
+      concrete trading scenario
+  - id: bid-ask_spread_components
+    name: Bid-ask spread components
+    description: Discovered during study of 'Electronic Communication Networks (ECNs)'.
+    mastery_criteria: Can explain and apply Bid-ask spread components in a concrete
+      trading scenario
+  - id: limit_order_book_lob
+    name: Limit Order Book (LOB)
+    description: Discovered during study of 'Limit order books'.
+    mastery_criteria: Can explain and apply Limit Order Book (LOB) in a concrete trading
+      scenario
+  - id: central_limit_order_book_clob
+    name: Central Limit Order Book (CLOB)
+    description: Discovered during study of 'Limit order books'.
+    mastery_criteria: Can explain and apply Central Limit Order Book (CLOB) in a concrete
+      trading scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
