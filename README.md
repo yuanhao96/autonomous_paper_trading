@@ -42,7 +42,7 @@ The Trading Agent proposes strategies and code changes. The Auditor Agent review
 ### Prerequisites
 
 - Python 3.11 or later
-- A Moonshot (Kimi) API key from platform.moonshot.cn (for LLM-driven knowledge synthesis)
+- A Kimi Code API key or Anthropic API key (for LLM-driven knowledge synthesis and strategy generation)
 - An Alpaca paper trading account (paper trading is the default; use --mock for local SQLite testing)
 
 ### Installation
@@ -60,7 +60,8 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```
-MOONSHOT_API_KEY=sk-...
+KIMI_CODE_API_KEY=sk-...                          # Kimi Code API key (preferred)
+ANTHROPIC_API_KEY=sk-ant-...                      # Or Anthropic API key (fallback)
 ALPACA_API_KEY=...
 ALPACA_SECRET_KEY=...
 ALPACA_BASE_URL=https://paper-api.alpaca.markets
@@ -98,7 +99,7 @@ python main.py --action evolve
 - **Walk-Forward Backtesting** -- Rolling train/test windows with equity curve tracking and performance metrics (Sharpe ratio, max drawdown, win rate, P&L).
 - **Auditor Agent** -- Checks for look-ahead bias, overfitting, survivorship bias, and data quality. Strategy promotion requires passing the audit gate.
 - **Daily Reports** -- Markdown-formatted performance summaries suitable for messaging delivery (iMessage, Slack, Telegram).
-- **LLM Integration** -- Centralized Moonshot (Kimi) API wrapper (OpenAI-compatible) with automatic retries, exponential backoff, and structured call logging.
+- **LLM Integration** -- Centralized LLM wrapper (`core/llm.py`) supporting Kimi Code API and Anthropic API (auto-fallback) via the Anthropic SDK. Automatic retries with exponential backoff and structured call logging.
 - **Markdown Knowledge Memory** -- Structured markdown files with YAML front-matter for storing synthesized financial knowledge. BM25 full-text search via `rank_bm25`. Git-versionable and human-readable.
 - **Investment Book Library** -- 120+ curated trading and investment books (converted from PDF to plain text) mapped to curriculum topics. Each nightly learning session supplements Wikipedia/arXiv content with relevant book excerpts.
 
@@ -108,14 +109,14 @@ python main.py --action evolve
 - **Declarative Strategy Spec** -- LLM generates JSON strategy specs (`strategies/spec.py`), not raw Python. Specs declare indicators, entry/exit conditions (with 7 operators: `cross_above`, `cross_below`, `greater_than`, `less_than`, `between`, `slope_positive`, `percent_change`), and risk parameters. One level of indicator nesting and one level of condition nesting (ALL_OF / ANY_OF).
 - **Template Engine** -- `strategies/template_engine.py` compiles a `StrategySpec` into an executable `TemplateStrategy` compatible with the existing backtester. Handles indicator dependency resolution, multi-output expansion, and composite condition evaluation.
 - **LLM Strategy Generation** -- `strategies/generator.py` calls the LLM to produce batches of strategy specs. Each call uses a diversity index to encourage variety. Supports mutation of existing specs given auditor feedback.
-- **Multi-Period Backtesting** -- `evaluation/multi_period.py` runs strategies across 6 historical regimes (GFC, Low-vol Grind, Melt-up + Vol Spike, COVID Cycle, Rate Hiking Bear, Current) with configurable weights. Composite score = weighted average Sharpe. Strategies failing a minimum Sharpe floor in any period are disqualified.
+- **Multi-Period Backtesting** -- `evaluation/multi_period.py` runs strategies across 6 historical regimes (GFC, Low-vol Grind, Melt-up + Vol Spike, COVID Cycle, Rate Hiking Bear, Current) with configurable weights and compact walk-forward windows (train=120, test=40 days) sized to fit all periods. Composite score = weighted average Sharpe. Strategies failing a minimum Sharpe floor in any period are disqualified.
 - **Tournament Selection** -- `evaluation/tournament.py` backtests a batch of compiled strategies, ranks them by composite score, and selects the top N survivors (default 3 of 10).
-- **Auditor Layer 2 (LLM Analysis)** -- `agents/auditor/layer2.py` asks the LLM to write a Python analysis script, executes it in a sandboxed subprocess (timeout 30s, restricted env, no network), parses structured JSON findings, then generates constructive feedback for the planner.
+- **Auditor Layer 2 (LLM Analysis)** -- `agents/auditor/layer2.py` asks the LLM to write a Python analysis script, executes it in a sandboxed subprocess (timeout 30s, restricted env with only Python-path variables, no API keys or HOME), parses structured JSON findings, then generates constructive feedback for the planner. Forbidden imports/calls are automatically stripped from LLM-generated code via AST rewriting before execution; `sys.stdin` references are transparently rewritten to a safe `io.FileIO(0)` reader.
 - **Self-Evolving Auditor** -- Recurring Layer 2 patterns are tracked in SQLite. When a pattern occurs 3+ times with a false positive rate below 20%, it is auto-promoted to a Layer 1 check (`agents/auditor/checks/auto_*.py`).
 - **Evolution Cycle Orchestration** -- `evolution/cycle.py` wires together: planner → generator → compiler → tournament → auditor → store. Limited to 1 cycle per day. Exhaustion detection flags plateau after N consecutive cycles with no score improvement.
 - **Evolution Persistence** -- `evolution/store.py` uses SQLite to track cycles, strategy specs, audit feedback, and exhaustion state. Recent winners and feedback are fed back into the next generation cycle.
 - **Strategy Promotion Pipeline** -- `evolution/promoter.py` manages the full strategy lifecycle: `candidate` → `paper_testing` → `promoted` → `retired`. Survivors from tournament selection are submitted as candidates, tested for a configurable period (default 5 days), and auto-promoted when they meet signal-count gates. Promoted strategies are loaded at agent startup; retired strategies are unregistered.
-- **Auditor Code Safety** -- Before executing any LLM-generated analysis script, the Layer 2 auditor performs AST-based validation: 15 forbidden module imports (os, subprocess, sys, socket, etc.) and 7 forbidden built-in calls (eval, exec, open, etc.) are blocked at parse time.
+- **Auditor Code Safety** -- Before executing any LLM-generated analysis script, the Layer 2 auditor performs AST-based sanitisation: forbidden imports (os, subprocess, sys, socket, and 11 others) are stripped, forbidden built-in calls (eval, exec, open, etc.) are replaced with `None`, and `sys.stdin` references are rewritten to safe file-descriptor readers. A second-pass AST validator confirms the cleaned code is safe before execution. The sandboxed subprocess runs with a minimal environment (only `PATH`, `PYTHONPATH`, `CONDA_PREFIX`, etc.) — no API keys, HOME, or network-enabling variables are passed through.
 - **Preferences Enforcement** -- `strategies/generator.py` validates every generated strategy spec against human risk limits from `preferences.yaml`. Specs where `stop_loss_pct` exceeds `max_drawdown_pct` or where `max_positions` implies excessive concentration are rejected before entering the tournament.
 - **Template Engine Robustness** -- OHLCV column validation at entry, NaN-safe indicator computation with graceful fallback, and unknown-indicator handling prevent crashes on malformed or sparse data.
 - **Backtester Robustness** -- Walk-forward roll starts at bar 1 (not 0) to avoid 1-bar slices, price lookups are guarded against KeyError and NaN, and end-of-window closes handle missing data gracefully.

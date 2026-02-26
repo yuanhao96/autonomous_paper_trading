@@ -28,8 +28,9 @@ Python trading logic is called from OpenClaw via tool/subprocess. OpenClaw handl
 - **Trading Logic**: Python 3.11+
 - **Market Data**: `yfinance` (free) + `alpaca-trade-api` (paper trading execution)
 - **Data Store**: SQLite for trade logs, strategy versions, evolution state, auditor patterns
-- **LLM**: Moonshot (Kimi) API via OpenAI-compatible client (`claude-sonnet-4-5` default). Set MOONSHOT_API_KEY in .env
+- **LLM**: Kimi Code API or Anthropic API via the Anthropic SDK (`claude-sonnet-4-5` default). Set KIMI_CODE_API_KEY or ANTHROPIC_API_KEY in .env
 - **Knowledge Store**: Markdown files with YAML front-matter for structured knowledge; BM25 full-text search via `rank_bm25`
+- **Scientific Computing**: `scipy` (used by Layer 2 auditor analysis scripts for statistical tests)
 - **Human Preferences**: `config/preferences.yaml` (human-only write, agent read-only)
 - **Testing**: pytest
 - **Linting**: ruff + mypy
@@ -225,7 +226,8 @@ ruff check . && mypy .                   # Lint
 Store in `.env` (gitignored), load via `python-dotenv`:
 
 ```
-MOONSHOT_API_KEY=...                              # Moonshot (Kimi) API key
+KIMI_CODE_API_KEY=...                             # Kimi Code API key (preferred)
+ANTHROPIC_API_KEY=...                             # Anthropic API key (fallback if Kimi key not set)
 ALPACA_API_KEY=...                                # Alpaca paper trading key
 ALPACA_SECRET_KEY=...                             # Alpaca paper trading secret
 ALPACA_BASE_URL=https://paper-api.alpaca.markets

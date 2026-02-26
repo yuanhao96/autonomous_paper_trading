@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 import json
 import logging
+import os
 import re
 import sqlite3
 import subprocess
@@ -297,13 +298,17 @@ class Layer2Auditor:
             script_path = f.name
 
         try:
+            # Build a minimal env that lets Python find installed packages
+            # but strips secrets and dangerous variables.
+            safe_env = self._build_sandbox_env()
+
             proc = subprocess.run(
                 [sys.executable, script_path],
                 input=context_json,
                 capture_output=True,
                 text=True,
                 timeout=30,
-                env={"PATH": ""},  # Restricted environment.
+                env=safe_env,
             )
             if proc.returncode == 0:
                 return True, proc.stdout
@@ -322,6 +327,26 @@ class Layer2Auditor:
             return False, str(exc)
         finally:
             Path(script_path).unlink(missing_ok=True)
+
+    # Environment variables passed through to the sandboxed subprocess.
+    # These are needed so Python can find installed packages.
+    _ENV_PASSTHROUGH = frozenset({
+        "PATH", "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "CONDA_PREFIX",
+        "CONDA_DEFAULT_ENV", "LANG", "LC_ALL", "TMPDIR", "TEMP", "TMP",
+    })
+
+    @classmethod
+    def _build_sandbox_env(cls) -> dict[str, str]:
+        """Build a minimal environment for the sandboxed subprocess.
+
+        Passes through only the variables needed for Python to locate
+        installed packages.  API keys, HOME, and other sensitive vars
+        are excluded.
+        """
+        return {
+            k: v for k, v in os.environ.items()
+            if k in cls._ENV_PASSTHROUGH
+        }
 
     def _build_analysis_context(
         self,
