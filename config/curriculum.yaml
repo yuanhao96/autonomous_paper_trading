@@ -132,6 +132,33 @@ stages:
     name: Diluted EPS
     description: Discovered during study of 'Earnings Per Share (EPS)'.
     mastery_criteria: Can explain and apply Diluted EPS in a concrete trading scenario
+  - id: dow_theory
+    name: Dow Theory
+    description: Discovered during study of 'Trailing P/E Ratio'.
+    mastery_criteria: Can explain and apply Dow Theory in a concrete trading scenario
+  - id: support_and_resistance
+    name: Support and Resistance
+    description: Discovered during study of 'Trailing P/E Ratio'.
+    mastery_criteria: Can explain and apply Support and Resistance in a concrete trading
+      scenario
+  - id: earnings_yield
+    name: Earnings Yield
+    description: Discovered during study of 'Forward P/E Ratio'.
+    mastery_criteria: Can explain and apply Earnings Yield in a concrete trading scenario
+  - id: absolute_pe
+    name: Absolute P/E
+    description: Discovered during study of 'Forward P/E Ratio'.
+    mastery_criteria: Can explain and apply Absolute P/E in a concrete trading scenario
+  - id: daylight_saving_time_shifts
+    name: Daylight Saving Time shifts
+    description: Discovered during study of 'Session overlaps'.
+    mastery_criteria: Can explain and apply Daylight Saving Time shifts in a concrete
+      trading scenario
+  - id: bid-ask_spreads
+    name: Bid-ask spreads
+    description: Discovered during study of 'Session overlaps'.
+    mastery_criteria: Can explain and apply Bid-ask spreads in a concrete trading
+      scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
