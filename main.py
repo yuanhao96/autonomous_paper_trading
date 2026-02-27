@@ -253,5 +253,32 @@ def main() -> None:
     commands[args.command](args)
 
 
+def _silence_resource_tracker() -> None:
+    """Spawn the multiprocessing resource tracker with stderr silenced.
+
+    backtesting.py's optimize() leaks shared_memory segments, causing hundreds
+    of ``KeyError: '/psm_...'`` tracebacks and ``UserWarning``s from the
+    resource_tracker subprocess at exit.
+
+    The tracker is a separate process launched via ``spawnv_passfds`` which
+    inherits the parent's stderr fd at spawn time.  We temporarily point fd 2
+    to ``/dev/null``, force the tracker to start (so it inherits the silenced
+    stderr), then restore fd 2 for the main process.
+    """
+    import os
+    from multiprocessing import resource_tracker as rt
+
+    saved_stderr = os.dup(2)
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull, 2)
+    os.close(devnull)
+    try:
+        rt.ensure_running()
+    finally:
+        os.dup2(saved_stderr, 2)
+        os.close(saved_stderr)
+
+
 if __name__ == "__main__":
+    _silence_resource_tracker()
     main()

@@ -44,17 +44,31 @@ class TestLLMSession:
 
 
 class TestLLMClient:
-    def test_client_init_defaults_to_anthropic(self):
-        client = LLMClient()
+    def test_client_init_with_explicit_provider(self):
+        settings = MagicMock()
+        settings.get.side_effect = lambda key, default=None: {
+            "llm.provider": "anthropic",
+            "llm.model": "claude-sonnet-4-20250514",
+            "llm.max_tokens": 4096,
+            "llm.temperature": 0.7,
+        }.get(key, default)
+        client = LLMClient(settings=settings)
         assert client.provider == "anthropic"
         assert client.model == "claude-sonnet-4-20250514"
         assert client.session.total_calls == 0
 
     def test_anthropic_no_api_key_raises_default(self, monkeypatch):
-        """Without ANTHROPIC_API_KEY, calling chat should raise RuntimeError."""
+        """Without ANTHROPIC_API_KEY, Anthropic provider should raise RuntimeError."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.setattr("src.core.llm._load_env_key", lambda key: None)
-        client = LLMClient()
+        settings = MagicMock()
+        settings.get.side_effect = lambda key, default=None: {
+            "llm.provider": "anthropic",
+            "llm.model": "claude-sonnet-4-20250514",
+            "llm.max_tokens": 4096,
+            "llm.temperature": 0.7,
+        }.get(key, default)
+        client = LLMClient(settings=settings)
         with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
             client.chat("test")
 
@@ -87,18 +101,24 @@ class TestLLMClient:
             client.chat("test")
 
     def test_default_model_per_provider(self):
-        # Anthropic default (from settings.yaml)
-        client_ant = LLMClient()
+        # Anthropic default
+        settings_ant = MagicMock()
+        settings_ant.get.side_effect = lambda key, default=None: {
+            "llm.provider": "anthropic",
+            "llm.max_tokens": 4096,
+            "llm.temperature": 0.7,
+        }.get(key, default)
+        client_ant = LLMClient(settings=settings_ant)
         assert client_ant.provider == "anthropic"
         assert client_ant.model == "claude-sonnet-4-20250514"
 
-        # OpenAI via explicit settings
-        settings = MagicMock()
-        settings.get.side_effect = lambda key, default=None: {
+        # OpenAI default
+        settings_oai = MagicMock()
+        settings_oai.get.side_effect = lambda key, default=None: {
             "llm.provider": "openai",
             "llm.max_tokens": 4096,
             "llm.temperature": 0.7,
         }.get(key, default)
-        client_oai = LLMClient(settings=settings)
+        client_oai = LLMClient(settings=settings_oai)
         assert client_oai.provider == "openai"
         assert client_oai.model == "gpt-4o"

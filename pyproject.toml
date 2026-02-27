@@ -8,6 +8,9 @@ requires-python = ">=3.11"
 pythonpath = ["."]
 testpaths = ["tests"]
 markers = ["network: tests requiring internet access"]
+filterwarnings = [
+    "ignore:.*multi-process optimization.*:RuntimeWarning:backtesting",
+]
 
 [tool.ruff]
 line-length = 100

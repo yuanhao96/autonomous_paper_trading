@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from dataclasses import replace
 from datetime import date
 from typing import Any
 
 import pandas as pd
 from backtesting import Backtest
+
+# backtesting.py emits a RuntimeWarning about spawn-based multiprocessing on every
+# optimize() call.  It falls back to threads automatically — the warning is noise.
+warnings.filterwarnings("ignore", message=".*multi-process optimization.*", module="backtesting")
 
 from src.core.config import Settings
 from src.data.manager import DataManager
