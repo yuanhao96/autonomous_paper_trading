@@ -15,7 +15,7 @@ class TestLLMUsage:
         assert u.model == ""
 
     def test_usage_values(self):
-        u = LLMUsage(input_tokens=100, output_tokens=50, model="gpt-5")
+        u = LLMUsage(input_tokens=100, output_tokens=50, model="gpt-4o")
         assert u.input_tokens == 100
         assert u.output_tokens == 50
 
@@ -121,4 +121,4 @@ class TestLLMClient:
         }.get(key, default)
         client_oai = LLMClient(settings=settings_oai)
         assert client_oai.provider == "openai"
-        assert client_oai.model == "gpt-5"
+        assert client_oai.model == "gpt-5.2"

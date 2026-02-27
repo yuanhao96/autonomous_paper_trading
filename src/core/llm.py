@@ -94,7 +94,7 @@ class LLMClient:
     def _default_model(self) -> str:
         if self._provider == "anthropic":
             return "claude-sonnet-4-20250514"
-        return "gpt-5"
+        return "gpt-5.2"
 
     def _get_client(self):
         """Lazy-init the provider client."""
@@ -220,7 +220,7 @@ class LLMClient:
             model=self._model,
             messages=messages,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_completion_tokens=max_tokens,
         )
         text = response.choices[0].message.content
         usage = LLMUsage(

@@ -19,6 +19,9 @@ from typing import Any
 from src.agent.reviewer import (
     format_failure_analysis,
     format_history_for_llm,
+    format_overfitting_analysis,
+    format_param_optimization_insights,
+    format_parameter_insights,
     format_result_for_llm,
 )
 from src.core.config import PROJECT_ROOT, Settings
@@ -210,6 +213,7 @@ class StrategyGenerator:
         self,
         history: list[tuple[StrategySpec, StrategyResult]] | None = None,
         category_hint: str | None = None,
+        cross_phase_results: list[dict] | None = None,
     ) -> StrategySpec:
         """EXPLORE: Generate a new strategy from the knowledge base.
 
@@ -219,6 +223,7 @@ class StrategyGenerator:
         Args:
             history: Previous (spec, result) pairs for context.
             category_hint: Optional category to focus on (e.g., "momentum").
+            cross_phase_results: Screen→validation gap data for overfitting analysis.
 
         Returns:
             A new StrategySpec with created_by="llm_explore".
@@ -233,6 +238,17 @@ class StrategyGenerator:
         failure_text = format_failure_analysis(
             [(s, r) for s, r in history if not r.passed]
         ) if history else ""
+
+        # Build learning-from-failure context
+        overfitting_text = ""
+        if cross_phase_results:
+            overfitting_text = format_overfitting_analysis(cross_phase_results)
+
+        param_insights_text = ""
+        if history:
+            specs = [s for s, _ in history]
+            results = [r for _, r in history]
+            param_insights_text = format_parameter_insights(specs, results)
 
         # Count templates already tried
         tried_templates = {}
@@ -262,10 +278,15 @@ KNOWLEDGE BASE CONTEXT:
 
 {failure_text}
 
+{overfitting_text}
+
+{param_insights_text}
+
 {tried_text}
 
 Pick a template that has NOT been heavily tested. Choose parameters that are \
-different from previous attempts. Output ONLY the JSON spec.
+different from previous attempts. Consider the overfitting analysis and parameter \
+insights when choosing parameters. Output ONLY the JSON spec.
 """
 
         response = self._llm.chat_with_system(_SYSTEM_PROMPT, user_msg)
@@ -279,6 +300,7 @@ different from previous attempts. Output ONLY the JSON spec.
         screen_result: StrategyResult | None = None,
         validation_result: StrategyResult | None = None,
         history: list[tuple[StrategySpec, StrategyResult]] | None = None,
+        cross_phase_results: list[dict] | None = None,
     ) -> StrategySpec:
         """EXPLOIT: Refine an existing strategy based on diagnostics.
 
@@ -290,6 +312,7 @@ different from previous attempts. Output ONLY the JSON spec.
             screen_result: Screening results (if available).
             validation_result: Validation results (if available).
             history: Previous attempts for context.
+            cross_phase_results: Screen→validation gap data for overfitting analysis.
 
         Returns:
             A refined StrategySpec with parent_id set and created_by="llm_exploit".
@@ -305,6 +328,18 @@ different from previous attempts. Output ONLY the JSON spec.
         # Get parameter bounds for the template
         bounds = get_optimization_bounds(parent_spec)
         bounds_text = {k: str(v) for k, v in bounds.items()}
+
+        # Build learning-from-failure context
+        param_opt_text = ""
+        overfitting_text = ""
+        param_insights_text = ""
+        if history:
+            specs = [s for s, _ in history]
+            results = [r for _, r in history]
+            param_opt_text = format_param_optimization_insights(specs, results)
+            param_insights_text = format_parameter_insights(specs, results)
+        if cross_phase_results:
+            overfitting_text = format_overfitting_analysis(cross_phase_results)
 
         user_msg = f"""\
 Refine this strategy based on its performance diagnostics.
@@ -324,6 +359,10 @@ SUPPORTED TEMPLATES:
 AVAILABLE UNIVERSES:
 {json.dumps(AVAILABLE_UNIVERSES, indent=2)}
 
+{overfitting_text}
+
+{param_insights_text}
+
 Rules for exploitation:
 1. You may adjust parameters within bounds.
 2. You may change the universe.
@@ -331,6 +370,8 @@ Rules for exploitation:
 4. You may switch to a closely related template if it addresses the failure.
 5. Keep the template the same unless diagnostics clearly point to a template problem.
 6. Focus on addressing the specific failure reason.
+7. Parameter optimization history shows these improvements worked: {param_opt_text}
+   Bias your parameter choices toward these validated ranges.
 
 Output ONLY the JSON spec for the refined strategy.
 """

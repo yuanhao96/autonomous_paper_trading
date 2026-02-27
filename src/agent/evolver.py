@@ -100,6 +100,7 @@ class Evolver:
         self._best_sharpe_ever = -999.0
         self._cycles_without_improvement = 0
         self._cycle_results: list[CycleResult] = []
+        self._cross_phase_history: list[dict] = []
 
     @property
     def cycle_count(self) -> int:
@@ -209,6 +210,17 @@ class Evolver:
                 self._registry.save_result(val_result)
                 cycle.specs_validated += 1
 
+                # Track cross-phase data for overfitting analysis
+                self._cross_phase_history.append({
+                    "spec_id": spec.id,
+                    "template": spec.template,
+                    "screen_sharpe": screen_result.sharpe_ratio,
+                    "val_sharpe": val_result.sharpe_ratio,
+                    "screen_passed": screen_result.passed,
+                    "val_passed": val_result.passed,
+                    "parameters": spec.parameters,
+                })
+
                 # Audit
                 audit = self._auditor.audit(screen_result, val_result, spec=spec)
                 if audit.passed and val_result.passed:
@@ -300,10 +312,15 @@ class Evolver:
         """Generate a batch of strategies based on mode."""
         specs: list[StrategySpec] = []
 
+        cross_phase = self._cross_phase_history
+
         if mode == "explore":
             for _ in range(self._batch_size):
                 try:
-                    spec = self._generator.explore(history=history)
+                    spec = self._generator.explore(
+                        history=history,
+                        cross_phase_results=cross_phase,
+                    )
                     specs.append(spec)
                 except Exception as e:
                     logger.warning("Explore generation failed: %s", e)
@@ -322,6 +339,7 @@ class Evolver:
                         parent_spec=parent_spec,
                         screen_result=parent_result,
                         history=history,
+                        cross_phase_results=cross_phase,
                     )
                     specs.append(spec)
                 except Exception as e:
@@ -334,7 +352,10 @@ class Evolver:
 
         for _ in range(n_explore):
             try:
-                specs.append(self._generator.explore(history=history))
+                specs.append(self._generator.explore(
+                    history=history,
+                    cross_phase_results=cross_phase,
+                ))
             except Exception as e:
                 logger.warning("Explore generation failed: %s", e)
 
@@ -347,6 +368,7 @@ class Evolver:
                         parent_spec=parent_spec,
                         screen_result=parent_result,
                         history=history,
+                        cross_phase_results=cross_phase,
                     ))
                 except Exception as e:
                     logger.warning("Exploit generation failed: %s", e)
