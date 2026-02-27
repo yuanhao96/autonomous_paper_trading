@@ -210,12 +210,20 @@ class Monitor:
             result.annual_return = (1 + result.total_return) ** (252.0 / deployment.days_elapsed) - 1
         result.equity_curve = [s.equity for s in deployment.snapshots]
 
-        # Win rate from trades
+        # Win rate from round-trip matching (FIFO buy→sell per symbol)
         if deployment.trades:
-            # Group trades by symbol to compute P&L per round trip
-            winning = sum(1 for t in deployment.trades if t.side == "sell" and t.price > 0)
-            total = sum(1 for t in deployment.trades if t.side == "sell")
-            result.win_rate = winning / total if total > 0 else 0.0
+            from collections import defaultdict
+            buys: dict[str, list[float]] = defaultdict(list)
+            wins, total_roundtrips = 0, 0
+            for t in deployment.trades:
+                if t.side == "buy":
+                    buys[t.symbol].append(t.price)
+                elif t.side == "sell" and buys[t.symbol]:
+                    entry_price = buys[t.symbol].pop(0)
+                    if t.price > entry_price:
+                        wins += 1
+                    total_roundtrips += 1
+            result.win_rate = wins / total_roundtrips if total_roundtrips > 0 else 0.0
 
         # Time bounds
         result.backtest_start = deployment.started_at.strftime("%Y-%m-%d")

@@ -88,6 +88,57 @@ SUPPORTED_TEMPLATES = [
     # ── Commodities (2) ───────────────────────────────────────
     "commodities/term-structure-effect-in-commodities",
     "commodities/gold-market-timing",
+    # ── Category A: Asset-class/universe variations (13) ──────
+    "momentum/momentum-effect-in-country-equity-indexes",
+    "momentum/momentum-effect-in-reits",
+    "momentum/momentum-effect-in-stocks-in-small-portfolios",
+    "momentum/momentum-in-mutual-fund-returns",
+    "momentum/momentum-effect-in-commodities-futures",
+    "commodities/commodities-futures-trend-following",
+    "forex/forex-momentum",
+    "forex/momentum-strategy-low-frequency-forex",
+    "mean-reversion/mean-reversion-effect-in-country-equity-indexes",
+    "mean-reversion/pairs-trading-with-country-etfs",
+    "mean-reversion/short-term-reversal-with-futures",
+    "factor/beta-factor-in-country-equity-indexes",
+    "value/value-effect-within-countries",
+    # ── Category B: New signal functions (28) ─────────────────
+    # Calendar
+    "calendar/january-barometer",
+    "calendar/12-month-cycle-cross-section",
+    "calendar/lunar-cycle-in-equity-market",
+    "calendar/option-expiration-week-effect",
+    # Momentum variants
+    "momentum/momentum-and-state-of-market-filters",
+    "momentum/momentum-and-style-rotation-effect",
+    "momentum/momentum-short-term-reversal-strategy",
+    "commodities/improved-momentum-strategy-on-commodities-futures",
+    "commodities/momentum-effect-combined-with-term-structure-in-commodities",
+    "momentum/intraday-etf-momentum",
+    "momentum/price-and-earnings-momentum",
+    "momentum/sentiment-and-style-rotation-effect-in-stocks",
+    # Pairs / Mean-Reversion
+    "mean-reversion/intraday-dynamic-pairs-trading",
+    "mean-reversion/optimal-pairs-trading",
+    "mean-reversion/pairs-trading-copula-vs-cointegration",
+    "mean-reversion/intraday-arbitrage-between-index-etfs",
+    # Cross-Asset / Spread
+    "commodities/can-crude-oil-predict-equity-returns",
+    "commodities/trading-with-wti-brent-spread",
+    # Technical
+    "technical/dynamic-breakout-ii-strategy",
+    # Factor / Fundamental
+    "factor/capm-alpha-ranking-dow-30",
+    "factor/expected-idiosyncratic-skewness",
+    "factor/asset-growth-effect",
+    "factor/roa-effect-within-stocks",
+    "factor/standardized-unexpected-earnings",
+    "factor/fundamental-factor-long-short-strategy",
+    "factor/stock-selection-based-on-fundamental-factors",
+    # Volatility
+    "volatility/exploiting-term-structure-of-vix-futures",
+    # Forex
+    "forex/risk-premia-in-forex-markets",
 ]
 
 # Default universes the generator can pick from

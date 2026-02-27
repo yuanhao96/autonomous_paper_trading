@@ -5,7 +5,10 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.universe.spec import UniverseSpec
 
 
 @dataclass(frozen=True)
@@ -38,7 +41,7 @@ class RiskParams:
 class StrategySpec:
     """A constrained strategy specification derived from the knowledge base.
 
-    The LLM generates these by selecting a template from the 83 documented
+    The LLM generates these by selecting a template from the 87 documented
     strategies and setting parameters within documented bounds.
     """
 
@@ -47,6 +50,9 @@ class StrategySpec:
     parameters: dict[str, Any]  # Strategy-specific params: {"lookback": 12, "hold_period": 1}
     universe_id: str  # Reference to a UniverseSpec id
     risk: RiskParams = field(default_factory=RiskParams)
+
+    # Resolved universe (populated when available, not serialized)
+    universe_spec: UniverseSpec | None = None
 
     # Multi-strategy composition
     combination: list[str] = field(default_factory=list)
@@ -119,6 +125,10 @@ class StrategyResult:
 
     # Walk-forward analysis (populated when optimize=True in screening)
     in_sample_sharpe: float = 0.0
+
+    # Survivorship tracking (populated by screener)
+    symbols_requested: int = 0
+    symbols_with_data: int = 0
 
     # Meta
     backtest_start: str = ""

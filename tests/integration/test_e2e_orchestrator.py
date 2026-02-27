@@ -27,7 +27,6 @@ from sqlalchemy import create_engine
 from src.agent.evolver import Evolver
 from src.core.db import init_db
 from src.core.llm import LLMClient
-from src.data.manager import DataManager
 from src.live.broker import PaperBroker
 from src.live.deployer import Deployer
 from src.live.models import Deployment, LiveSnapshot, Position
@@ -71,11 +70,6 @@ def _make_llm_response(
 
 
 @pytest.fixture
-def tmp_dir(tmp_path):
-    return tmp_path
-
-
-@pytest.fixture
 def engine(tmp_dir):
     eng = create_engine(f"sqlite:///{tmp_dir / 'test.db'}", echo=False)
     init_db(eng)
@@ -85,11 +79,6 @@ def engine(tmp_dir):
 @pytest.fixture
 def registry(engine):
     return StrategyRegistry(engine=engine)
-
-
-@pytest.fixture
-def data_manager(tmp_dir):
-    return DataManager(cache_dir=tmp_dir / "cache")
 
 
 class TestE2EComputedUniverses:

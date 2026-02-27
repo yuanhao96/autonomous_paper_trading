@@ -77,11 +77,13 @@ class Validator:
         """
         t0 = time.time()
 
-        if is_nautilus_available():
+        force_fallback = self._settings.get("validation.force_fallback", False)
+        if is_nautilus_available() and not force_fallback:
             logger.info("Using NautilusTrader for validation")
             return self._validate_nautilus(spec, symbols, benchmark, t0)
         else:
-            logger.info("Using backtesting.py fallback for validation")
+            reason = "force_fallback=true" if force_fallback else "NT unavailable"
+            logger.info("Using backtesting.py fallback (%s)", reason)
             return self._validate_backtest_fallback(spec, symbols, benchmark, t0)
 
     def _validate_backtest_fallback(

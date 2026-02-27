@@ -205,6 +205,51 @@ class StrategyRegistry:
 
 # ── Serialization helpers ───────────────────────────────────────────
 
+def _universe_spec_to_dict(us: Any) -> dict[str, Any] | None:
+    """Convert a UniverseSpec to a JSON-serializable dict."""
+    if us is None:
+        return None
+    return {
+        "id": us.id,
+        "name": us.name,
+        "asset_class": us.asset_class,
+        "filters": [
+            {"field": f.field, "operator": f.operator, "value": f.value}
+            for f in us.filters
+        ],
+        "max_securities": us.max_securities,
+        "min_securities": us.min_securities,
+        "rebalance_frequency": us.rebalance_frequency,
+        "static_symbols": us.static_symbols,
+        "computation": us.computation,
+        "computation_params": us.computation_params,
+    }
+
+
+def _dict_to_universe_spec(d: dict[str, Any] | None) -> Any:
+    """Reconstruct a UniverseSpec from a dict, or return None."""
+    if d is None:
+        return None
+    from src.universe.spec import Filter, UniverseSpec
+
+    filters = [
+        Filter(field=f["field"], operator=f["operator"], value=f["value"])
+        for f in d.get("filters", [])
+    ]
+    return UniverseSpec(
+        asset_class=d["asset_class"],
+        filters=filters,
+        max_securities=d.get("max_securities", 50),
+        min_securities=d.get("min_securities", 1),
+        rebalance_frequency=d.get("rebalance_frequency", "monthly"),
+        static_symbols=d.get("static_symbols"),
+        computation=d.get("computation"),
+        computation_params=d.get("computation_params", {}),
+        id=d.get("id", ""),
+        name=d.get("name", ""),
+    )
+
+
 def _spec_to_dict(spec: StrategySpec) -> dict[str, Any]:
     """Convert StrategySpec to a JSON-serializable dict."""
     return {
@@ -214,6 +259,7 @@ def _spec_to_dict(spec: StrategySpec) -> dict[str, Any]:
         "version": spec.version,
         "parameters": spec.parameters,
         "universe_id": spec.universe_id,
+        "universe_spec": _universe_spec_to_dict(spec.universe_spec),
         "risk": {
             "stop_loss_pct": spec.risk.stop_loss_pct,
             "take_profit_pct": spec.risk.take_profit_pct,
@@ -234,7 +280,7 @@ def _spec_to_dict(spec: StrategySpec) -> dict[str, Any]:
 def _dict_to_spec(d: dict[str, Any]) -> StrategySpec:
     """Reconstruct a StrategySpec from a dict."""
     risk_data = d.get("risk", {})
-    return StrategySpec(
+    spec = StrategySpec(
         id=d["id"],
         name=d["name"],
         template=d["template"],
@@ -256,3 +302,5 @@ def _dict_to_spec(d: dict[str, Any]) -> StrategySpec:
         created_at=datetime.fromisoformat(d["created_at"]),
         created_by=d.get("created_by", "human"),
     )
+    spec.universe_spec = _dict_to_universe_spec(d.get("universe_spec"))
+    return spec

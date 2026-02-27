@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+import logging
+from datetime import date
 
 import pandas as pd
 import yfinance as yf
 
+from src.data.sources.base import DataSource
 
-class YFinanceSource:
+logger = logging.getLogger(__name__)
+
+
+class YFinanceSource(DataSource):
     """Fetch OHLCV and info data from Yahoo Finance."""
 
     def get_ohlcv(
@@ -21,7 +26,7 @@ class YFinanceSource:
         """Download OHLCV data for a symbol.
 
         Returns DataFrame with columns: Open, High, Low, Close, Volume
-        and a DatetimeIndex.
+        and a DatetimeIndex.  Returns empty DataFrame on network errors.
         """
         ticker = yf.Ticker(symbol)
         if start is not None:
@@ -32,7 +37,12 @@ class YFinanceSource:
         else:
             kwargs = {"period": period}
 
-        df = ticker.history(**kwargs)
+        try:
+            df = ticker.history(**kwargs)
+        except Exception as e:
+            logger.warning("yfinance fetch failed for %s: %s", symbol, e)
+            return pd.DataFrame()
+
         if df.empty:
             return df
 

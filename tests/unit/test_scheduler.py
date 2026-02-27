@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import threading
-import time
 from datetime import datetime
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from src.scheduler import (
     ScheduleConfig,
@@ -91,7 +87,9 @@ class TestSimpleScheduler:
 
     def test_should_not_run_wrong_day(self):
         sched = SimpleScheduler()
-        job = ScheduleConfig(name="test", func=lambda: None, hour=9, minute=30, days_of_week="mon-fri")
+        job = ScheduleConfig(
+            name="test", func=lambda: None, hour=9, minute=30, days_of_week="mon-fri",
+        )
         sched.add_job(job)
         now = datetime(2024, 1, 13, 9, 30)  # Saturday 09:30
         assert sched._should_run(job, now) is False
@@ -166,8 +164,41 @@ class TestTradingScheduler:
             cycles=5,
             computation="momentum_screen",
         )
-        mock_orch_cls.assert_called_once_with(
-            universe_id="sp500",
-            computation="momentum_screen",
-            computation_params=None,
+        mock_orch_cls.assert_called_once_with(universe_id="sp500")
+        assert sched._cycles == 5
+        assert sched._computation == "momentum_screen"
+        assert sched._computation_params is None
+
+    @patch("src.orchestrator.Orchestrator")
+    def test_run_pipeline_passes_correct_kwargs(self, mock_orch_cls):
+        mock_orch = mock_orch_cls.return_value
+        mock_result = MagicMock()
+        mock_orch.run_full_cycle.return_value = mock_result
+
+        sched = TradingScheduler(
+            universe_id="sector_etfs",
+            cycles=3,
+            computation="vol_screen",
+            computation_params={"min_vol": 0.2},
         )
+        sched._run_pipeline()
+
+        mock_orch.run_full_cycle.assert_called_once_with(
+            n_evolution_cycles=3,
+            computation="vol_screen",
+            computation_params={"min_vol": 0.2},
+        )
+
+    @patch("src.orchestrator.Orchestrator")
+    def test_run_evolution_iterates_results(self, mock_orch_cls):
+        """Bug #1: run_evolution returns list[CycleResult], not a single result."""
+        mock_orch = mock_orch_cls.return_value
+        mock_cycle = MagicMock()
+        mock_cycle.summary.return_value = "cycle summary"
+        mock_orch.run_evolution.return_value = [mock_cycle]
+
+        sched = TradingScheduler()
+        sched._run_evolution()
+
+        mock_orch.run_evolution.assert_called_once_with(n_cycles=5)
+        mock_cycle.summary.assert_called_once()

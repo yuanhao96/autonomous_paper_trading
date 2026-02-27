@@ -6,17 +6,17 @@ Flat categories under `strategies/`:
 
 ```
 strategies/
-├── README.md                          # Master index (all 83 strategies by category)
-├── momentum/                          # ~24 strategies
+├── README.md                          # Master index (all 92 strategies by category)
+├── momentum/                          # 26 strategies
 ├── factor-investing/                  # 10 strategies
-├── mean-reversion-and-pairs-trading/  # 10 strategies
+├── mean-reversion-and-pairs-trading/  # 13 strategies
 ├── calendar-anomalies/                # 9 strategies
-├── value-and-fundamental/             # 7 strategies
+├── value-and-fundamental/             # 8 strategies
 ├── volatility-and-options/            # 5 strategies
 ├── forex/                             # 4 strategies
 ├── commodities/                       # 4 strategies
 ├── machine-learning/                  # 5 strategies
-└── technical-and-other/               # 5 strategies
+└── technical-and-other/               # 8 strategies
 ```
 
 Each category folder contains a `README.md` listing its strategies and individual `.md` files per strategy.
@@ -44,4 +44,4 @@ Slug is the kebab-case strategy name (e.g., `gaussian-naive-bayes-model`, `momen
 
 ## Strategy-to-Category Mapping
 
-See `strategies/README.md` for the complete mapping of all 83 strategies to categories.
+See `strategies/README.md` for the complete mapping of all 92 strategies to categories.

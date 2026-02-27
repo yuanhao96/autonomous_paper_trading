@@ -16,9 +16,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import date
 
-from src.agent.generator import AVAILABLE_UNIVERSES, StrategyGenerator
-from src.agent.reviewer import format_history_for_llm, format_result_for_llm
-from src.core.config import Settings, load_preferences
+from src.agent.generator import StrategyGenerator
+from src.agent.reviewer import format_result_for_llm
+from src.core.config import Settings
 from src.core.llm import LLMClient
 from src.data.manager import DataManager
 from src.risk.auditor import Auditor
@@ -160,6 +160,16 @@ class Evolver:
                     cycle.errors.append(f"No symbols for universe {spec.universe_id}")
                     continue
 
+                # Attach resolved universe_spec for registry serialization
+                if spec.universe_spec is None:
+                    from src.universe.spec import UniverseSpec
+                    spec.universe_spec = UniverseSpec(
+                        asset_class="etf",
+                        static_symbols=syms,
+                        id=spec.universe_id,
+                        name=spec.universe_id,
+                    )
+
                 # Risk check
                 violations = self._risk_engine.check_spec(spec)
                 if violations:
@@ -200,7 +210,7 @@ class Evolver:
                 cycle.specs_validated += 1
 
                 # Audit
-                audit = self._auditor.audit(screen_result, val_result)
+                audit = self._auditor.audit(screen_result, val_result, spec=spec)
                 if audit.passed and val_result.passed:
                     cycle.specs_passed += 1
                     logger.info("Strategy PASSED audit: %s (Sharpe: %.2f)",

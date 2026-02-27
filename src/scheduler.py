@@ -14,9 +14,8 @@ from __future__ import annotations
 import logging
 import signal
 import threading
-import time
 from dataclasses import dataclass, field
-from datetime import datetime, time as dt_time
+from datetime import datetime
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
@@ -181,12 +180,10 @@ class TradingScheduler:
     ) -> None:
         from src.orchestrator import Orchestrator
 
-        self._orch = Orchestrator(
-            universe_id=universe_id,
-            computation=computation,
-            computation_params=computation_params,
-        )
+        self._orch = Orchestrator(universe_id=universe_id)
         self._cycles = cycles
+        self._computation = computation
+        self._computation_params = computation_params
         self._scheduler = SimpleScheduler()
         self._setup_jobs()
 
@@ -219,7 +216,11 @@ class TradingScheduler:
     def _run_pipeline(self) -> None:
         """Execute the daily pipeline cycle."""
         logger.info("=== Daily Pipeline Run ===")
-        result = self._orch.run_full_cycle(cycles=self._cycles)
+        result = self._orch.run_full_cycle(
+            n_evolution_cycles=self._cycles,
+            computation=self._computation,
+            computation_params=self._computation_params,
+        )
         logger.info("Pipeline: %s", result.summary())
 
     def _run_monitor(self) -> None:
@@ -231,8 +232,9 @@ class TradingScheduler:
     def _run_evolution(self) -> None:
         """Run weekly evolution."""
         logger.info("=== Weekly Evolution ===")
-        result = self._orch.run_evolution(n_cycles=5)
-        logger.info("Evolution: %s", result.summary())
+        results = self._orch.run_evolution(n_cycles=5)
+        for i, r in enumerate(results, 1):
+            logger.info("Evolution cycle %d/%d: %s", i, len(results), r.summary())
 
     def start(self, blocking: bool = True) -> None:
         """Start the trading scheduler."""

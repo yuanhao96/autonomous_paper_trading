@@ -7,16 +7,16 @@ NautilusTrader is an optional dependency. If unavailable, import will fail
 gracefully and the validator falls back to backtesting.py with enhanced
 cost modeling.
 
-9 category-based NT strategy classes cover all 46 template slugs:
-  1. MomentumNTStrategy      — 10 momentum templates
-  2. MACrossoverNTStrategy    — 4 MA/trend templates
-  3. RSIMeanRevNTStrategy     — 2 RSI/bollinger templates
-  4. PairsStatArbNTStrategy   — 5 pairs/reversal templates
-  5. TechnicalNTStrategy      — 3 breakout/technical templates
-  6. FactorNTStrategy         — 10 factor + value templates
-  7. CalendarNTStrategy       — 5 calendar anomaly templates
-  8. VolatilityNTStrategy     — 4 volatility templates
-  9. ForexCommodityNTStrategy — 4 forex + commodity templates
+9 category-based NT strategy classes cover all 87 template slugs:
+  1. MomentumNTStrategy      — 14 momentum templates
+  2. MACrossoverNTStrategy    — 12 MA/trend templates
+  3. RSIMeanRevNTStrategy     — 4 RSI/bollinger/mean-reversion templates
+  4. PairsStatArbNTStrategy   — 11 pairs/reversal templates
+  5. TechnicalNTStrategy      — 4 breakout/technical templates
+  6. FactorNTStrategy         — 19 factor + value templates
+  7. CalendarNTStrategy       — 9 calendar anomaly templates
+  8. VolatilityNTStrategy     — 5 volatility templates
+  9. ForexCommodityNTStrategy — 9 forex + commodity templates
 
 Requires: nautilus_trader >= 1.200.0, Python >= 3.11
 """
@@ -46,7 +46,10 @@ try:
 
     _NT_AVAILABLE = True
 except (ImportError, OSError) as e:
-    logger.info("NautilusTrader not available: %s. Using backtesting.py fallback.", e)
+    logger.warning(
+        "NautilusTrader not installed — validation will use backtesting.py fallback. "
+        "Import error: %s", e,
+    )
     NTStrategy = None  # type: ignore[assignment, misc]
     StrategyConfig = None  # type: ignore[assignment, misc]
 
@@ -791,7 +794,7 @@ if _NT_AVAILABLE:
 
 
 def _build_registry() -> dict[str, tuple[type, type, dict]]:
-    """Build the full 46-entry template → NT strategy mapping."""
+    """Build the full 87-entry template → NT strategy mapping."""
     if not _NT_AVAILABLE:
         return {}
 
@@ -927,6 +930,69 @@ def _build_registry() -> dict[str, tuple[type, type, dict]]:
             ForexCommodityNTStrategy, ForexCommodityConfig,
             {"lookback": 126},
         ),
+        # ── Category A: Reuse existing NT classes (13) ────────
+        "momentum-effect-in-country-equity-indexes": mom,
+        "momentum-effect-in-reits": mom,
+        "momentum-effect-in-stocks-in-small-portfolios": mom,
+        "momentum-in-mutual-fund-returns": mom,
+        "momentum-effect-in-commodities-futures": mom,
+        "commodities-futures-trend-following": (
+            MACrossoverNTStrategy, MACrossoverConfig,
+            {"fast_period": 20, "slow_period": 200},
+        ),
+        "forex-momentum": fxcom,
+        "momentum-strategy-low-frequency-forex": fxcom,
+        "mean-reversion-effect-in-country-equity-indexes": rsi,
+        "pairs-trading-with-country-etfs": pairs,
+        "short-term-reversal-with-futures": pairs_short,
+        "beta-factor-in-country-equity-indexes": factor,
+        "value-effect-within-countries": factor,
+        # ── Category B: New templates (28) ─────────────────────
+        # Calendar (4)
+        "january-barometer": cal,
+        "12-month-cycle-cross-section": cal,
+        "lunar-cycle-in-equity-market": cal,
+        "option-expiration-week-effect": cal,
+        # Momentum variants (8)
+        "momentum-and-state-of-market-filters": mom,
+        "momentum-and-style-rotation-effect": mom_126,
+        "momentum-short-term-reversal-strategy": mom,
+        "improved-momentum-strategy-on-commodities-futures": mom_126,
+        "momentum-effect-combined-with-term-structure-in-commodities": mom_126,
+        "intraday-etf-momentum": (
+            MomentumNTStrategy, MomentumConfig,
+            {"lookback": 5, "threshold": 0.01},
+        ),
+        "price-and-earnings-momentum": mom_126,
+        "sentiment-and-style-rotation-effect-in-stocks": mom_126,
+        # Pairs / Mean-Reversion (4)
+        "intraday-dynamic-pairs-trading": pairs,
+        "optimal-pairs-trading": (
+            PairsStatArbNTStrategy, PairsStatArbConfig,
+            {"lookback": 90, "entry_z": 1.5, "exit_z": 0.5},
+        ),
+        "pairs-trading-copula-vs-cointegration": pairs,
+        "intraday-arbitrage-between-index-etfs": (
+            PairsStatArbNTStrategy, PairsStatArbConfig,
+            {"lookback": 20, "entry_z": 1.5, "exit_z": 0.5},
+        ),
+        # Cross-Asset / Spread (2)
+        "can-crude-oil-predict-equity-returns": fxcom,
+        "trading-with-wti-brent-spread": fxcom,
+        # Technical (1)
+        "dynamic-breakout-ii-strategy": tech,
+        # Factor / Fundamental (7 slugs)
+        "capm-alpha-ranking-dow-30": factor,
+        "expected-idiosyncratic-skewness": factor,
+        "asset-growth-effect": factor,
+        "roa-effect-within-stocks": factor,
+        "standardized-unexpected-earnings": factor,
+        "fundamental-factor-long-short-strategy": factor,
+        "stock-selection-based-on-fundamental-factors": factor,
+        # Volatility (1)
+        "exploiting-term-structure-of-vix-futures": vol,
+        # Forex (1)
+        "risk-premia-in-forex-markets": fxcom,
     }
 
 

@@ -116,7 +116,7 @@ class TestBuilderRegistry:
 
     @skip_no_nt
     def test_builder_count(self):
-        assert len(_BUILDERS) == 46, f"Expected 46 builders, got {len(_BUILDERS)}"
+        assert len(_BUILDERS) == 87, f"Expected 87 builders, got {len(_BUILDERS)}"
 
     @skip_no_nt
     @pytest.mark.parametrize("slug", ALL_SLUGS)

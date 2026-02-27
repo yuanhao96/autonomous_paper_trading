@@ -24,7 +24,6 @@ from sqlalchemy import create_engine
 
 from src.core.config import load_preferences
 from src.core.db import init_db
-from src.data.manager import DataManager
 from src.risk.auditor import Auditor
 from src.risk.engine import RiskEngine
 from src.screening.screener import Screener
@@ -35,20 +34,10 @@ from src.strategies.spec import RiskParams, StrategySpec
 
 
 @pytest.fixture
-def tmp_dir(tmp_path):
-    return tmp_path
-
-
-@pytest.fixture
 def registry(tmp_dir):
     engine = create_engine(f"sqlite:///{tmp_dir / 'test.db'}", echo=False)
     init_db(engine)
     return StrategyRegistry(engine=engine)
-
-
-@pytest.fixture
-def data_manager(tmp_dir):
-    return DataManager(cache_dir=tmp_dir / "cache")
 
 
 @pytest.fixture

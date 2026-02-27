@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from src.core.config import Preferences, load_preferences
-from src.strategies.spec import StrategyResult
+from src.strategies.spec import StrategyResult, StrategySpec
 
 
 @dataclass
@@ -61,6 +61,7 @@ class Auditor:
         self,
         screen_result: StrategyResult,
         validation_result: StrategyResult | None = None,
+        spec: StrategySpec | None = None,
     ) -> AuditReport:
         """Run all audit checks on a strategy's results."""
         report = AuditReport(spec_id=screen_result.spec_id)
@@ -87,6 +88,20 @@ class Auditor:
         # Check 6: Walk-forward overfitting gap (IS vs OOS Sharpe)
         if screen_result.in_sample_sharpe > 0:
             report.checks.append(self._check_walk_forward_gap(screen_result))
+
+        # Check 7: Anomalous performance detection (heuristic proxy)
+        report.checks.append(self._check_anomalous_performance(screen_result))
+
+        # Check 7b: OOS/IS Sharpe degradation (overfit detection)
+        if screen_result.in_sample_sharpe > 0 and screen_result.sharpe_ratio > 0:
+            report.checks.append(self._check_overfit(screen_result))
+
+        # Check 8: Survivorship bias detection
+        report.checks.append(self._check_survivorship_bias(screen_result))
+
+        # Check 9: Concentration risk (requires spec)
+        if spec is not None:
+            report.checks.append(self._check_concentration_risk(spec))
 
         return report
 
@@ -198,5 +213,100 @@ class Auditor:
                 "Validation passed"
                 if validation.passed
                 else f"Validation failed: {validation.failure_reason}"
+            ),
+        )
+
+    def _check_anomalous_performance(self, result: StrategyResult) -> AuditCheck:
+        """Flag statistical anomalies that signal overfitting or data issues.
+
+        Templates use safe self.I() wrappers, so code-level look-ahead is
+        unlikely. But "too good to be true" results strongly signal either
+        look-ahead or extreme overfitting.
+        """
+        reasons: list[str] = []
+
+        if result.sharpe_ratio > 5.0:
+            reasons.append(f"Sharpe {result.sharpe_ratio:.2f} > 5.0")
+
+        if result.win_rate > 0.95 and result.total_trades > 10:
+            reasons.append(
+                f"Win rate {result.win_rate:.1%} > 95% with {result.total_trades} trades"
+            )
+
+        if result.max_drawdown == 0 and result.total_trades > 10:
+            reasons.append(f"Zero drawdown with {result.total_trades} trades")
+
+        passed = len(reasons) == 0
+        return AuditCheck(
+            name="anomalous_performance",
+            passed=passed,
+            message=(
+                "No anomalous performance detected"
+                if passed
+                else f"Anomalous performance: {'; '.join(reasons)}"
+            ),
+        )
+
+    def _check_overfit(self, result: StrategyResult) -> AuditCheck:
+        """Check OOS/IS Sharpe degradation — flag potential overfitting.
+
+        If OOS Sharpe < 30% of IS Sharpe, the strategy likely overfits
+        to in-sample data.
+        """
+        degradation = result.sharpe_ratio / result.in_sample_sharpe
+        if degradation < 0.30:
+            return AuditCheck(
+                name="overfit",
+                passed=False,
+                message=(
+                    f"OOS/IS Sharpe ratio {degradation:.1%} < 30% "
+                    f"(IS={result.in_sample_sharpe:.2f}, OOS={result.sharpe_ratio:.2f})"
+                ),
+            )
+        return AuditCheck(
+            name="overfit",
+            passed=True,
+            message=(
+                f"OOS/IS Sharpe ratio {degradation:.1%} — degradation acceptable "
+                f"(IS={result.in_sample_sharpe:.2f}, OOS={result.sharpe_ratio:.2f})"
+            ),
+        )
+
+    def _check_survivorship_bias(self, result: StrategyResult) -> AuditCheck:
+        """Detect survivorship bias from missing symbol data.
+
+        If the screener silently drops > 20% of the universe, the results
+        are biased toward survivors.
+        """
+        if result.symbols_requested == 0:
+            return AuditCheck(
+                name="survivorship_bias",
+                passed=True,
+                message="Inconclusive — no symbol counts available (legacy result)",
+            )
+
+        coverage = result.symbols_with_data / result.symbols_requested
+        passed = coverage >= 0.80
+        return AuditCheck(
+            name="survivorship_bias",
+            passed=passed,
+            message=(
+                f"Symbol coverage {coverage:.0%} "
+                f"({result.symbols_with_data}/{result.symbols_requested}) "
+                f"{'OK' if passed else 'below 80% threshold'}"
+            ),
+        )
+
+    def _check_concentration_risk(self, spec: StrategySpec) -> AuditCheck:
+        """Defense-in-depth check that spec position size respects preferences."""
+        limit = self._prefs.risk_limits.max_position_pct
+        actual = spec.risk.max_position_pct
+        passed = actual <= limit
+        return AuditCheck(
+            name="concentration_risk",
+            passed=passed,
+            message=(
+                f"Max position {actual:.0%} "
+                f"({'OK' if passed else f'exceeds limit {limit:.0%}'})"
             ),
         )

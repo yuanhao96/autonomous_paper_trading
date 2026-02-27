@@ -93,8 +93,8 @@ class TestE2EAllTemplatesSignal:
 class TestE2EGeneratorConsistency:
     """Generator list must match translator+signal registries."""
 
-    def test_template_count_is_46(self):
-        assert len(SUPPORTED_TEMPLATES) == 46
+    def test_template_count(self):
+        assert len(SUPPORTED_TEMPLATES) == 87
 
     def test_no_duplicates(self):
         assert len(SUPPORTED_TEMPLATES) == len(set(SUPPORTED_TEMPLATES))

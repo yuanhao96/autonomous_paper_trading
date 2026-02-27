@@ -1,12 +1,12 @@
 # Trading Strategy Knowledge Base
 
-Comprehensive documentation of 83 trading strategies from the [QuantConnect Investment Strategy Library](https://www.quantconnect.com/learning/articles/investment-strategy-library).
+Comprehensive documentation of 92 trading strategies from the [QuantConnect Investment Strategy Library](https://www.quantconnect.com/learning/articles/investment-strategy-library) and related sources.
 
 Each strategy is documented with trading rules, academic references, backtest results, implementation notes, and risk considerations. See [TEMPLATE.md](TEMPLATE.md) for the document format.
 
 ---
 
-## Momentum (24 strategies)
+## Momentum (26 strategies)
 
 ### Equity Momentum
 
@@ -25,6 +25,8 @@ Each strategy is documented with trading rules, academic references, backtest re
 
 | # | Strategy | File |
 |---|----------|------|
+| 9a | Time Series Momentum | [momentum/time-series-momentum.md](momentum/time-series-momentum.md) |
+| 9b | Dual Momentum | [momentum/dual-momentum.md](momentum/dual-momentum.md) |
 | 9 | Time Series Momentum Effect | [momentum/time-series-momentum-effect.md](momentum/time-series-momentum-effect.md) |
 | 10 | Momentum Effect in Commodities Futures | [momentum/momentum-effect-in-commodities-futures.md](momentum/momentum-effect-in-commodities-futures.md) |
 | 11 | Improved Momentum Strategy on Commodities Futures | [momentum/improved-momentum-strategy-on-commodities-futures.md](momentum/improved-momentum-strategy-on-commodities-futures.md) |
@@ -66,10 +68,11 @@ Each strategy is documented with trading rules, academic references, backtest re
 
 ---
 
-## Value & Fundamental Analysis (7 strategies)
+## Value & Fundamental Analysis (8 strategies)
 
 | # | Strategy | File |
 |---|----------|------|
+| 34a | Value Factor | [value-and-fundamental/value-factor.md](value-and-fundamental/value-factor.md) |
 | 35 | Price Earnings Anomaly | [value-and-fundamental/price-earnings-anomaly.md](value-and-fundamental/price-earnings-anomaly.md) |
 | 36 | Value Effect within Countries | [value-and-fundamental/value-effect-within-countries.md](value-and-fundamental/value-effect-within-countries.md) |
 | 37 | Book-to-Market Value Anomaly | [value-and-fundamental/book-to-market-value-anomaly.md](value-and-fundamental/book-to-market-value-anomaly.md) |
@@ -80,10 +83,13 @@ Each strategy is documented with trading rules, academic references, backtest re
 
 ---
 
-## Mean Reversion & Pairs Trading (10 strategies)
+## Mean Reversion & Pairs Trading (13 strategies)
 
 | # | Strategy | File |
 |---|----------|------|
+| 42a | Mean Reversion with RSI | [mean-reversion-and-pairs-trading/mean-reversion-rsi.md](mean-reversion-and-pairs-trading/mean-reversion-rsi.md) |
+| 42b | Mean Reversion with Bollinger Bands | [mean-reversion-and-pairs-trading/mean-reversion-bollinger.md](mean-reversion-and-pairs-trading/mean-reversion-bollinger.md) |
+| 42c | Pairs Trading | [mean-reversion-and-pairs-trading/pairs-trading.md](mean-reversion-and-pairs-trading/pairs-trading.md) |
 | 42 | Short Term Reversal | [mean-reversion-and-pairs-trading/short-term-reversal.md](mean-reversion-and-pairs-trading/short-term-reversal.md) |
 | 43 | Short Term Reversal with Futures | [mean-reversion-and-pairs-trading/short-term-reversal-with-futures.md](mean-reversion-and-pairs-trading/short-term-reversal-with-futures.md) |
 | 44 | Short-Term Reversal Strategy in Stocks | [mean-reversion-and-pairs-trading/short-term-reversal-strategy-in-stocks.md](mean-reversion-and-pairs-trading/short-term-reversal-strategy-in-stocks.md) |
@@ -159,7 +165,7 @@ Each strategy is documented with trading rules, academic references, backtest re
 
 ---
 
-## Technical & Other (5 strategies)
+## Technical & Other (8 strategies)
 
 | # | Strategy | File |
 |---|----------|------|
@@ -168,3 +174,6 @@ Each strategy is documented with trading rules, academic references, backtest re
 | 81 | Intraday Arbitrage Between Index ETFs | [technical-and-other/intraday-arbitrage-between-index-etfs.md](technical-and-other/intraday-arbitrage-between-index-etfs.md) |
 | 82 | CAPM Alpha Ranking Strategy on Dow 30 Companies | [technical-and-other/capm-alpha-ranking-dow-30.md](technical-and-other/capm-alpha-ranking-dow-30.md) |
 | 83 | Paired Switching | [technical-and-other/paired-switching.md](technical-and-other/paired-switching.md) |
+| 83a | Moving Average Crossover | [technical-and-other/moving-average-crossover.md](technical-and-other/moving-average-crossover.md) |
+| 83b | Breakout Strategy | [technical-and-other/breakout.md](technical-and-other/breakout.md) |
+| 83c | Trend Following | [technical-and-other/trend-following.md](technical-and-other/trend-following.md) |

@@ -22,6 +22,7 @@ screening:
 
 # Validation (NautilusTrader)
 validation:
+  force_fallback: false        # When true, use backtesting.py regardless of NT
   pass_criteria:
     min_sharpe: 0.3
     max_drawdown: 0.35

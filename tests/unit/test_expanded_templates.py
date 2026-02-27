@@ -83,8 +83,8 @@ class TestTemplateConsistency:
     """Cross-check that generator, translator, and signals all agree."""
 
     def test_supported_templates_count(self):
-        """Should have 46 supported templates."""
-        assert len(SUPPORTED_TEMPLATES) == 46
+        """Should have 87 supported templates (46 original + 41 new)."""
+        assert len(SUPPORTED_TEMPLATES) == 87
 
     def test_all_templates_have_category_format(self):
         for t in SUPPORTED_TEMPLATES:

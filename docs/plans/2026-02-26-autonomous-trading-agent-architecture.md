@@ -9,7 +9,7 @@
 ## 1. Vision
 
 An autonomous trading agent that:
-- Learns from a curated knowledge base of 83 documented trading strategies
+- Learns from a curated knowledge base of 87 documented trading strategies
 - Generates parameterized strategy implementations constrained to known patterns
 - Screens candidates rapidly via backtesting.py
 - Validates winners realistically via NautilusTrader
@@ -20,11 +20,11 @@ An autonomous trading agent that:
 
 | Problem | Root Cause | Solution in New Design |
 |---------|-----------|----------------------|
-| Unbounded strategy space | LLM generated arbitrary indicator combos | Template-based specs from 83 documented strategies |
+| Unbounded strategy space | LLM generated arbitrary indicator combos | Template-based specs from 87 documented strategies |
 | Custom backtester bugs | Hand-rolled execution simulation | Use backtesting.py + NautilusTrader |
 | Auto-growing curriculum | No curation of knowledge | Fixed 145-doc knowledge base |
 | 13 evolution knobs | No principled tuning method | Simplified to 3-4 parameters |
-| Backtest ≠ live code path | Different execution engines | NautilusTrader: same code backtest → live |
+| Backtest ≠ live code path | Different execution engines | NT micro-backtest signals ensure same strategy logic backtest → live |
 | No universe selection | Strategies applied to arbitrary securities | Strategy-dependent universe selection |
 
 ## 3. Technology Stack
@@ -303,15 +303,19 @@ rebalance_frequency: monthly
 
 **Output**: Validated strategies with rich diagnostics → Strategy Registry.
 
-### Phase 3: Live (NautilusTrader + IBKR)
+### Phase 3: Live (NT Micro-Backtest + IBKR)
 
 **Purpose**: Paper trading to confirm real-market behavior.
 
 **Process**:
-1. Deploy validated strategy to IBKR paper account (same NautilusTrader code)
-2. Monitor for N days (configurable, default 20 trading days)
-3. Compare live performance to backtest expectations
-4. Promote to live if within tolerance, or flag for review
+1. Deploy validated strategy to IBKR paper account
+2. On each rebalance, run NT micro-backtest on trailing bars using the same
+   NT strategy classes from validation (`src/live/nt_signals.py`). This ensures
+   signal logic matches Phase 2 exactly. Falls back to stateless signal path
+   when NT is unavailable.
+3. Monitor for N days (configurable, default 20 trading days)
+4. Compare live performance to backtest expectations
+5. Promote to live if within tolerance, or flag for review
 
 ## 8. Evolution Engine
 
@@ -398,7 +402,7 @@ Suggested directions:
 ```
 autonomous_trading/
 ├── knowledge/                     # 145 curated docs (COMPLETE)
-│   ├── strategies/                # 83 trading strategies
+│   ├── strategies/                # 87 trading strategies
 │   ├── financial-python/          # 14 Python/quant articles
 │   ├── key-concepts/              # 15 general trading concepts
 │   └── trading-concepts/          # 33 advanced trading concepts
@@ -417,13 +421,7 @@ autonomous_trading/
 │   │       └── ibkr_provider.py
 │   ├── strategies/                # Strategy representation
 │   │   ├── spec.py                # StrategySpec + RiskParams dataclasses
-│   │   ├── registry.py            # SQLite-backed strategy + results storage
-│   │   └── templates/             # Knowledge base → code pattern mapping
-│   │       ├── base.py            # Base template interface
-│   │       ├── momentum.py        # Momentum strategy patterns
-│   │       ├── mean_reversion.py  # Mean reversion patterns
-│   │       ├── factor.py          # Factor investing patterns
-│   │       └── ...                # One module per category
+│   │   └── registry.py            # SQLite-backed strategy + results storage
 │   ├── screening/                 # Phase 1: backtesting.py
 │   │   ├── translator.py          # StrategySpec → backtesting.py Strategy
 │   │   ├── screener.py            # Run backtest, optimize, walk-forward
@@ -436,14 +434,17 @@ autonomous_trading/
 │   ├── live/                      # Phase 3: Paper/Live trading
 │   │   ├── deployer.py            # Deploy validated strategy to IBKR
 │   │   ├── monitor.py             # Live performance tracking vs backtest expectation
-│   │   └── promoter.py            # Paper → live promotion logic
+│   │   ├── promoter.py            # Paper → live promotion logic
+│   │   ├── broker.py              # BrokerAPI + PaperBroker + IBKRBroker
+│   │   ├── models.py              # Deployment, LiveSnapshot, TradeRecord
+│   │   ├── signals.py             # Signal-based rebalance (fallback path)
+│   │   └── nt_signals.py          # NT micro-backtest signal extraction
 │   ├── data/                      # Unified data layer
 │   │   ├── manager.py             # Single entry point for all data
 │   │   ├── cache.py               # Local Parquet file cache
 │   │   └── sources/               # Data source adapters
-│   │       ├── yfinance_source.py
-│   │       ├── ibkr_source.py
-│   │       └── binance_source.py
+│   │       ├── base.py            # Abstract data source interface
+│   │       └── yfinance_source.py
 │   ├── risk/                      # Safety layer
 │   │   ├── engine.py              # Hard risk limits (immutable at runtime)
 │   │   ├── auditor.py             # Deterministic pre-live checks
@@ -451,8 +452,9 @@ autonomous_trading/
 │   └── core/                      # Shared infrastructure
 │       ├── llm.py                 # Claude API wrapper with logging
 │       ├── config.py              # Settings loader
-│       ├── logging.py             # Structured logging
-│       └── db.py                  # SQLite connection management
+│       ├── db.py                  # SQLite connection management
+│       ├── indicators.py          # Shared technical indicator calculations
+│       └── signals.py             # Signal registry (stateless signal functions)
 ├── config/
 │   ├── preferences.yaml           # Human-controlled risk limits (IMMUTABLE)
 │   └── settings.yaml              # Runtime configuration

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pandas as pd
 
 from src.data.manager import DataManager
@@ -9,6 +11,8 @@ from src.universe.computed import compute_universe
 from src.universe.providers.yfinance_provider import YFinanceUniverseProvider
 from src.universe.spec import Filter, UniverseSpec
 from src.universe.static import STATIC_UNIVERSES, get_static_universe
+
+logger = logging.getLogger(__name__)
 
 
 class UniverseScreener:
@@ -122,7 +126,11 @@ def _apply_filter(data: pd.DataFrame, filt: Filter) -> pd.DataFrame:
     """Apply a single Filter to a DataFrame."""
     col = filt.field
     if col not in data.columns:
-        return data  # Skip filters for missing data
+        logger.warning(
+            "Filter '%s %s %s' skipped — column '%s' not in data",
+            col, filt.operator, filt.value, col,
+        )
+        return data
 
     op = filt.operator
     val = filt.value

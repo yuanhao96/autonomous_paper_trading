@@ -10,7 +10,7 @@ An autonomous trading agent that generates, screens, validates, and evolves trad
 - **Stage 1 (Screening)**: backtesting.py — fast parameter optimization and walk-forward analysis
 - **Stage 2 (Validation + Live)**: NautilusTrader — realistic execution modeling, same code deploys to IBKR paper trading
 
-**Key Design Principle**: The LLM selects from 83 documented strategy templates (knowledge base) and tunes parameters within documented bounds. It does NOT invent arbitrary indicator combinations.
+**Key Design Principle**: The LLM selects from 87 documented strategy templates (knowledge base) and tunes parameters within documented bounds. It does NOT invent arbitrary indicator combinations.
 
 See `docs/plans/2026-02-26-autonomous-trading-agent-architecture.md` for full architecture.
 

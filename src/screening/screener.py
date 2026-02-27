@@ -96,11 +96,15 @@ class Screener:
                 failure_reason="no_data",
                 failure_details="No valid data for any symbols in the universe",
                 run_duration_seconds=time.time() - t0,
+                symbols_requested=len(symbols),
+                symbols_with_data=0,
             )
 
         # Average metrics across symbols
         avg_result = self._aggregate_results(spec.id, all_results)
         avg_result.run_duration_seconds = time.time() - t0
+        avg_result.symbols_requested = len(symbols)
+        avg_result.symbols_with_data = len(all_results)
         avg_result.backtest_start = str(start or "")
         avg_result.backtest_end = str(end or "")
 

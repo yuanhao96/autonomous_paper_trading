@@ -2,11 +2,12 @@
 name = "autonomous-trading"
 version = "0.1.0"
 description = "Autonomous trading agent with two-stage backtesting pipeline"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = ["network: tests requiring internet access"]
 
 [tool.ruff]
 line-length = 100

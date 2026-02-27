@@ -22,8 +22,9 @@ from src.core.config import Preferences, Settings, load_preferences
 from src.core.db import get_engine, init_db
 from src.live.broker import BrokerAPI, IBKRBroker, PaperBroker, is_ibkr_available
 from src.live.models import Deployment, LiveSnapshot, TradeRecord
-from src.live.signals import compute_signals, compute_target_weights
-from src.risk.auditor import AuditReport, Auditor
+from src.live.nt_signals import compute_nt_signals
+from src.live.signals import compute_target_weights
+from src.risk.auditor import Auditor, AuditReport
 from src.risk.engine import RiskEngine, RiskViolation
 from src.strategies.spec import StrategyResult, StrategySpec
 
@@ -206,8 +207,8 @@ class Deployer:
         if not broker.is_connected():
             broker.connect()
 
-        # Compute target signals
-        signals = compute_signals(spec, prices)
+        # Compute target signals via NT micro-backtest (falls back to signal-based)
+        signals = compute_nt_signals(spec, prices)
         target_weights = compute_target_weights(spec, signals)
 
         # Get current state

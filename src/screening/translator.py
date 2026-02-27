@@ -94,6 +94,49 @@ def translate(spec: StrategySpec, data: pd.DataFrame) -> type[Strategy]:
         # ── Commodities (2) ───────────────────────────────────────
         "term-structure-effect-in-commodities": _commodity_term_structure,
         "gold-market-timing": _gold_timing,
+        # ── Category A: Reuse existing builders (13) ─────────────
+        "momentum-effect-in-country-equity-indexes": _momentum_crosssectional,
+        "momentum-effect-in-reits": _momentum_crosssectional,
+        "momentum-effect-in-stocks-in-small-portfolios": _momentum_crosssectional,
+        "momentum-in-mutual-fund-returns": _momentum_crosssectional,
+        "momentum-effect-in-commodities-futures": _momentum_timeseries,
+        "commodities-futures-trend-following": _trend_following,
+        "forex-momentum": _momentum_timeseries,
+        "momentum-strategy-low-frequency-forex": _momentum_timeseries,
+        "mean-reversion-effect-in-country-equity-indexes": _mean_reversion_bollinger,
+        "pairs-trading-with-country-etfs": _pairs_trading,
+        "short-term-reversal-with-futures": _short_term_reversal,
+        "beta-factor-in-country-equity-indexes": _low_beta,
+        "value-effect-within-countries": _value_factor,
+        # ── Category B: Signal-driven builders (28) ──────────────
+        "january-barometer": _generic_signal,
+        "12-month-cycle-cross-section": _generic_signal,
+        "lunar-cycle-in-equity-market": _generic_signal,
+        "option-expiration-week-effect": _generic_signal,
+        "momentum-and-state-of-market-filters": _generic_signal,
+        "momentum-and-style-rotation-effect": _generic_signal,
+        "momentum-short-term-reversal-strategy": _generic_signal,
+        "improved-momentum-strategy-on-commodities-futures": _generic_signal,
+        "momentum-effect-combined-with-term-structure-in-commodities": _generic_signal,
+        "intraday-etf-momentum": _generic_signal,
+        "price-and-earnings-momentum": _generic_signal,
+        "sentiment-and-style-rotation-effect-in-stocks": _generic_signal,
+        "intraday-dynamic-pairs-trading": _generic_signal,
+        "optimal-pairs-trading": _generic_signal,
+        "pairs-trading-copula-vs-cointegration": _generic_signal,
+        "intraday-arbitrage-between-index-etfs": _generic_signal,
+        "can-crude-oil-predict-equity-returns": _generic_signal,
+        "trading-with-wti-brent-spread": _generic_signal,
+        "dynamic-breakout-ii-strategy": _generic_signal,
+        "capm-alpha-ranking-dow-30": _generic_signal,
+        "expected-idiosyncratic-skewness": _generic_signal,
+        "asset-growth-effect": _generic_signal,
+        "roa-effect-within-stocks": _generic_signal,
+        "standardized-unexpected-earnings": _generic_signal,
+        "fundamental-factor-long-short-strategy": _generic_signal,
+        "stock-selection-based-on-fundamental-factors": _generic_signal,
+        "exploiting-term-structure-of-vix-futures": _generic_signal,
+        "risk-premia-in-forex-markets": _generic_signal,
     }
 
     builder = builders.get(template, _generic_momentum)
@@ -158,6 +201,49 @@ def get_optimization_bounds(spec: StrategySpec) -> dict[str, range | list]:
         # Commodities
         "term-structure-effect-in-commodities": {"lookback": range(20, 60, 10)},
         "gold-market-timing": {"lookback": range(20, 260, 20)},
+        # ── Category A: Reuse existing bounds ────────────────────
+        "momentum-effect-in-country-equity-indexes": {"lookback": range(3, 18, 3)},
+        "momentum-effect-in-reits": {"lookback": range(3, 18, 3)},
+        "momentum-effect-in-stocks-in-small-portfolios": {"lookback": range(3, 18, 3)},
+        "momentum-in-mutual-fund-returns": {"lookback": range(3, 18, 3)},
+        "momentum-effect-in-commodities-futures": {"lookback": range(20, 260, 20)},
+        "commodities-futures-trend-following": {"fast_period": range(10, 50, 10), "slow_period": range(50, 250, 50)},
+        "forex-momentum": {"lookback": range(20, 260, 20)},
+        "momentum-strategy-low-frequency-forex": {"lookback": range(20, 260, 20)},
+        "mean-reversion-effect-in-country-equity-indexes": {"bb_period": range(10, 30, 5), "bb_std": [1.5, 2.0, 2.5]},
+        "pairs-trading-with-country-etfs": {"lookback": range(30, 120, 15), "entry_z": [1.5, 2.0, 2.5]},
+        "short-term-reversal-with-futures": {"lookback": range(3, 21, 3)},
+        "beta-factor-in-country-equity-indexes": {"lookback": range(60, 260, 20)},
+        "value-effect-within-countries": {"lookback": range(60, 260, 20)},
+        # ── Category B: New templates ─────────────────────────────
+        "january-barometer": {},
+        "12-month-cycle-cross-section": {},
+        "lunar-cycle-in-equity-market": {},
+        "option-expiration-week-effect": {},
+        "momentum-and-state-of-market-filters": {"lookback": range(60, 260, 20)},
+        "momentum-and-style-rotation-effect": {"lookback": range(60, 260, 20)},
+        "momentum-short-term-reversal-strategy": {"lookback": range(60, 260, 20), "short_lookback": range(3, 15, 3)},
+        "improved-momentum-strategy-on-commodities-futures": {"lookback": range(20, 260, 20)},
+        "momentum-effect-combined-with-term-structure-in-commodities": {"lookback": range(20, 260, 20)},
+        "intraday-etf-momentum": {"lookback": range(1, 10, 2)},
+        "price-and-earnings-momentum": {"lookback": range(60, 260, 20)},
+        "sentiment-and-style-rotation-effect-in-stocks": {"lookback": range(60, 260, 20)},
+        "intraday-dynamic-pairs-trading": {"lookback": range(20, 80, 10)},
+        "optimal-pairs-trading": {"lookback": range(30, 120, 15), "entry_z": [1.0, 1.5, 2.0]},
+        "pairs-trading-copula-vs-cointegration": {"lookback": range(30, 120, 15)},
+        "intraday-arbitrage-between-index-etfs": {"lookback": range(10, 40, 5)},
+        "can-crude-oil-predict-equity-returns": {"lookback": range(20, 260, 20)},
+        "trading-with-wti-brent-spread": {"lookback": range(20, 120, 20)},
+        "dynamic-breakout-ii-strategy": {"lookback": range(10, 50, 10)},
+        "capm-alpha-ranking-dow-30": {"lookback": range(60, 260, 20)},
+        "expected-idiosyncratic-skewness": {"lookback": range(30, 120, 15)},
+        "asset-growth-effect": {"lookback": range(60, 260, 20)},
+        "roa-effect-within-stocks": {"vol_lookback": range(20, 80, 10)},
+        "standardized-unexpected-earnings": {"lookback": range(10, 40, 5)},
+        "fundamental-factor-long-short-strategy": {"lookback": range(60, 260, 20)},
+        "stock-selection-based-on-fundamental-factors": {"lookback": range(60, 260, 20)},
+        "exploiting-term-structure-of-vix-futures": {},
+        "risk-premia-in-forex-markets": {"lookback": range(20, 120, 20)},
     }
 
     return bounds_map.get(template, {"lookback": range(5, 30, 5)})
@@ -1144,6 +1230,47 @@ def _gold_timing(spec: StrategySpec, params: dict) -> type[Strategy]:
 
 
 # ── Fallback ─────────────────────────────────────────────────────────
+
+
+def _generic_signal(spec: StrategySpec, params: dict) -> type[Strategy]:
+    """Signal-driven builder — delegates signal decision to the shared layer."""
+    template = spec.template.split("/")[-1] if "/" in spec.template else spec.template
+    lookback = max(params.get("lookback", 126), params.get("mom_lookback", 126), 126)
+
+    class SignalDrivenStrategy(Strategy):
+        n_lookback = lookback
+
+        def init(self):
+            close = pd.Series(self.data.Close)
+            self.momentum = self.I(
+                lambda c: c / c.shift(self.n_lookback) - 1, close, name="Mom"
+            )
+
+        def next(self):
+            from src.core.signals import compute_signal
+
+            if len(self.data) < self.n_lookback + 1:
+                return
+            # Build a mini-DataFrame for the signal function
+            idx = self.data.index[: len(self.data)]
+            df = pd.DataFrame(
+                {
+                    "Open": self.data.Open,
+                    "High": self.data.High,
+                    "Low": self.data.Low,
+                    "Close": self.data.Close,
+                    "Volume": self.data.Volume,
+                },
+                index=idx,
+            )
+            signal = compute_signal(template, df, params)
+            if signal == "long" and not self.position:
+                self.buy(size=_position_size(spec))
+            elif signal == "flat" and self.position.is_long:
+                self.position.close()
+
+    SignalDrivenStrategy.__name__ = f"Signal_{template[:20]}"
+    return SignalDrivenStrategy
 
 
 def _generic_momentum(spec: StrategySpec, params: dict) -> type[Strategy]:

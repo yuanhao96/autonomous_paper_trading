@@ -25,7 +25,6 @@ from src.agent.generator import SUPPORTED_TEMPLATES
 from src.agent.reviewer import format_history_for_llm, format_result_for_llm
 from src.core.db import init_db
 from src.core.llm import LLMClient
-from src.data.manager import DataManager
 from src.strategies.registry import StrategyRegistry
 
 
@@ -52,20 +51,10 @@ def _make_llm_response(
 
 
 @pytest.fixture
-def tmp_dir(tmp_path):
-    return tmp_path
-
-
-@pytest.fixture
 def registry(tmp_dir):
     engine = create_engine(f"sqlite:///{tmp_dir / 'test.db'}", echo=False)
     init_db(engine)
     return StrategyRegistry(engine=engine)
-
-
-@pytest.fixture
-def data_manager(tmp_dir):
-    return DataManager(cache_dir=tmp_dir / "cache")
 
 
 class TestE2EEvolutionCycle:
