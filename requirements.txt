@@ -12,6 +12,11 @@ nautilus_trader>=1.200.0
 # Data
 yfinance>=0.2.0
 
+# Web scraping (universe constituents from Wikipedia)
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+
 # LLM
 anthropic>=0.40.0
 openai>=1.0.0

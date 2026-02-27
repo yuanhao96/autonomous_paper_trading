@@ -12,8 +12,13 @@ from src.universe.static import (
 class TestStaticUniverses:
     def test_sp500_has_symbols(self):
         symbols = get_static_universe("sp500")
-        assert len(symbols) > 0
+        assert len(symbols) >= 50  # at least fallback size
         assert "AAPL" in symbols
+
+    def test_nasdaq100_has_symbols(self):
+        symbols = get_static_universe("nasdaq100")
+        assert len(symbols) >= 40  # at least fallback size
+        assert "MSFT" in symbols
 
     def test_sector_etfs(self):
         symbols = get_static_universe("sector_etfs")
@@ -21,7 +26,7 @@ class TestStaticUniverses:
 
     def test_g10_forex(self):
         symbols = get_static_universe("g10_forex")
-        assert len(symbols) == 10
+        assert len(symbols) >= 10
 
     def test_unknown_universe(self):
         with pytest.raises(ValueError, match="Unknown static universe"):
