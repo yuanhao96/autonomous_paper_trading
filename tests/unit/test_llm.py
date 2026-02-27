@@ -44,19 +44,18 @@ class TestLLMSession:
 
 
 class TestLLMClient:
-    def test_client_init_defaults_to_openai(self):
+    def test_client_init_defaults_to_anthropic(self):
         client = LLMClient()
-        assert client.provider == "openai"
-        assert client.model == "gpt-4o"
+        assert client.provider == "anthropic"
+        assert client.model == "claude-sonnet-4-20250514"
         assert client.session.total_calls == 0
 
-    def test_openai_no_api_key_raises(self, monkeypatch):
-        """Without OPENAI_API_KEY, calling chat should raise RuntimeError."""
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        # Also block dotenv from re-loading the key from .env file
+    def test_anthropic_no_api_key_raises_default(self, monkeypatch):
+        """Without ANTHROPIC_API_KEY, calling chat should raise RuntimeError."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.setattr("src.core.llm._load_env_key", lambda key: None)
         client = LLMClient()
-        with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+        with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
             client.chat("test")
 
     def test_anthropic_no_api_key_raises(self, monkeypatch):
@@ -88,17 +87,18 @@ class TestLLMClient:
             client.chat("test")
 
     def test_default_model_per_provider(self):
-        # OpenAI default
-        client_oai = LLMClient()
-        assert client_oai.model == "gpt-4o"
+        # Anthropic default (from settings.yaml)
+        client_ant = LLMClient()
+        assert client_ant.provider == "anthropic"
+        assert client_ant.model == "claude-sonnet-4-20250514"
 
-        # Anthropic default
+        # OpenAI via explicit settings
         settings = MagicMock()
         settings.get.side_effect = lambda key, default=None: {
-            "llm.provider": "anthropic",
+            "llm.provider": "openai",
             "llm.max_tokens": 4096,
             "llm.temperature": 0.7,
         }.get(key, default)
-        client_ant = LLMClient(settings=settings)
-        assert client_ant.provider == "anthropic"
-        assert client_ant.model == "claude-sonnet-4-20250514"
+        client_oai = LLMClient(settings=settings)
+        assert client_oai.provider == "openai"
+        assert client_oai.model == "gpt-4o"

@@ -567,78 +567,114 @@ def _average_metrics(metrics_list: list[dict]) -> dict:
     return result
 
 
-def _extract_nt_metrics(engine, strategy, symbol: str) -> dict:
-    """Extract metrics from a completed NautilusTrader backtest engine."""
+def _get_account_return(engine, strategy) -> float:
+    """Get total return from NT account balance changes."""
+    if not hasattr(engine, "portfolio"):
+        return 0.0
     try:
-        # Get account and portfolio stats
-        report = engine.get_result()
-        fills = report.get("fills", [])
+        account = engine.portfolio.account(strategy.instrument_id.venue)
+        if account is None:
+            return 0.0
+        final_balance = float(account.balance_total().as_double())
+        initial = float(engine.config.venues[0].starting_balances[0])
+        return (final_balance - initial) / initial if initial else 0.0
+    except Exception:
+        return 0.0
 
-        # Calculate basic metrics from portfolio
-        positions = strategy.cache.positions() if hasattr(strategy, "cache") else []
+
+def _get_initial_balance(engine) -> float:
+    """Get initial balance from engine config."""
+    try:
+        return float(engine.config.venues[0].starting_balances[0])
+    except Exception:
+        return 100000.0
+
+
+def _extract_nt_metrics(engine, strategy, symbol: str) -> dict | None:
+    """Extract metrics from a completed NautilusTrader backtest engine.
+
+    Computes proper Sharpe, Sortino, max drawdown, and annualized return
+    from per-trade P&L of closed positions.
+    """
+    try:
+        # Closed positions sorted by close time
+        all_positions = strategy.cache.positions() if hasattr(strategy, "cache") else []
+        positions = sorted(
+            [p for p in all_positions if hasattr(p, "is_closed") and p.is_closed],
+            key=lambda p: p.closed_ts,
+        )
         n_trades = len(positions)
 
-        # Try to get returns from account balance changes
-        total_return = 0.0
-        if hasattr(engine, "portfolio"):
-            try:
+        # Total return from account balance
+        total_return = _get_account_return(engine, strategy)
 
-                account = engine.portfolio.account(strategy.instrument_id.venue)
-                if account is not None:
-                    final_balance = float(account.balance_total().as_double())
-                    initial = float(engine.config.venues[0].starting_balances[0])
-                    total_return = (final_balance - initial) / initial if initial else 0
-            except Exception:
-                pass
+        # Per-trade PnL
+        pnls = [float(p.realized_pnl) for p in positions if hasattr(p, "realized_pnl")]
 
-        # Compute win rate
-        wins = sum(
-            1 for p in positions if hasattr(p, "realized_pnl") and float(p.realized_pnl) > 0
-        )
-        win_rate = wins / n_trades if n_trades > 0 else 0
+        # Win rate
+        wins = sum(1 for pnl in pnls if pnl > 0)
+        win_rate = wins / n_trades if n_trades > 0 else 0.0
 
-        # Approximate Sharpe from total return and trades
-        # (Simplified — real Sharpe needs daily returns series)
-        if total_return != 0:
-            sharpe = (
-                total_return * np.sqrt(252)
-                / max(abs(total_return) + 0.01, 0.01)
-            )
+        # Sharpe and Sortino from per-trade returns
+        sharpe = 0.0
+        sortino = 0.0
+        if len(pnls) >= 2:
+            trade_mean = float(np.mean(pnls))
+            trade_std = float(np.std(pnls, ddof=1))
+
+            # Estimate trades per year from position timestamps
+            duration_ns = positions[-1].closed_ts - positions[0].opened_ts
+            duration_days = max(duration_ns / 86_400_000_000_000, 1)
+            trades_per_year = n_trades * 252 / duration_days
+
+            sharpe = (trade_mean / max(trade_std, 1e-8)) * np.sqrt(trades_per_year)
+
+            # Sortino: downside deviation only
+            downside = [pnl for pnl in pnls if pnl < 0]
+            down_std = float(np.std(downside, ddof=1)) if len(downside) >= 2 else trade_std
+            sortino = (trade_mean / max(down_std, 1e-8)) * np.sqrt(trades_per_year)
+
+        # Max drawdown from cumulative PnL curve
+        max_dd = 0.0
+        if pnls:
+            cum_pnl = np.cumsum(pnls)
+            running_max = np.maximum.accumulate(cum_pnl)
+            drawdowns = running_max - cum_pnl
+            initial_balance = _get_initial_balance(engine)
+            max_dd = float(np.max(drawdowns)) / initial_balance if initial_balance else 0.0
+
+        # Annualized return
+        if positions:
+            duration_ns = positions[-1].closed_ts - positions[0].opened_ts
+            duration_days = max(duration_ns / 86_400_000_000_000, 1)
         else:
-            sharpe = 0
-        sortino = sharpe * 0.8  # Rough approximation
-
-        # Max drawdown (simplified)
-        max_dd = min(total_return, 0)
+            duration_days = 252
+        years = max(duration_days / 365.25, 0.1)
+        annual_return = (1 + total_return) ** (1 / years) - 1 if total_return > -1 else -1.0
 
         # Profit factor
-        total_profit = sum(
-            float(p.realized_pnl)
-            for p in positions
-            if hasattr(p, "realized_pnl") and float(p.realized_pnl) > 0
-        )
-        total_loss = abs(
-            sum(
-                float(p.realized_pnl)
-                for p in positions
-                if hasattr(p, "realized_pnl") and float(p.realized_pnl) < 0
-            )
-        )
+        total_profit = sum(pnl for pnl in pnls if pnl > 0)
+        total_loss = abs(sum(pnl for pnl in pnls if pnl < 0))
         profit_factor = total_profit / max(total_loss, 0.01)
 
         # Fees from fills
         total_fees = 0.0
-        if isinstance(fills, list):
-            total_fees = sum(
-                float(getattr(f, "commission", 0))
-                for f in fills
-                if hasattr(f, "commission")
-            )
+        try:
+            report = engine.get_result()
+            fills = report.get("fills", [])
+            if isinstance(fills, list):
+                total_fees = sum(
+                    float(getattr(f, "commission", 0))
+                    for f in fills
+                    if hasattr(f, "commission")
+                )
+        except Exception:
+            pass
 
         return {
             "symbol": symbol,
             "total_return": total_return,
-            "annual_return": total_return,  # Simplified
+            "annual_return": _safe_float(annual_return),
             "sharpe_ratio": _safe_float(sharpe),
             "sortino_ratio": _safe_float(sortino),
             "max_drawdown": max_dd,

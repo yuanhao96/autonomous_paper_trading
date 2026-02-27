@@ -34,6 +34,7 @@ evolution:
   top_n_screen: 3                 # Candidates passing screen → validation
   explore_ratio: 0.4              # Fraction of batch for new templates
   exhaustion_cycles: 10           # Cycles without improvement before pause
+  screening_optimize: true        # Use walk-forward analysis during screening
 
 # Live Trading (IBKR)
 live:
@@ -49,7 +50,7 @@ live:
 
 # LLM
 llm:
-  provider: "openai"                # "openai" or "anthropic"
-  model: "gpt-4o"                   # openai: gpt-4o, gpt-4o-mini | anthropic: claude-sonnet-4-20250514
+  provider: "anthropic"
+  model: "claude-sonnet-4-20250514"
   max_tokens: 4096
   temperature: 0.7

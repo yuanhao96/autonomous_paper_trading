@@ -231,7 +231,7 @@ class TradingScheduler:
     def _run_evolution(self) -> None:
         """Run weekly evolution."""
         logger.info("=== Weekly Evolution ===")
-        result = self._orch.run_evolution(generations=5)
+        result = self._orch.run_evolution(n_cycles=5)
         logger.info("Evolution: %s", result.summary())
 
     def start(self, blocking: bool = True) -> None:

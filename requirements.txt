@@ -12,8 +12,8 @@ nautilus_trader>=1.200.0
 # Data
 yfinance>=0.2.0
 
-# LLM - install when needed
-# anthropic>=0.40.0
+# LLM
+anthropic>=0.40.0
 
 # Broker - install when needed
 # ib_insync>=0.9.86

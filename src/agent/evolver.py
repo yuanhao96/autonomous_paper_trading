@@ -93,6 +93,7 @@ class Evolver:
         self._top_n_screen = self._settings.get("evolution.top_n_screen", 3)
         self._explore_ratio = self._settings.get("evolution.explore_ratio", 0.4)
         self._exhaustion_cycles = self._settings.get("evolution.exhaustion_cycles", 10)
+        self._screen_optimize = self._settings.get("evolution.screening_optimize", True)
 
         # State
         self._cycle_count = 0
@@ -170,7 +171,7 @@ class Evolver:
                     symbols=syms,
                     start=date(2019, 1, 1),
                     end=date(2024, 12, 31),
-                    optimize=False,
+                    optimize=self._screen_optimize,
                 )
                 self._registry.save_spec(spec)
                 self._registry.save_result(result)
