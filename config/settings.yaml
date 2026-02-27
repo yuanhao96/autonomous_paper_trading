@@ -1,0 +1,55 @@
+# Runtime configuration — can be modified without code changes.
+
+# Data
+data:
+  cache_dir: "data/cache"
+  default_source: "yfinance"
+  default_resolution: "daily"
+
+# Screening (backtesting.py)
+screening:
+  initial_cash: 100000
+  commission: 0.002               # 0.2% per trade
+  pass_criteria:
+    min_sharpe: 0.5
+    max_drawdown: 0.30
+    min_trades: 20
+    min_profit_factor: 1.2
+  walk_forward:
+    train_days: 252               # 1 year training window
+    test_days: 63                 # ~3 months test window
+    step_days: 21                 # ~1 month step
+
+# Validation (NautilusTrader)
+validation:
+  pass_criteria:
+    min_sharpe: 0.3
+    max_drawdown: 0.35
+    min_positive_regimes: 2       # Must be positive in ≥2 of 4 regimes
+    min_capacity: 50000           # Minimum $50K capacity
+
+# Evolution
+evolution:
+  batch_size: 5                   # Strategies per cycle
+  top_n_screen: 3                 # Candidates passing screen → validation
+  explore_ratio: 0.4              # Fraction of batch for new templates
+  exhaustion_cycles: 10           # Cycles without improvement before pause
+
+# Live Trading (IBKR)
+live:
+  ibkr_host: "127.0.0.1"
+  ibkr_port: 7497                   # 7497=TWS paper, 7496=TWS live, 4002=Gateway paper, 4001=Gateway live
+  ibkr_client_id: 1
+  initial_cash: 100000              # Starting capital for paper trading
+  rebalance_frequency: "daily"      # daily | weekly
+  comparison_tolerance: 0.30        # 30% drift tolerance (live vs backtest)
+  max_sharpe_drift: 1.0             # Max Sharpe ratio degradation from backtest
+  drawdown_alert_pct: 0.15          # Alert if drawdown exceeds 15%
+  daily_loss_alert_pct: 0.03        # Alert if daily loss exceeds 3%
+
+# LLM
+llm:
+  provider: "openai"                # "openai" or "anthropic"
+  model: "gpt-4o"                   # openai: gpt-4o, gpt-4o-mini | anthropic: claude-sonnet-4-20250514
+  max_tokens: 4096
+  temperature: 0.7

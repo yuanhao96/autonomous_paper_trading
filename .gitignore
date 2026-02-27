@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+
+# Data cache
+data/cache/
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# SQLite databases
+*.db
+
+# Claude Code state
+.claude/
+
+# IDE
+.vscode/
+.idea/

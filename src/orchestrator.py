@@ -1,0 +1,397 @@
+"""Main orchestrator — ties together the full autonomous trading pipeline.
+
+Pipeline:
+  1. Equity screening: Select trading targets via computed universes
+  2. Strategy generation: LLM picks from 83 templates, sets parameters
+  3. Phase 1 screening: Fast backtest via backtesting.py
+  4. Phase 2 validation: Multi-regime walkforward
+  5. Audit gate: Risk + consistency checks
+  6. Deployment: Paper/live trading via IBKR
+  7. Monitoring: Track live performance vs backtest expectations
+  8. Promotion: Evaluate paper → live readiness
+
+Usage:
+    from src.orchestrator import Orchestrator
+    orch = Orchestrator()
+    orch.run_full_cycle()
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Any
+
+import pandas as pd
+
+from src.agent.evolver import CycleResult, Evolver
+from src.core.config import Settings, load_preferences
+from src.core.db import get_engine, init_db
+from src.core.llm import LLMClient
+from src.data.manager import DataManager
+from src.live.broker import PaperBroker, is_ibkr_available
+from src.live.deployer import Deployer
+from src.live.models import Deployment
+from src.live.monitor import Monitor
+from src.live.promoter import Promoter
+from src.reporting.reporter import (
+    evolution_summary_report,
+    format_deployment,
+    format_result,
+    format_spec,
+    pipeline_status_report,
+    strategy_lifecycle_report,
+)
+from src.strategies.registry import StrategyRegistry
+from src.strategies.spec import StrategyResult, StrategySpec
+from src.universe.computed import compute_universe, get_available_computations
+from src.universe.static import STATIC_UNIVERSES, get_static_universe
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PipelineResult:
+    """Result of a full pipeline run."""
+
+    specs_generated: int = 0
+    specs_screened: int = 0
+    specs_validated: int = 0
+    specs_passed: int = 0
+    specs_deployed: int = 0
+    best_sharpe: float = 0.0
+    best_spec_id: str = ""
+    duration_seconds: float = 0.0
+    errors: list[str] = field(default_factory=list)
+    cycle_results: list[CycleResult] = field(default_factory=list)
+
+    def summary(self) -> str:
+        lines = [
+            f"Pipeline: {self.specs_generated} generated → "
+            f"{self.specs_screened} screened → {self.specs_validated} validated → "
+            f"{self.specs_passed} passed → {self.specs_deployed} deployed",
+        ]
+        if self.best_sharpe > 0:
+            lines.append(f"  Best Sharpe: {self.best_sharpe:.2f} (spec {self.best_spec_id})")
+        if self.errors:
+            lines.append(f"  Errors: {len(self.errors)}")
+        lines.append(f"  Duration: {self.duration_seconds:.1f}s")
+        return "\n".join(lines)
+
+
+class Orchestrator:
+    """Main pipeline orchestrator.
+
+    Coordinates all components: evolution, screening, validation, deployment,
+    monitoring, and promotion.
+
+    Args:
+        settings: Runtime settings (from settings.yaml).
+        universe_id: Default universe for equity screening.
+        symbols: Override symbols list (skips universe resolution).
+        mode: Trading mode — "paper" or "live".
+    """
+
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        universe_id: str = "sector_etfs",
+        symbols: list[str] | None = None,
+        mode: str = "paper",
+    ) -> None:
+        self._settings = settings or Settings()
+        self._prefs = load_preferences()
+        self._universe_id = universe_id
+        self._override_symbols = symbols
+        self._mode = mode
+
+        # Core components
+        self._dm = DataManager(cache_dir=self._settings.cache_dir)
+        self._engine = get_engine()
+        init_db(self._engine)
+        self._registry = StrategyRegistry(engine=self._engine)
+        self._llm = LLMClient(settings=self._settings)
+
+        # Pipeline stages
+        self._evolver = Evolver(
+            registry=self._registry,
+            data_manager=self._dm,
+            llm_client=self._llm,
+            settings=self._settings,
+        )
+        self._monitor = Monitor()
+        self._promoter = Promoter(monitor=self._monitor)
+
+        # State
+        self._deployments: list[Deployment] = []
+
+    @property
+    def registry(self) -> StrategyRegistry:
+        return self._registry
+
+    @property
+    def evolver(self) -> Evolver:
+        return self._evolver
+
+    # ── Universe resolution ──────────────────────────────────────────
+
+    def resolve_symbols(
+        self,
+        universe_id: str | None = None,
+        computation: str | None = None,
+        computation_params: dict[str, Any] | None = None,
+    ) -> list[str]:
+        """Resolve a universe to a concrete list of symbols.
+
+        Three resolution paths:
+        1. Override symbols (provided at init)
+        2. Computed universe (dynamic equity screening)
+        3. Static universe (fixed list)
+        """
+        if self._override_symbols:
+            return self._override_symbols
+
+        uid = universe_id or self._universe_id
+
+        # Try computed universe
+        if computation:
+            base_pool = get_static_universe("sp500")  # Default base pool
+            return compute_universe(
+                name=computation,
+                base_symbols=base_pool,
+                data_manager=self._dm,
+                params=computation_params or {},
+            )
+
+        # Try static universe
+        if uid in STATIC_UNIVERSES:
+            return get_static_universe(uid)
+
+        logger.warning("Unknown universe %s, using sector_etfs", uid)
+        return get_static_universe("sector_etfs")
+
+    # ── Full pipeline ────────────────────────────────────────────────
+
+    def run_full_cycle(
+        self,
+        n_evolution_cycles: int = 1,
+        deploy_best: bool = True,
+        universe_id: str | None = None,
+        computation: str | None = None,
+        computation_params: dict[str, Any] | None = None,
+    ) -> PipelineResult:
+        """Run the full pipeline: evolve → screen → validate → deploy → monitor.
+
+        Args:
+            n_evolution_cycles: Number of evolution cycles to run.
+            deploy_best: Whether to deploy the best passing strategy.
+            universe_id: Override universe ID.
+            computation: Computed universe builder name.
+            computation_params: Parameters for computed universe builder.
+
+        Returns:
+            PipelineResult with comprehensive diagnostics.
+        """
+        t0 = time.time()
+        result = PipelineResult()
+
+        symbols = self.resolve_symbols(universe_id, computation, computation_params)
+        if not symbols:
+            result.errors.append("No symbols resolved from universe")
+            return result
+
+        logger.info(
+            "Pipeline starting: %d symbols from %s, mode=%s",
+            len(symbols), universe_id or self._universe_id, self._mode,
+        )
+
+        # ── Phase 1-3: Evolution cycles (generate → screen → validate) ──
+        cycle_results = self._evolver.run_cycles(n_evolution_cycles, symbols=symbols)
+        result.cycle_results = cycle_results
+
+        for cr in cycle_results:
+            result.specs_generated += cr.specs_generated
+            result.specs_screened += cr.specs_screened
+            result.specs_validated += cr.specs_validated
+            result.specs_passed += cr.specs_passed
+            result.errors.extend(cr.errors)
+            if cr.best_sharpe > result.best_sharpe:
+                result.best_sharpe = cr.best_sharpe
+                result.best_spec_id = cr.best_spec_id
+
+        # ── Phase 4: Deploy best strategy ────────────────────────────
+        if deploy_best and result.best_spec_id:
+            try:
+                deployment = self._deploy_best(result.best_spec_id, symbols)
+                if deployment:
+                    result.specs_deployed += 1
+            except Exception as e:
+                logger.warning("Deployment failed: %s", e)
+                result.errors.append(f"Deploy: {e}")
+
+        result.duration_seconds = time.time() - t0
+        logger.info(result.summary())
+        return result
+
+    def run_evolution(
+        self,
+        n_cycles: int = 1,
+        symbols: list[str] | None = None,
+    ) -> list[CycleResult]:
+        """Run evolution cycles only (no deployment)."""
+        syms = symbols or self.resolve_symbols()
+        return self._evolver.run_cycles(n_cycles, symbols=syms)
+
+    # ── Deployment ───────────────────────────────────────────────────
+
+    def deploy_strategy(
+        self,
+        spec_id: str,
+        symbols: list[str] | None = None,
+        mode: str | None = None,
+    ) -> Deployment | None:
+        """Deploy a strategy by spec ID."""
+        syms = symbols or self.resolve_symbols()
+        return self._deploy_best(spec_id, syms, mode=mode or self._mode)
+
+    def _deploy_best(
+        self,
+        spec_id: str,
+        symbols: list[str],
+        mode: str | None = None,
+    ) -> Deployment | None:
+        """Deploy the best strategy from the registry."""
+        spec = self._registry.get_spec(spec_id)
+        if spec is None:
+            logger.warning("Spec %s not found in registry", spec_id)
+            return None
+
+        # Set up broker
+        deploy_mode = mode or self._mode
+        if deploy_mode == "paper" or not is_ibkr_available():
+            initial_cash = self._settings.get("live.initial_cash", 100_000)
+            broker = PaperBroker(initial_cash=initial_cash)
+            broker.connect()
+        else:
+            from src.live.broker import IBKRBroker
+            host = self._settings.get("live.ibkr_host", "127.0.0.1")
+            port = self._settings.get("live.ibkr_port", 7496)
+            client_id = self._settings.get("live.ibkr_client_id", 1)
+            broker = IBKRBroker(host=host, port=port, client_id=client_id)
+            broker.connect()
+
+        deployer = Deployer(broker=broker, engine=self._engine, settings=self._settings)
+        deployment = deployer.deploy(spec, symbols=symbols, mode=deploy_mode)
+        self._deployments.append(deployment)
+
+        # Fetch prices and do initial rebalance
+        prices = self._dm.get_bulk_ohlcv(symbols, period="2y")
+        if prices:
+            # Set current prices for PaperBroker
+            if isinstance(broker, PaperBroker):
+                current_prices = {
+                    s: float(df["Close"].iloc[-1])
+                    for s, df in prices.items()
+                }
+                broker.set_prices(current_prices)
+
+            trades = deployer.rebalance(deployment, spec, prices)
+            logger.info(
+                "Initial rebalance: %d trades for deployment %s",
+                len(trades), deployment.id,
+            )
+
+        return deployment
+
+    # ── Monitoring ───────────────────────────────────────────────────
+
+    def monitor_deployment(
+        self,
+        deployment: Deployment,
+        validation_result: StrategyResult | None = None,
+    ) -> dict[str, Any]:
+        """Monitor a deployment: compare live vs validation, check risk."""
+        report: dict[str, Any] = {"deployment_id": deployment.id}
+
+        if validation_result:
+            comparison = self._monitor.compare(deployment, validation_result)
+            report["comparison"] = comparison
+            report["within_tolerance"] = comparison.within_tolerance
+
+        violations = self._monitor.check_risk(deployment)
+        report["risk_violations"] = violations
+        report["risk_ok"] = len(violations) == 0
+
+        return report
+
+    def evaluate_promotion(
+        self,
+        deployment: Deployment,
+        validation_result: StrategyResult,
+    ) -> str:
+        """Evaluate whether a deployment should be promoted to live."""
+        return self._promoter.get_promotion_summary(deployment, validation_result)
+
+    # ── Reporting ────────────────────────────────────────────────────
+
+    def get_pipeline_status(self) -> str:
+        """Get a summary of the full pipeline."""
+        total_specs = len(self._registry.list_specs())
+        phases: dict[str, int] = {"screened": 0, "validated": 0, "passed": 0}
+
+        for spec in self._registry.list_specs():
+            results = self._registry.get_results(spec.id)
+            for r in results:
+                if r.phase == "screen":
+                    phases["screened"] += 1
+                elif r.phase == "validate":
+                    phases["validated"] += 1
+                if r.passed:
+                    phases["passed"] += 1
+
+        active_deps = len([d for d in self._deployments if d.is_active])
+        best = self._registry.get_best_specs(
+            phase="validate", metric="sharpe_ratio", limit=1, passed_only=True,
+        )
+        best_sharpe = best[0][1].sharpe_ratio if best else 0.0
+
+        return pipeline_status_report(total_specs, phases, active_deps, best_sharpe)
+
+    def get_strategy_report(self, spec_id: str) -> str:
+        """Get a full lifecycle report for a single strategy."""
+        spec = self._registry.get_spec(spec_id)
+        if spec is None:
+            return f"Strategy {spec_id} not found."
+
+        results = self._registry.get_results(spec_id)
+        deployment = None
+        for d in self._deployments:
+            if d.spec_id == spec_id:
+                deployment = d
+                break
+
+        return strategy_lifecycle_report(spec, results, deployment=deployment)
+
+    def get_evolution_report(self) -> str:
+        """Get a report of all evolution cycles."""
+        cycle_dicts = []
+        for cr in self._evolver._cycle_results:
+            cycle_dicts.append({
+                "cycle_number": cr.cycle_number,
+                "mode": cr.mode,
+                "specs_generated": cr.specs_generated,
+                "specs_screened": cr.specs_screened,
+                "specs_passed": cr.specs_passed,
+                "best_sharpe": cr.best_sharpe,
+                "duration_seconds": cr.duration_seconds,
+            })
+
+        best = self._registry.get_best_specs(
+            phase="screen", metric="sharpe_ratio", limit=5, passed_only=False,
+        )
+
+        return evolution_summary_report(
+            cycle_dicts, best, self._llm.session.summary()
+        )

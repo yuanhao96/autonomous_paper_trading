@@ -1,0 +1,20 @@
+# Human-controlled risk limits — IMMUTABLE at runtime.
+# Only modify this file manually. The system cannot change these values.
+
+risk_limits:
+  max_position_pct: 0.10          # Max 10% of portfolio in any single position
+  max_portfolio_drawdown: 0.25    # Liquidate if portfolio drops 25% from peak
+  max_daily_loss: 0.05            # Stop trading for the day if 5% loss
+  max_leverage: 1.0               # No leverage (1.0 = cash only)
+  max_positions: 20               # Max concurrent positions
+  min_cash_reserve_pct: 0.05      # Always keep 5% in cash
+
+allowed_asset_classes:
+  - us_equity
+  - etf
+
+# Strategies must pass all audit checks before live deployment
+audit_gate_enabled: true
+
+# Paper trading minimum days before live promotion
+min_paper_trading_days: 20

@@ -1,0 +1,29 @@
+# Core
+pandas>=2.0
+numpy>=1.24
+pyarrow>=14.0
+
+# Screening (Phase 1)
+backtesting>=0.3.3
+
+# Validation + Live (Phase 2/3)
+nautilus_trader>=1.200.0
+
+# Data
+yfinance>=0.2.0
+
+# LLM - install when needed
+# anthropic>=0.40.0
+
+# Broker - install when needed
+# ib_insync>=0.9.86
+
+# Infrastructure
+pyyaml>=6.0
+python-dotenv>=1.0
+sqlalchemy>=2.0
+
+# Dev
+pytest>=8.0
+ruff>=0.5.0
+mypy>=1.10
