@@ -94,7 +94,7 @@ class LLMClient:
     def _default_model(self) -> str:
         if self._provider == "anthropic":
             return "claude-sonnet-4-20250514"
-        return "gpt-4o"
+        return "gpt-5"
 
     def _get_client(self):
         """Lazy-init the provider client."""

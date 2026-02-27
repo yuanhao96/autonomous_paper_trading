@@ -52,6 +52,6 @@ live:
 # LLM
 llm:
   provider: "openai"
-  model: "gpt-4o"
+  model: "gpt-5"
   max_tokens: 4096
   temperature: 0.7
