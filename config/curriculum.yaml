@@ -189,6 +189,35 @@ stages:
     description: Discovered during study of 'Limit order books'.
     mastery_criteria: Can explain and apply Central Limit Order Book (CLOB) in a concrete
       trading scenario
+  - id: carry_trade
+    name: Carry trade
+    description: Discovered during study of 'Currency diversification'.
+    mastery_criteria: Can explain and apply Carry trade in a concrete trading scenario
+  - id: inflation_hedge
+    name: Inflation hedge
+    description: Discovered during study of 'Currency diversification'.
+    mastery_criteria: Can explain and apply Inflation hedge in a concrete trading
+      scenario
+  - id: asset_class_correlation
+    name: Asset class correlation
+    description: Discovered during study of 'Intermarket analysis'.
+    mastery_criteria: Can explain and apply Asset class correlation in a concrete
+      trading scenario
+  - id: positivenegative_correlation
+    name: Positive/negative correlation
+    description: Discovered during study of 'Intermarket analysis'.
+    mastery_criteria: Can explain and apply Positive/negative correlation in a concrete
+      trading scenario
+  - id: foreign_exchange_risk_fx_risk
+    name: Foreign exchange risk (FX risk)
+    description: Discovered during study of 'Foreign exchange risk'.
+    mastery_criteria: Can explain and apply Foreign exchange risk (FX risk) in a concrete
+      trading scenario
+  - id: translation_risk
+    name: Translation risk
+    description: Discovered during study of 'Foreign exchange risk'.
+    mastery_criteria: Can explain and apply Translation risk in a concrete trading
+      scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
