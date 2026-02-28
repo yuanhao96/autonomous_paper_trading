@@ -26,7 +26,7 @@ from src.risk.engine import RiskEngine
 from src.screening.screener import Screener
 from src.strategies.registry import StrategyRegistry
 from src.strategies.spec import StrategyResult, StrategySpec
-from src.universe.static import STATIC_UNIVERSES, get_static_universe
+from src.universe.static import STATIC_UNIVERSES, get_static_universe, get_universe_asset_class
 from src.validation.validator import Validator
 
 logger = logging.getLogger(__name__)
@@ -165,7 +165,7 @@ class Evolver:
                 if spec.universe_spec is None:
                     from src.universe.spec import UniverseSpec
                     spec.universe_spec = UniverseSpec(
-                        asset_class="etf",
+                        asset_class=get_universe_asset_class(spec.universe_id),
                         static_symbols=syms,
                         id=spec.universe_id,
                         name=spec.universe_id,
@@ -228,10 +228,11 @@ class Evolver:
                     logger.info("Strategy PASSED audit: %s (Sharpe: %.2f)",
                                 spec.template, val_result.sharpe_ratio)
 
-                # Track best
-                if val_result.sharpe_ratio > cycle.best_sharpe:
-                    cycle.best_sharpe = val_result.sharpe_ratio
-                    cycle.best_spec_id = spec.id
+                # Track best — only consider strategies that passed audit AND validation
+                if audit.passed and val_result.passed:
+                    if val_result.sharpe_ratio > cycle.best_sharpe:
+                        cycle.best_sharpe = val_result.sharpe_ratio
+                        cycle.best_spec_id = spec.id
 
                 # Log diagnostics
                 diag = format_result_for_llm(spec, screen_result, val_result)

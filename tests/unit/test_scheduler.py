@@ -139,7 +139,7 @@ class TestTradingScheduler:
     @patch("src.orchestrator.Orchestrator")
     def test_creates_default_jobs(self, mock_orch_cls):
         sched = TradingScheduler()
-        assert sched.scheduler.job_count == 3
+        assert sched.scheduler.job_count == 4
 
     @patch("src.orchestrator.Orchestrator")
     def test_status(self, mock_orch_cls):
@@ -148,6 +148,7 @@ class TestTradingScheduler:
         assert "daily_pipeline" in status
         assert "daily_monitor" in status
         assert "weekly_evolution" in status
+        assert "daily_rebalance" in status
 
     @patch("src.orchestrator.Orchestrator")
     def test_start_stop(self, mock_orch_cls):
@@ -202,3 +203,21 @@ class TestTradingScheduler:
 
         mock_orch.run_evolution.assert_called_once_with(n_cycles=5)
         mock_cycle.summary.assert_called_once()
+
+    @patch("src.orchestrator.Orchestrator")
+    def test_rebalance_job_present(self, mock_orch_cls):
+        """Verify daily_rebalance job appears in scheduler status."""
+        sched = TradingScheduler()
+        status = sched.scheduler.get_status()
+        assert "daily_rebalance" in status
+        assert "10:00" in status
+
+    @patch("src.orchestrator.Orchestrator")
+    def test_run_rebalance_calls_orchestrator(self, mock_orch_cls):
+        mock_orch = mock_orch_cls.return_value
+        mock_orch.run_rebalance.return_value = []
+
+        sched = TradingScheduler()
+        sched._run_rebalance()
+
+        mock_orch.run_rebalance.assert_called_once()

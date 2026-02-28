@@ -124,8 +124,9 @@ class Orchestrator:
         self._monitor = Monitor()
         self._promoter = Promoter(monitor=self._monitor)
 
-        # State
-        self._deployments: list[Deployment] = []
+        # State — load persisted active deployments from DB
+        self._deployer = Deployer(engine=self._engine, settings=self._settings)
+        self._deployments: list[Deployment] = self._deployer.list_deployments(status="active")
 
     @property
     def registry(self) -> StrategyRegistry:
@@ -155,9 +156,10 @@ class Orchestrator:
 
         uid = universe_id or self._universe_id
 
-        # Try computed universe
+        # Try computed universe — use the selected universe as base pool
         if computation:
-            base_pool = get_static_universe("sp500")  # Default base pool
+            base_uid = uid if uid in STATIC_UNIVERSES else "sp500"
+            base_pool = get_static_universe(base_uid)
             return compute_universe(
                 name=computation,
                 base_symbols=base_pool,
@@ -262,14 +264,41 @@ class Orchestrator:
         symbols: list[str],
         mode: str | None = None,
     ) -> Deployment | None:
-        """Deploy the best strategy from the registry."""
+        """Deploy the best strategy from the registry.
+
+        Runs validate_readiness() before deploying. Refuses to deploy
+        if any pre-deployment check fails.
+        """
         spec = self._registry.get_spec(spec_id)
         if spec is None:
             logger.warning("Spec %s not found in registry", spec_id)
             return None
 
-        # Set up broker
+        # Pre-deployment safety gate: require passing readiness checks
         deploy_mode = mode or self._mode
+        deployer = Deployer(engine=self._engine, settings=self._settings)
+
+        results = self._registry.get_results(spec_id)
+        screen_result = next((r for r in results if r.phase == "screen"), None)
+        val_result = next((r for r in results if r.phase == "validate"), None)
+        if screen_result is None:
+            logger.warning("Spec %s has no screen result, refusing to deploy", spec_id)
+            return None
+        if val_result is None:
+            logger.warning("Spec %s has no validation result, refusing to deploy", spec_id)
+            return None
+
+        checks = deployer.validate_readiness(spec, screen_result, val_result)
+        failed = [c for c in checks if not c.passed]
+        if failed:
+            names = [c.name for c in failed]
+            logger.warning(
+                "Spec %s failed pre-deployment checks %s, refusing to deploy",
+                spec_id, names,
+            )
+            return None
+
+        # Set up broker
         if deploy_mode == "paper" or not is_ibkr_available():
             initial_cash = self._settings.get("live.initial_cash", 100_000)
             broker = PaperBroker(initial_cash=initial_cash)
@@ -282,7 +311,7 @@ class Orchestrator:
             broker = IBKRBroker(host=host, port=port, client_id=client_id)
             broker.connect()
 
-        deployer = Deployer(broker=broker, engine=self._engine, settings=self._settings)
+        deployer._broker = broker
         deployment = deployer.deploy(spec, symbols=symbols, mode=deploy_mode)
         self._deployments.append(deployment)
 
@@ -334,6 +363,112 @@ class Orchestrator:
         """Evaluate whether a deployment should be promoted to live."""
         return self._promoter.get_promotion_summary(deployment, validation_result)
 
+    def run_monitoring(self) -> list[dict[str, Any]]:
+        """Monitor all active deployments: check risk, compare vs validation.
+
+        Reloads active deployments from DB so restarts don't lose state.
+        Returns a list of monitoring reports, one per active deployment.
+        """
+        # Reload from DB to survive restarts
+        self._deployments = self._deployer.list_deployments(status="active")
+        reports: list[dict[str, Any]] = []
+
+        for deployment in self._deployments:
+            # Fetch the latest validation result for comparison
+            val_results = self._registry.get_results(deployment.spec_id, phase="validate")
+            val_result = val_results[0] if val_results else None
+
+            report = self.monitor_deployment(deployment, val_result)
+
+            # Log warnings for risk violations
+            violations = report.get("risk_violations", [])
+            if violations:
+                logger.warning(
+                    "Deployment %s has %d risk violations: %s",
+                    deployment.id, len(violations),
+                    [v.message for v in violations],
+                )
+
+            if not report.get("within_tolerance", True) and val_result:
+                logger.warning(
+                    "Deployment %s live performance diverges from validation",
+                    deployment.id,
+                )
+
+            reports.append(report)
+
+        logger.info("Monitoring complete: %d active deployments checked", len(reports))
+        return reports
+
+    def run_rebalance(self) -> list[dict[str, Any]]:
+        """Rebalance all active deployments.
+
+        Reloads active deployments from DB, fetches latest prices,
+        and rebalances each.
+        """
+        self._deployments = self._deployer.list_deployments(
+            status="active",
+        )
+        results: list[dict[str, Any]] = []
+
+        for deployment in self._deployments:
+            try:
+                spec = self._registry.get_spec(deployment.spec_id)
+                if spec is None:
+                    logger.warning(
+                        "Spec %s not found for deployment %s",
+                        deployment.spec_id, deployment.id,
+                    )
+                    continue
+
+                prices = self._dm.get_bulk_ohlcv(
+                    deployment.symbols, period="2y",
+                )
+                if not prices:
+                    logger.warning(
+                        "No price data for deployment %s",
+                        deployment.id,
+                    )
+                    continue
+
+                # Update PaperBroker prices if applicable
+                broker = self._deployer._broker
+                if isinstance(broker, PaperBroker):
+                    current_prices = {
+                        s: float(df["Close"].iloc[-1])
+                        for s, df in prices.items()
+                    }
+                    broker.set_prices(current_prices)
+
+                trades = self._deployer.rebalance(
+                    deployment, spec, prices,
+                )
+                results.append({
+                    "deployment_id": deployment.id,
+                    "trades": len(trades),
+                    "status": "ok",
+                })
+                logger.info(
+                    "Rebalanced deployment %s: %d trades",
+                    deployment.id, len(trades),
+                )
+            except Exception as e:
+                logger.warning(
+                    "Rebalance failed for deployment %s: %s",
+                    deployment.id, e,
+                )
+                results.append({
+                    "deployment_id": deployment.id,
+                    "trades": 0,
+                    "status": f"error: {e}",
+                })
+
+        logger.info(
+            "Rebalance complete: %d deployments processed",
+            len(results),
+        )
+        return results
+
     # ── Reporting ────────────────────────────────────────────────────
 
     def get_pipeline_status(self) -> str:
@@ -351,7 +486,9 @@ class Orchestrator:
                 if r.passed:
                     phases["passed"] += 1
 
-        active_deps = len([d for d in self._deployments if d.is_active])
+        # Reload from DB for accurate count
+        db_deployments = self._deployer.list_deployments(status="active")
+        active_deps = len(db_deployments)
         best = self._registry.get_best_specs(
             phase="validate", metric="sharpe_ratio", limit=1, passed_only=True,
         )

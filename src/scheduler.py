@@ -213,6 +213,18 @@ class TradingScheduler:
             days_of_week="sat",
         ))
 
+        # Daily rebalance
+        rebalance_freq = self._orch._settings.get(
+            "live.rebalance_frequency", "daily",
+        )
+        days = "mon-fri" if rebalance_freq == "daily" else "mon"
+        self._scheduler.add_job(ScheduleConfig(
+            name="daily_rebalance",
+            func=self._run_rebalance,
+            hour=10, minute=0,
+            days_of_week=days,
+        ))
+
     def _run_pipeline(self) -> None:
         """Execute the daily pipeline cycle."""
         logger.info("=== Daily Pipeline Run ===")
@@ -224,10 +236,29 @@ class TradingScheduler:
         logger.info("Pipeline: %s", result.summary())
 
     def _run_monitor(self) -> None:
-        """Monitor all active deployments."""
+        """Monitor all active deployments — checks risk, drift, and health."""
         logger.info("=== Daily Monitoring ===")
+        reports = self._orch.run_monitoring()
+        for report in reports:
+            dep_id = report.get("deployment_id", "unknown")
+            violations = report.get("risk_violations", [])
+            ok = report.get("risk_ok", True)
+            logger.info(
+                "Deployment %s: risk_ok=%s, violations=%d",
+                dep_id, ok, len(violations),
+            )
         status = self._orch.get_pipeline_status()
         logger.info("\n%s", status)
+
+    def _run_rebalance(self) -> None:
+        """Rebalance all active deployments."""
+        logger.info("=== Daily Rebalance ===")
+        results = self._orch.run_rebalance()
+        for r in results:
+            logger.info(
+                "Deployment %s: %d trades (%s)",
+                r["deployment_id"], r["trades"], r["status"],
+            )
 
     def _run_evolution(self) -> None:
         """Run weekly evolution."""

@@ -134,6 +134,10 @@ class Monitor:
         violations: list[RiskViolation] = []
         snapshots = deployment.snapshots
         if not snapshots:
+            logger.warning(
+                "No snapshots for deployment %s — risk checks skipped",
+                deployment.id,
+            )
             return violations
 
         latest = snapshots[-1]

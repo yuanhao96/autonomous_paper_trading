@@ -86,6 +86,21 @@ def _build_universes() -> dict[str, list[str]]:
 STATIC_UNIVERSES: dict[str, list[str]] = _build_universes()
 
 
+UNIVERSE_ASSET_CLASS: dict[str, str] = {
+    "sp500": "us_equity",
+    "nasdaq100": "us_equity",
+    "sector_etfs": "etf",
+    "broad_etfs": "etf",
+    "g10_forex": "forex",
+    "crypto_top": "crypto",
+}
+
+
+def get_universe_asset_class(universe_name: str) -> str:
+    """Get the asset class for a universe. Defaults to 'etf' for unknown."""
+    return UNIVERSE_ASSET_CLASS.get(universe_name, "etf")
+
+
 def get_static_universe(name: str) -> list[str]:
     """Get a static universe by name."""
     if name not in STATIC_UNIVERSES:

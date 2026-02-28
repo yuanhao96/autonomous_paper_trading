@@ -154,3 +154,43 @@ class TestDeployer:
         snap = deployment.snapshots[0]
         assert snap.equity > 0
         assert snap.deployment_id == deployment.id
+
+    def test_validate_readiness_fails_without_validation(
+        self, db_engine, paper_broker,
+    ):
+        """Passing validation_result=None must fail the validation_passed check."""
+        deployer = Deployer(broker=paper_broker, engine=db_engine)
+        spec = _make_spec()
+        screen = _make_result(spec.id, "screen")
+        checks = deployer.validate_readiness(spec, screen, None)
+        names = {c.name: c.passed for c in checks}
+        assert "validation_passed" in names
+        assert names["validation_passed"] is False
+
+    def test_list_deployments_loads_snapshots(
+        self, db_engine, paper_broker,
+    ):
+        """Deployments loaded from DB should have snapshots hydrated."""
+        deployer = Deployer(broker=paper_broker, engine=db_engine)
+        spec = _make_spec()
+        deployment = deployer.deploy(spec, symbols=["SPY"])
+        deployer.rebalance(deployment, spec, _make_prices())
+        # Reload from DB
+        loaded = deployer.list_deployments(status="active")
+        assert len(loaded) == 1
+        assert len(loaded[0].snapshots) >= 1
+        assert loaded[0].snapshots[0].equity > 0
+
+    def test_get_deployment_loads_snapshots(
+        self, db_engine, paper_broker,
+    ):
+        """get_deployment() should hydrate snapshots and trades."""
+        deployer = Deployer(broker=paper_broker, engine=db_engine)
+        spec = _make_spec()
+        deployment = deployer.deploy(spec, symbols=["SPY"])
+        deployer.rebalance(deployment, spec, _make_prices())
+        # Reload from DB
+        loaded = deployer.get_deployment(deployment.id)
+        assert loaded is not None
+        assert len(loaded.snapshots) >= 1
+        assert len(loaded.trades) >= 1

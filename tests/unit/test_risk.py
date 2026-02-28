@@ -90,6 +90,67 @@ class TestRiskEngine:
         assert not risk_engine.is_asset_class_allowed("crypto")
 
 
+class TestRiskEngineSafetyMethods:
+    """Tests for check_leverage, check_cash_reserve, check_asset_class."""
+
+    @pytest.fixture
+    def engine(self):
+        return RiskEngine(preferences=Preferences(
+            risk_limits=RiskLimits(
+                max_position_pct=0.10,
+                max_portfolio_drawdown=0.25,
+                max_daily_loss=0.05,
+                max_leverage=1.0,
+                max_positions=20,
+                min_cash_reserve_pct=0.05,
+            ),
+            allowed_asset_classes=("us_equity", "etf"),
+            audit_gate_enabled=True,
+            min_paper_trading_days=20,
+        ))
+
+    # ── Leverage ──────────────────────────────────────────────────
+
+    def test_leverage_under_limit(self, engine):
+        violations = engine.check_leverage(90_000, 100_000)
+        assert len(violations) == 0
+
+    def test_leverage_over_limit(self, engine):
+        violations = engine.check_leverage(150_000, 100_000)
+        assert len(violations) == 1
+        assert violations[0].rule == "max_leverage"
+
+    def test_leverage_zero_equity(self, engine):
+        violations = engine.check_leverage(100_000, 0)
+        assert len(violations) == 0  # no division error
+
+    # ── Cash reserve ──────────────────────────────────────────────
+
+    def test_cash_reserve_above_minimum(self, engine):
+        violations = engine.check_cash_reserve(10_000, 100_000)
+        assert len(violations) == 0
+
+    def test_cash_reserve_under_minimum(self, engine):
+        violations = engine.check_cash_reserve(2_000, 100_000)
+        assert len(violations) == 1
+        assert violations[0].rule == "min_cash_reserve_pct"
+
+    def test_cash_reserve_zero_equity(self, engine):
+        violations = engine.check_cash_reserve(0, 0)
+        assert len(violations) == 0
+
+    # ── Asset class ───────────────────────────────────────────────
+
+    def test_asset_class_allowed_returns_no_violations(self, engine):
+        violations = engine.check_asset_class("us_equity")
+        assert len(violations) == 0
+
+    def test_asset_class_disallowed_returns_violations(self, engine):
+        violations = engine.check_asset_class("crypto")
+        assert len(violations) == 1
+        assert violations[0].rule == "allowed_asset_classes"
+
+
 # ── Auditor Tests ────────────────────────────────────────────────────
 
 

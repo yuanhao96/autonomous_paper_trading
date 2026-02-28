@@ -21,12 +21,13 @@ from sqlalchemy.engine import Engine
 from src.core.config import Preferences, Settings, load_preferences
 from src.core.db import get_engine, init_db
 from src.live.broker import BrokerAPI, IBKRBroker, PaperBroker, is_ibkr_available
-from src.live.models import Deployment, LiveSnapshot, TradeRecord
+from src.live.models import Deployment, LiveSnapshot, Position, TradeRecord
 from src.live.nt_signals import compute_nt_signals
 from src.live.signals import compute_target_weights
 from src.risk.auditor import Auditor, AuditReport
 from src.risk.engine import RiskEngine, RiskViolation
 from src.strategies.spec import StrategyResult, StrategySpec
+from src.universe.static import get_universe_asset_class
 
 logger = logging.getLogger(__name__)
 
@@ -122,12 +123,18 @@ class Deployer:
             message="OK" if screen_result.passed else f"Failed: {screen_result.failure_reason}",
         ))
 
-        # 4. Validation passed (if available)
+        # 4. Validation passed (required)
         if validation_result is not None:
             checks.append(DeploymentCheck(
                 name="validation_passed",
                 passed=validation_result.passed,
                 message="OK" if validation_result.passed else f"Failed: {validation_result.failure_reason}",
+            ))
+        else:
+            checks.append(DeploymentCheck(
+                name="validation_passed",
+                passed=False,
+                message="No validation result — validation is required before deployment",
             ))
 
         # 5. Drawdown check
@@ -136,6 +143,18 @@ class Deployer:
             name="drawdown_limit",
             passed=len(dd_violations) == 0,
             message="OK" if not dd_violations else dd_violations[0].message,
+        ))
+
+        # 6. Asset class check (from spec's universe)
+        if spec.universe_spec is not None:
+            asset_class = spec.universe_spec.asset_class
+        else:
+            asset_class = get_universe_asset_class(spec.universe_id)
+        ac_violations = self._risk_engine.check_asset_class(asset_class)
+        checks.append(DeploymentCheck(
+            name="asset_class_allowed",
+            passed=len(ac_violations) == 0,
+            message="OK" if not ac_violations else ac_violations[0].message,
         ))
 
         return checks
@@ -217,6 +236,37 @@ class Deployer:
         current_positions = broker.get_positions()
         current_holdings = {p.symbol: p.quantity for p in current_positions}
 
+        # Enforce cash reserve: reduce target weights so min_cash_reserve_pct is kept
+        min_cash_pct = self._prefs.risk_limits.min_cash_reserve_pct
+        max_invest_pct = 1.0 - min_cash_pct
+        total_weight = sum(target_weights.values())
+        if total_weight > max_invest_pct:
+            scale = max_invest_pct / total_weight if total_weight > 0 else 1.0
+            target_weights = {s: w * scale for s, w in target_weights.items()}
+            logger.info(
+                "Scaled weights by %.2f to maintain %.1f%% cash reserve",
+                scale, min_cash_pct * 100,
+            )
+
+        # Enforce leverage limit: total exposure must not exceed max_leverage * equity
+        max_leverage = self._prefs.risk_limits.max_leverage
+        total_target_exposure = sum(
+            abs(target_weights.get(s, 0.0)) * equity for s in deployment.symbols
+        )
+        leverage_violations = self._risk_engine.check_leverage(
+            total_target_exposure, equity,
+        )
+        if leverage_violations:
+            if total_target_exposure > 0:
+                scale = (max_leverage * equity) / total_target_exposure
+            else:
+                scale = 1.0
+            target_weights = {s: w * scale for s, w in target_weights.items()}
+            logger.warning(
+                "Scaled weights by %.2f to enforce leverage limit %.2fx",
+                scale, max_leverage,
+            )
+
         # Calculate target shares
         trades: list[TradeRecord] = []
         for symbol in deployment.symbols:
@@ -283,7 +333,7 @@ class Deployer:
             ).fetchone()
         if row is None:
             return None
-        return Deployment(
+        d = Deployment(
             id=row[0],
             spec_id=row[1],
             account_id=row[2],
@@ -295,6 +345,9 @@ class Deployer:
             started_at=datetime.fromisoformat(row[8]),
             stopped_at=datetime.fromisoformat(row[9]) if row[9] else None,
         )
+        d.snapshots = self._load_snapshots(d.id)
+        d.trades = self._load_trades(d.id)
+        return d
 
     def list_deployments(self, status: str | None = None) -> list[Deployment]:
         """List all deployments, optionally filtered by status."""
@@ -308,18 +361,88 @@ class Deployer:
         with self._engine.connect() as conn:
             rows = conn.execute(text(query), params).fetchall()
 
-        return [
-            Deployment(
+        deployments = []
+        for r in rows:
+            d = Deployment(
                 id=r[0], spec_id=r[1], account_id=r[2], mode=r[3],
-                status=r[4], symbols=json.loads(r[5]), initial_cash=r[6],
+                status=r[4], symbols=json.loads(r[5]),
+                initial_cash=r[6],
                 config=json.loads(r[7]),
                 started_at=datetime.fromisoformat(r[8]),
-                stopped_at=datetime.fromisoformat(r[9]) if r[9] else None,
+                stopped_at=(
+                    datetime.fromisoformat(r[9]) if r[9] else None
+                ),
+            )
+            d.snapshots = self._load_snapshots(d.id)
+            d.trades = self._load_trades(d.id)
+            deployments.append(d)
+        return deployments
+
+    # ── Private helpers ──────────────────────────────────────────────
+
+    def _load_snapshots(
+        self, deployment_id: str,
+    ) -> list[LiveSnapshot]:
+        """Load snapshots from DB for a deployment."""
+        with self._engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT deployment_id, equity, cash, daily_pnl,"
+                " total_pnl, total_trades, total_fees,"
+                " positions_json, recorded_at"
+                " FROM snapshots"
+                " WHERE deployment_id = :did"
+                " ORDER BY recorded_at ASC"
+            ), {"did": deployment_id}).fetchall()
+        snapshots: list[LiveSnapshot] = []
+        for r in rows:
+            positions_data = json.loads(r[7]) if r[7] else []
+            positions = [
+                Position(
+                    symbol=p["symbol"],
+                    quantity=p["quantity"],
+                    avg_cost=p["avg_cost"],
+                    market_value=p["market_value"],
+                    unrealized_pnl=0.0,
+                )
+                for p in positions_data
+            ]
+            snapshots.append(LiveSnapshot(
+                deployment_id=r[0],
+                timestamp=datetime.fromisoformat(r[8]),
+                equity=r[1],
+                cash=r[2],
+                positions=positions,
+                daily_pnl=r[3],
+                total_pnl=r[4],
+                total_trades=r[5],
+                total_fees=r[6],
+            ))
+        return snapshots
+
+    def _load_trades(
+        self, deployment_id: str,
+    ) -> list[TradeRecord]:
+        """Load trades from DB for a deployment."""
+        with self._engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT symbol, side, quantity, price,"
+                " commission, order_id, executed_at"
+                " FROM trades"
+                " WHERE deployment_id = :did"
+                " ORDER BY executed_at ASC"
+            ), {"did": deployment_id}).fetchall()
+        return [
+            TradeRecord(
+                symbol=r[0],
+                side=r[1],
+                quantity=r[2],
+                price=r[3],
+                commission=r[4],
+                order_id=r[5],
+                timestamp=datetime.fromisoformat(r[6]),
             )
             for r in rows
         ]
-
-    # ── Private helpers ──────────────────────────────────────────────
 
     def _take_snapshot(self, deployment: Deployment, broker: BrokerAPI) -> LiveSnapshot:
         account = broker.get_account_summary()

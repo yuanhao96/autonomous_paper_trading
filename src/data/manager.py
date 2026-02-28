@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from pathlib import Path
 
@@ -20,9 +21,10 @@ class DataManager:
         df = dm.get_ohlcv("AAPL", start=date(2020, 1, 1))
     """
 
-    def __init__(self, cache_dir: Path | None = None) -> None:
+    def __init__(self, cache_dir: Path | None = None, cache_ttl_hours: int = 24) -> None:
         self._cache = ParquetCache(cache_dir)
         self._yf = YFinanceSource()
+        self._cache_ttl_seconds = cache_ttl_hours * 3600
 
     def get_ohlcv(
         self,
@@ -35,6 +37,14 @@ class DataManager:
         """Get OHLCV data, using cache when available."""
         resolution = "daily"
 
+        # For period-based calls (no explicit date range), expire stale cache
+        if not force_refresh and start is None and end is None:
+            cache_path = self._cache._path(symbol, resolution)
+            if cache_path.exists():
+                age = time.time() - cache_path.stat().st_mtime
+                if age > self._cache_ttl_seconds:
+                    force_refresh = True
+
         if not force_refresh:
             cached = self._cache.read(symbol, resolution)
             if cached is not None and not cached.empty:
@@ -43,7 +53,19 @@ class DataManager:
                 if end is not None:
                     cached = cached[cached.index <= pd.Timestamp(end)]
                 if not cached.empty:
-                    return cached
+                    # Validate coverage: cached data must span the requested range
+                    # (within 5 trading days tolerance for weekends/holidays)
+                    cache_ok = True
+                    if start is not None:
+                        delta = (cached.index[0] - pd.Timestamp(start)).days
+                        if delta > 5:
+                            cache_ok = False
+                    if end is not None:
+                        delta = (pd.Timestamp(end) - cached.index[-1]).days
+                        if delta > 5:
+                            cache_ok = False
+                    if cache_ok:
+                        return cached
 
         # Fetch from source
         df = self._yf.get_ohlcv(symbol, start=start, end=end, period=period)
