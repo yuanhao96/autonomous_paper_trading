@@ -1,71 +1,95 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Purpose
 
-An autonomous trading agent that generates, screens, validates, and evolves trading strategies. Refactored from `autonomou_evolving_investment` — the original failed due to unbounded strategy space and custom infrastructure. This version uses existing frameworks with constrained strategy generation from a curated knowledge base.
+An autonomous trading agent that generates, screens, and evolves trading strategies. It draws from a curated knowledge base of 145 documents (83 strategies, 14 financial Python guides, 15 key concepts, 33 trading agent concepts) to constrain the strategy space to well-documented, academically grounded approaches.
 
-**Architecture**: Two-stage backtesting pipeline.
-- **Stage 1 (Screening)**: backtesting.py — fast parameter optimization and walk-forward analysis
-- **Stage 2 (Validation + Live)**: NautilusTrader — realistic execution modeling, same code deploys to IBKR paper trading
+This is the third attempt. Previous iterations failed due to:
+1. **v1** (`autonomou_evolving_investment`): Unbounded strategy space + custom infrastructure
+2. **v2** (this repo, prior code): Over-engineered multi-stage pipeline, too many abstractions before anything worked end-to-end
 
-**Key Design Principle**: The LLM selects from 87 documented strategy templates (knowledge base) and tunes parameters within documented bounds. It does NOT invent arbitrary indicator combinations.
+**This time**: Get a single strategy running end-to-end first, then generalize.
 
-See `docs/plans/2026-02-26-autonomous-trading-agent-architecture.md` for full architecture.
+## Key Principles
+
+- **Knowledge-constrained**: The LLM selects from documented strategy templates and tunes parameters within documented bounds. It does NOT invent arbitrary indicator combinations.
+- **End-to-end first**: A single working pipeline (generate → backtest → evaluate) before adding complexity.
+- **Existing tools over custom code**: Use established libraries (backtesting.py, pandas, yfinance) instead of building custom infrastructure.
+- **knowledge/ is READ-ONLY**: The 145-doc knowledge base is the foundation. Do not modify, auto-grow, or regenerate it.
 
 ## Technology Stack
 
 - **Language**: Python 3.11+
-- **Screening**: backtesting.py (fast backtest + parameter optimization)
-- **Validation + Live**: NautilusTrader (Rust core, Python API, IBKR adapter)
-- **Broker**: Interactive Brokers (paper → live)
-- **Data**: yfinance + IBKR API + local Parquet cache
-- **LLM**: Claude API (Anthropic) for strategy generation and evolution
-- **Persistence**: SQLite (strategy registry, results, evolution history)
+- **Backtesting**: backtesting.py
+- **Data**: yfinance (+ local Parquet cache when needed)
+- **LLM**: Claude API (Anthropic)
+- **Broker**: Interactive Brokers (future — paper trading first)
 - **Testing**: pytest
-- **Linting**: ruff (line-length 100, select E/F/W/I) + mypy (strict, ignore_missing_imports)
+- **Linting**: ruff (line-length 100) + mypy
 
 ## Commands
 
 ```bash
+conda activate base                      # Or appropriate env
 pip install -r requirements.txt          # Install dependencies
-pytest tests/                            # Run all tests
-pytest tests/test_foo.py -v              # Run single test file
-pytest tests/test_foo.py::test_bar -v    # Run single test
+pytest tests/ -v                         # Run tests
 ruff check .                             # Lint
 mypy .                                   # Type check
-ruff check . && mypy .                   # Lint + type check
-python main.py                           # Run (once entry point exists)
 ```
 
 ## Project Structure
 
 ```
-knowledge/           # 145 curated docs — strategies, concepts, indicators (READ-ONLY)
-src/
-  agent/             # LLM agent: strategy generation, evolution, review
-  universe/          # Universe selection: static lists, filters, computed
-  strategies/        # StrategySpec, registry, template patterns
-  screening/         # Phase 1: backtesting.py translator + screener
-  validation/        # Phase 2: NautilusTrader translator + validator
-  live/              # Phase 3: IBKR paper/live deployment + monitoring
-  data/              # Unified data layer: yfinance, IBKR, Parquet cache
-  risk/              # Safety: risk engine, preferences, deterministic auditor
-  core/              # Shared: LLM wrapper, config, logging, DB
-config/
-  preferences.yaml   # Human-controlled risk limits (IMMUTABLE at runtime)
-  settings.yaml      # Runtime configuration
-tests/
+knowledge/           # 145 curated docs — READ-ONLY
+  strategies/        #   83 strategy templates across 10 categories
+  financial-python/  #   14 financial Python guides
+  key-concepts/      #   15 general trading concepts
+  trading-concepts/  #   33 trading agent modeling concepts
+project_memory/      # Cross-session context (lessons, progress)
+goal.md              # Original project goals and source URLs
+src/                 # All source code (to be built)
+tests/               # All tests
+config/              # Configuration files (YAML)
 ```
+
+## Roadmap
+
+Each version replaces one hand-done step with automation. Don't skip ahead.
+
+| Version | What it does | Status |
+|---------|-------------|--------|
+| **v0** | Hand-picked SMA crossover, hand-written strategy, backtest SPY, print stats | DONE (`v0.py`) |
+| **v1** | LLM generates a backtesting.py strategy class from a StrategySpec | |
+| **v2** | LLM reads a knowledge doc and produces a valid StrategySpec | |
+| **v3** | Automated evaluation: pass/fail against performance thresholds | |
+| **v4** | Full loop: pick strategy → generate code → backtest → evaluate → repeat | |
+| **v5** | Multi-strategy: run loop across multiple knowledge docs, rank results | |
+| **v6** | Parameter evolution: tune params within documented bounds | |
+| **v7** | Paper trading: deploy winning strategies to IBKR paper account | |
+
+### StrategySpec (minimal, introduced at v1)
+
+```python
+@dataclass
+class StrategySpec:
+    name: str                    # "SMA Crossover"
+    knowledge_ref: str           # "strategies/momentum/sma-crossover.md"
+    universe: list[str]          # ["SPY"]
+    timeframe: str               # "1d"
+    entry_signal: str            # "SMA(20) crosses above SMA(50)"
+    exit_signal: str             # "SMA(20) crosses below SMA(50)"
+    stop_loss_pct: float         # 0.02
+    position_size_pct: float     # 0.95
+    params: dict                 # {"fast_period": 20, "slow_period": 50}
+```
+
+Grows as needed. Do not add fields until a version requires them.
 
 ## Conventions
 
 - All code must pass `ruff check .` and `mypy .` before commit
-- Tests live in `tests/` with `test_` prefix; pytest discovers them via `pythonpath=["."]`
-- Configuration files use YAML; store in `config/`
-- Environment variables in `.env` (gitignored), loaded via `python-dotenv`
-- LLM prompt templates stored in `config/prompts/` as plain text files
-- Strategy specs are the single source of truth — translators convert specs to framework-specific code
-- Knowledge base (`knowledge/`) is read-only; do not auto-grow or modify
-- preferences.yaml is immutable at runtime — only human edits allowed
+- Tests in `tests/` with `test_` prefix
+- Configuration in YAML under `config/`
+- Secrets in `.env` (gitignored), loaded via `python-dotenv`
+- Keep modules small and focused — no god classes
+- Prefer composition over inheritance
