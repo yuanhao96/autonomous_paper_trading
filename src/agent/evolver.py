@@ -193,9 +193,10 @@ class Evolver:
                 logger.warning("Screening failed for %s: %s", spec.template, e)
                 cycle.errors.append(f"Screen {spec.template}: {e}")
 
-        # Select top candidates for validation
+        # Select top candidates for validation (passed screening only)
         screen_results.sort(key=lambda x: x[1].sharpe_ratio, reverse=True)
-        top_candidates = screen_results[:self._top_n_screen]
+        passed_results = [(s, r) for s, r in screen_results if r.passed]
+        top_candidates = passed_results[:self._top_n_screen]
 
         # Validate top candidates
         for spec, screen_result in top_candidates:

@@ -40,7 +40,8 @@ evolution:
 # Live Trading (IBKR)
 live:
   ibkr_host: "127.0.0.1"
-  ibkr_port: 7497                   # 7497=TWS paper, 7496=TWS live, 4002=Gateway paper, 4001=Gateway live
+  ibkr_paper_port: 7497             # TWS paper=7497, Gateway paper=4002
+  ibkr_live_port: 7496              # TWS live=7496, Gateway live=4001
   ibkr_client_id: 1
   initial_cash: 100000              # Starting capital for paper trading
   rebalance_frequency: "daily"      # daily | weekly

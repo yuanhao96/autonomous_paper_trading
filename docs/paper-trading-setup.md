@@ -13,14 +13,15 @@ Fast param optimization     Realistic cost modeling      Daily rebalancing
 Walk-forward analysis       Capacity analysis            Drift monitoring
 ```
 
-Phase 3 has two broker backends:
+Phase 3 has three broker modes:
 
-| Backend       | When used                      | What it does                          |
-|---------------|--------------------------------|---------------------------------------|
-| `PaperBroker` | Default (no IBKR connection)   | In-memory order simulation            |
-| `IBKRBroker`  | `ib_insync` installed + TWS up | Real paper orders via Interactive Brokers |
+| Mode          | Backend       | What it does                                  |
+|---------------|---------------|-----------------------------------------------|
+| `paper`       | `PaperBroker` | Local in-memory order simulation (default)    |
+| `ibkr_paper`  | `IBKRBroker`  | IBKR paper trading account (port 7497)        |
+| `live`        | `IBKRBroker`  | IBKR live trading (port 7496)                 |
 
-Both implement the same `BrokerAPI` interface. The deployer auto-selects based on availability.
+All backends implement the same `BrokerAPI` interface. The mode is explicitly selected — `paper` always uses the local simulator regardless of whether `ib_insync` is installed.
 
 ---
 
@@ -102,7 +103,8 @@ In `config/settings.yaml`, the live section controls IBKR connection:
 ```yaml
 live:
   ibkr_host: "127.0.0.1"
-  ibkr_port: 7497              # 7497=TWS paper, 4002=Gateway paper
+  ibkr_paper_port: 7497        # TWS paper=7497, Gateway paper=4002
+  ibkr_live_port: 7496         # TWS live=7496, Gateway live=4001
   ibkr_client_id: 1            # Unique per concurrent connection
   initial_cash: 100000         # Starting capital for tracking
   rebalance_frequency: "daily"
@@ -218,15 +220,14 @@ Promotion decisions:
 
 ### Going live
 
-To switch from paper to live IBKR trading:
+To progress through broker modes:
 
-1. Change the port in `config/settings.yaml`:
-   ```yaml
-   live:
-     ibkr_port: 7496   # TWS live (was 7497 for paper)
+1. **Local paper** (`mode="paper"`): Default. No external dependencies.
+2. **IBKR paper** (`mode="ibkr_paper"`): Requires TWS/Gateway on port 7497.
+   ```python
+   deployment = deployer.deploy(spec, symbols, mode="ibkr_paper")
    ```
-2. Log into TWS/Gateway with your **live** credentials
-3. Deploy with `mode="live"`:
+3. **IBKR live** (`mode="live"`): Log into TWS with **live** credentials (port 7496).
    ```python
    deployment = deployer.deploy(spec, symbols, mode="live")
    ```
@@ -244,4 +245,4 @@ To switch from paper to live IBKR trading:
 | `Not connected to IBKR` | Connection dropped | TWS auto-disconnects after idle; restart |
 | `client_id` conflict | Another process using same ID | Change `ibkr_client_id` in settings.yaml |
 | Orders not filling | TWS in read-only API mode | Uncheck "Read-Only API" in TWS config |
-| `PaperBroker` used instead of IBKR | `ib_insync` not installed or TWS down | Install package and start TWS |
+| `PaperBroker` used instead of IBKR | Using `mode="paper"` (default) | Use `mode="ibkr_paper"` for IBKR paper trading |

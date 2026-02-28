@@ -160,6 +160,39 @@ class TestMonitorRisk:
         violations = monitor.check_risk(deployment)
         assert len(violations) == 0
 
+    def test_leverage_violation(self):
+        """Positions exceeding max leverage trigger violation."""
+        monitor = Monitor()
+        # equity=100k, positions worth 150k total → 1.5x leverage
+        snapshots = [
+            _make_snapshot(
+                equity=100_000, cash=-50_000,
+                positions=[
+                    Position("SPY", 200, 375, 75_000, 0),
+                    Position("QQQ", 200, 375, 75_000, 0),
+                ],
+            ),
+        ]
+        deployment = _make_deployment(snapshots=snapshots)
+        violations = monitor.check_risk(deployment)
+        rules = [v.rule for v in violations]
+        assert "max_leverage" in rules
+
+    def test_cash_reserve_violation(self):
+        """Cash below min_cash_reserve_pct triggers violation."""
+        monitor = Monitor()
+        # equity=100k, cash=1k → 1% cash (below 5% min)
+        snapshots = [
+            _make_snapshot(
+                equity=100_000, cash=1_000,
+                positions=[Position("SPY", 200, 495, 99_000, 0)],
+            ),
+        ]
+        deployment = _make_deployment(snapshots=snapshots)
+        violations = monitor.check_risk(deployment)
+        rules = [v.rule for v in violations]
+        assert "min_cash_reserve_pct" in rules
+
 
 class TestComputeLiveResult:
     def test_compile_result(self):

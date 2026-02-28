@@ -204,7 +204,11 @@ def main() -> None:
     run_parser.add_argument("--cycles", type=int, default=1, help="Evolution cycles (default 1)")
     run_parser.add_argument("--universe", default="sector_etfs", help="Universe ID")
     run_parser.add_argument("--symbols", default=None, help="Override symbols (comma-separated)")
-    run_parser.add_argument("--mode", default="paper", choices=["paper", "live"], help="Trading mode")
+    run_parser.add_argument(
+        "--mode", default="paper",
+        choices=["paper", "ibkr_paper", "live"],
+        help="Trading mode: paper (local sim), ibkr_paper (IBKR paper), live",
+    )
     run_parser.add_argument("--computation", default=None, help="Computed universe builder name")
     run_parser.add_argument("--computation-param", action="append", help="Computation params (key=value)")
     run_parser.add_argument("--no-deploy", action="store_true", help="Skip deployment step")
@@ -218,7 +222,11 @@ def main() -> None:
     # ── deploy ──
     deploy_parser = subparsers.add_parser("deploy", help="Deploy a strategy by spec ID")
     deploy_parser.add_argument("spec_id", help="Strategy spec ID to deploy")
-    deploy_parser.add_argument("--mode", default="paper", choices=["paper", "live"], help="Trading mode")
+    deploy_parser.add_argument(
+        "--mode", default="paper",
+        choices=["paper", "ibkr_paper", "live"],
+        help="Trading mode: paper (local sim), ibkr_paper (IBKR paper), live",
+    )
     deploy_parser.add_argument("--universe", default="sector_etfs", help="Universe ID")
     deploy_parser.add_argument("--symbols", default=None, help="Override symbols (comma-separated)")
 

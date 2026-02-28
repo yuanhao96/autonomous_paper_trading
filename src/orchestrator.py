@@ -31,7 +31,7 @@ from src.core.config import Settings, load_preferences
 from src.core.db import get_engine, init_db
 from src.core.llm import LLMClient
 from src.data.manager import DataManager
-from src.live.broker import PaperBroker, is_ibkr_available
+from src.live.broker import IBKRBroker, PaperBroker
 from src.live.deployer import Deployer
 from src.live.models import Deployment
 from src.live.monitor import Monitor
@@ -298,15 +298,20 @@ class Orchestrator:
             )
             return None
 
-        # Set up broker
-        if deploy_mode == "paper" or not is_ibkr_available():
+        # Set up broker based on mode
+        if deploy_mode == "paper":
             initial_cash = self._settings.get("live.initial_cash", 100_000)
             broker = PaperBroker(initial_cash=initial_cash)
             broker.connect()
-        else:
-            from src.live.broker import IBKRBroker
+        elif deploy_mode == "ibkr_paper":
             host = self._settings.get("live.ibkr_host", "127.0.0.1")
-            port = self._settings.get("live.ibkr_port", 7496)
+            port = self._settings.get("live.ibkr_paper_port", 7497)
+            client_id = self._settings.get("live.ibkr_client_id", 1)
+            broker = IBKRBroker(host=host, port=port, client_id=client_id)
+            broker.connect()
+        else:  # "live"
+            host = self._settings.get("live.ibkr_host", "127.0.0.1")
+            port = self._settings.get("live.ibkr_live_port", 7496)
             client_id = self._settings.get("live.ibkr_client_id", 1)
             broker = IBKRBroker(host=host, port=port, client_id=client_id)
             broker.connect()
@@ -380,7 +385,7 @@ class Orchestrator:
 
             report = self.monitor_deployment(deployment, val_result)
 
-            # Log warnings for risk violations
+            # Auto-stop on risk violations
             violations = report.get("risk_violations", [])
             if violations:
                 logger.warning(
@@ -388,6 +393,18 @@ class Orchestrator:
                     deployment.id, len(violations),
                     [v.message for v in violations],
                 )
+                logger.warning(
+                    "Auto-stopping deployment %s due to risk violations",
+                    deployment.id,
+                )
+                try:
+                    self._deployer.stop(deployment)
+                except Exception as e:
+                    logger.error(
+                        "Failed to auto-stop deployment %s: %s",
+                        deployment.id, e,
+                    )
+                report["auto_stopped"] = True
 
             if not report.get("within_tolerance", True) and val_result:
                 logger.warning(
@@ -431,14 +448,16 @@ class Orchestrator:
                     )
                     continue
 
-                # Update PaperBroker prices if applicable
-                broker = self._deployer._broker
-                if isinstance(broker, PaperBroker):
-                    current_prices = {
-                        s: float(df["Close"].iloc[-1])
-                        for s, df in prices.items()
-                    }
-                    broker.set_prices(current_prices)
+                # Ensure broker exists (may be None after restart),
+                # then rehydrate PaperBroker from last snapshot
+                broker = self._deployer._get_broker(deployment.mode)
+                if not broker.is_connected():
+                    broker.connect()
+                if isinstance(broker, PaperBroker) and deployment.snapshots:
+                    latest = deployment.snapshots[-1]
+                    broker.rehydrate(
+                        cash=latest.cash, positions=latest.positions,
+                    )
 
                 trades = self._deployer.rebalance(
                     deployment, spec, prices,

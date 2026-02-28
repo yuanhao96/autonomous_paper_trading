@@ -20,7 +20,7 @@ from sqlalchemy.engine import Engine
 
 from src.core.config import Preferences, Settings, load_preferences
 from src.core.db import get_engine, init_db
-from src.live.broker import BrokerAPI, IBKRBroker, PaperBroker, is_ibkr_available
+from src.live.broker import BrokerAPI, IBKRBroker, PaperBroker
 from src.live.models import Deployment, LiveSnapshot, Position, TradeRecord
 from src.live.nt_signals import compute_nt_signals
 from src.live.signals import compute_target_weights
@@ -68,17 +68,27 @@ class Deployer:
         self._broker = broker
 
     def _get_broker(self, mode: str = "paper") -> BrokerAPI:
-        """Get or create the broker connection."""
+        """Get or create the broker connection.
+
+        Modes:
+            paper — local PaperBroker simulation (no external deps)
+            ibkr_paper — IBKR paper trading account (port 7497)
+            live — IBKR live trading (port 7496)
+        """
         if self._broker is not None:
             return self._broker
 
-        if mode == "paper" and not is_ibkr_available():
-            logger.info("IBKR not available, using PaperBroker simulation")
+        if mode == "paper":
             initial_cash = self._settings.get("live.initial_cash", 100_000)
             self._broker = PaperBroker(initial_cash=initial_cash)
-        else:
+        elif mode == "ibkr_paper":
             host = self._settings.get("live.ibkr_host", "127.0.0.1")
-            port = self._settings.get("live.ibkr_port", 7497 if mode == "paper" else 7496)
+            port = self._settings.get("live.ibkr_paper_port", 7497)
+            client_id = self._settings.get("live.ibkr_client_id", 1)
+            self._broker = IBKRBroker(host=host, port=port, client_id=client_id)
+        else:  # "live"
+            host = self._settings.get("live.ibkr_host", "127.0.0.1")
+            port = self._settings.get("live.ibkr_live_port", 7496)
             client_id = self._settings.get("live.ibkr_client_id", 1)
             self._broker = IBKRBroker(host=host, port=port, client_id=client_id)
 
@@ -225,6 +235,16 @@ class Deployer:
         broker = self._get_broker(deployment.mode)
         if not broker.is_connected():
             broker.connect()
+
+        # Auto-set prices for PaperBroker from the provided price data
+        if isinstance(broker, PaperBroker):
+            current_prices = {
+                s: self._get_latest_price(prices, s)
+                for s in deployment.symbols
+                if self._get_latest_price(prices, s) > 0
+            }
+            if current_prices:
+                broker.set_prices(current_prices)
 
         # Compute target signals via NT micro-backtest (falls back to signal-based)
         signals = compute_nt_signals(spec, prices)

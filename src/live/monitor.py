@@ -181,6 +181,21 @@ class Monitor:
                 message=f"{latest.position_count} positions exceeds limit {self._prefs.risk_limits.max_positions}",
             ))
 
+        # Leverage check
+        if latest.equity > 0:
+            total_exposure = sum(
+                abs(p.market_value) for p in latest.positions
+            )
+            violations.extend(
+                self._risk_engine.check_leverage(total_exposure, latest.equity)
+            )
+
+        # Cash reserve check
+        if latest.equity > 0:
+            violations.extend(
+                self._risk_engine.check_cash_reserve(latest.cash, latest.equity)
+            )
+
         return violations
 
     def compute_live_result(

@@ -91,20 +91,23 @@ def _run_micro_backtest(
 
     from nautilus_trader.backtest.engine import BacktestEngine
     from nautilus_trader.backtest.models import FillModel
-    from nautilus_trader.config import BacktestEngineConfig
     from nautilus_trader.model.currencies import USD
     from nautilus_trader.model.enums import AccountType, OmsType
     from nautilus_trader.model.identifiers import Venue
     from nautilus_trader.model.objects import Money
 
-    from src.validation.translator import create_equity_instrument, dataframe_to_bars
+    from src.validation.translator import (
+        create_backtest_engine_config,
+        create_equity_instrument,
+        dataframe_to_bars,
+    )
 
     venue = Venue("XNAS")
     instrument = create_equity_instrument(symbol, "XNAS")
     if instrument is None:
         return "flat"
 
-    engine_config = BacktestEngineConfig(logging_config=None)
+    engine_config = create_backtest_engine_config()
     engine = BacktestEngine(config=engine_config)
 
     fill_model = FillModel(

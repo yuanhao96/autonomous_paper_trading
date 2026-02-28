@@ -29,6 +29,7 @@ from src.validation.capacity import quick_capacity_check
 from src.validation.filters import ValidationFilters
 from src.validation.regimes import RegimePeriod, select_regime_periods
 from src.validation.translator import (
+    create_backtest_engine_config,
     create_equity_instrument,
     dataframe_to_bars,
     is_nautilus_available,
@@ -433,7 +434,6 @@ class Validator:
         """Run a single NT backtest for one symbol."""
         from nautilus_trader.backtest.engine import BacktestEngine
         from nautilus_trader.backtest.models import FillModel
-        from nautilus_trader.config import BacktestEngineConfig
         from nautilus_trader.model.currencies import USD
         from nautilus_trader.model.enums import AccountType, OmsType
         from nautilus_trader.model.identifiers import Venue
@@ -445,9 +445,7 @@ class Validator:
             return None
 
         # Configure engine with realistic fill model
-        engine_config = BacktestEngineConfig(
-            logging_config=None,
-        )
+        engine_config = create_backtest_engine_config()
         engine = BacktestEngine(config=engine_config)
 
         # Add venue with slippage model

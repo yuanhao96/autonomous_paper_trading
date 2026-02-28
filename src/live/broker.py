@@ -236,6 +236,11 @@ class PaperBroker(BrokerAPI):
         """Set current market prices for simulation."""
         self._current_prices = prices
 
+    def rehydrate(self, cash: float, positions: list[Position]) -> None:
+        """Restore broker state from persisted snapshot data."""
+        self._cash = cash
+        self._positions = {p.symbol: p for p in positions}
+
     def connect(self) -> None:
         self._connected = True
         logger.info("PaperBroker connected (simulated)")

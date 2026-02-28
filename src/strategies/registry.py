@@ -160,8 +160,18 @@ class StrategyRegistry:
             ))
         return results
 
-    def get_best_specs(self, phase: str = "screen", metric: str = "sharpe_ratio", limit: int = 10, passed_only: bool = True) -> list[tuple[StrategySpec, StrategyResult]]:
-        """Get top specs ranked by a metric from their results."""
+    def get_best_specs(
+        self,
+        phase: str = "screen",
+        metric: str = "sharpe_ratio",
+        limit: int = 10,
+        passed_only: bool = True,
+    ) -> list[tuple[StrategySpec, StrategyResult]]:
+        """Get top specs ranked by a metric from their results.
+
+        Fetches ALL matching results (no recency pre-filter) to ensure the
+        true best strategies are returned regardless of creation date.
+        """
         if passed_only:
             where = "WHERE r.phase = :phase AND r.passed = 1"
         else:
@@ -174,8 +184,7 @@ class StrategyRegistry:
                 JOIN strategies s ON s.id = r.spec_id
                 {where}
                 ORDER BY r.created_at DESC
-                LIMIT :limit
-            """), {"phase": phase, "limit": limit * 3}).fetchall()
+            """), {"phase": phase}).fetchall()
 
         pairs: list[tuple[StrategySpec, StrategyResult]] = []
         seen_ids: set[str] = set()

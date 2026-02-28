@@ -1,14 +1,11 @@
 """Tests for the deployer module."""
 
-from datetime import datetime
-from unittest.mock import MagicMock
-
 import pandas as pd
 import pytest
 from sqlalchemy import create_engine
 
 from src.core.db import init_db
-from src.live.broker import PaperBroker
+from src.live.broker import IBKRBroker, PaperBroker
 from src.live.deployer import Deployer
 from src.strategies.spec import RiskParams, StrategyResult, StrategySpec
 
@@ -194,3 +191,79 @@ class TestDeployer:
         assert loaded is not None
         assert len(loaded.snapshots) >= 1
         assert len(loaded.trades) >= 1
+
+    def test_get_broker_paper_always_local(self, db_engine):
+        """mode='paper' always creates PaperBroker, regardless of ib_insync."""
+        deployer = Deployer(engine=db_engine)
+        broker = deployer._get_broker("paper")
+        assert isinstance(broker, PaperBroker)
+
+    def test_get_broker_ibkr_paper_mode(self, db_engine):
+        """mode='ibkr_paper' creates IBKRBroker with port 7497."""
+        deployer = Deployer(engine=db_engine)
+        broker = deployer._get_broker("ibkr_paper")
+        assert isinstance(broker, IBKRBroker)
+        assert broker._port == 7497
+
+    def test_get_broker_live_mode(self, db_engine):
+        """mode='live' creates IBKRBroker with live port."""
+        deployer = Deployer(engine=db_engine)
+        broker = deployer._get_broker("live")
+        assert isinstance(broker, IBKRBroker)
+        assert broker._port == 7496
+
+    def test_rebalance_sets_paper_prices(self, db_engine):
+        """rebalance() should auto-set PaperBroker prices from price data."""
+        broker = PaperBroker(initial_cash=100_000, commission_rate=0.001)
+        broker.connect()
+        deployer = Deployer(broker=broker, engine=db_engine)
+        spec = _make_spec()
+        deployment = deployer.deploy(spec, symbols=["SPY", "QQQ"])
+        prices = _make_prices()
+        # Don't manually set prices — rebalance should auto-set them
+        deployer.rebalance(deployment, spec, prices)
+        # Verify prices were set (broker should have traded)
+        assert len(broker._current_prices) > 0
+        assert broker._current_prices["SPY"] > 0
+
+    def test_restart_rebalance_no_duplicate_trades(self, db_engine):
+        """After restart (broker=None), rebalance should not re-enter positions.
+
+        Reproduces Finding 1: first rebalance buys, restart creates fresh
+        PaperBroker, second rebalance should see existing positions via
+        rehydration and NOT double-buy.
+        """
+        # Phase 1: Deploy and rebalance normally
+        broker1 = PaperBroker(initial_cash=100_000, commission_rate=0.0)
+        broker1.connect()
+        broker1.set_prices({"SPY": 200.0})
+        deployer1 = Deployer(broker=broker1, engine=db_engine)
+        spec = _make_spec()
+        deployment = deployer1.deploy(spec, symbols=["SPY"])
+        prices = _make_prices()
+        first_trades = deployer1.rebalance(deployment, spec, prices)
+        assert len(first_trades) >= 1
+
+        # Phase 2: Simulate restart — new deployer, no broker
+        deployer2 = Deployer(engine=db_engine)
+        assert deployer2._broker is None  # No broker after "restart"
+
+        # Reload deployment from DB (as run_rebalance does)
+        loaded = deployer2.list_deployments(status="active")
+        assert len(loaded) == 1
+        dep = loaded[0]
+
+        # Ensure broker is created, then rehydrate from snapshot
+        broker2 = deployer2._get_broker(dep.mode)
+        broker2.connect()
+        if isinstance(broker2, PaperBroker) and dep.snapshots:
+            latest_snap = dep.snapshots[-1]
+            broker2.rehydrate(
+                cash=latest_snap.cash, positions=latest_snap.positions,
+            )
+
+        # Now rebalance — positions already match target, so 0 trades
+        after_restart_trades = deployer2.rebalance(dep, spec, prices)
+        assert len(after_restart_trades) == 0, (
+            f"Expected 0 trades after restart rehydration, got {len(after_restart_trades)}"
+        )

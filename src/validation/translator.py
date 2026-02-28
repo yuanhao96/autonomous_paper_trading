@@ -59,6 +59,20 @@ def is_nautilus_available() -> bool:
     return _NT_AVAILABLE
 
 
+def create_backtest_engine_config() -> Any:
+    """Create a BacktestEngineConfig with quiet logging.
+
+    Handles API differences across NautilusTrader versions:
+    some accept ``logging_config=None``, others don't.
+    """
+    from nautilus_trader.config import BacktestEngineConfig
+
+    try:
+        return BacktestEngineConfig(logging_config=None)
+    except TypeError:
+        return BacktestEngineConfig()
+
+
 def translate_nautilus(spec: StrategySpec) -> tuple[type, dict] | None:
     """Translate a StrategySpec into a NautilusTrader Strategy class + config.
 

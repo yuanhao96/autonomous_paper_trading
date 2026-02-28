@@ -67,6 +67,67 @@ class RiskEngine:
 
         return violations
 
+    def check_leverage(self, total_exposure: float, equity: float) -> list[RiskViolation]:
+        """Check if leverage exceeds the max_leverage limit.
+
+        Args:
+            total_exposure: Sum of absolute position values.
+            equity: Current account equity.
+        """
+        violations: list[RiskViolation] = []
+        if equity <= 0:
+            return violations
+        leverage = total_exposure / equity
+        if leverage > self._limits.max_leverage:
+            violations.append(RiskViolation(
+                rule="max_leverage",
+                limit=self._limits.max_leverage,
+                actual=round(leverage, 2),
+                message=(
+                    f"Leverage {leverage:.2f}x exceeds "
+                    f"limit {self._limits.max_leverage:.2f}x"
+                ),
+            ))
+        return violations
+
+    def check_cash_reserve(self, cash: float, equity: float) -> list[RiskViolation]:
+        """Check if cash reserve falls below min_cash_reserve_pct.
+
+        Args:
+            cash: Current cash balance.
+            equity: Current account equity (cash + positions).
+        """
+        violations: list[RiskViolation] = []
+        if equity <= 0:
+            return violations
+        cash_pct = cash / equity
+        if cash_pct < self._limits.min_cash_reserve_pct:
+            violations.append(RiskViolation(
+                rule="min_cash_reserve_pct",
+                limit=self._limits.min_cash_reserve_pct,
+                actual=round(cash_pct, 4),
+                message=(
+                    f"Cash reserve {cash_pct:.1%} below "
+                    f"minimum {self._limits.min_cash_reserve_pct:.1%}"
+                ),
+            ))
+        return violations
+
+    def check_asset_class(self, asset_class: str) -> list[RiskViolation]:
+        """Check if an asset class is in the allowed list."""
+        violations: list[RiskViolation] = []
+        if not self.is_asset_class_allowed(asset_class):
+            violations.append(RiskViolation(
+                rule="allowed_asset_classes",
+                limit=", ".join(self._prefs.allowed_asset_classes),
+                actual=asset_class,
+                message=(
+                    f"Asset class '{asset_class}' not in allowed list: "
+                    f"{self._prefs.allowed_asset_classes}"
+                ),
+            ))
+        return violations
+
     def check_result_drawdown(self, max_drawdown: float) -> list[RiskViolation]:
         """Check if a backtest result's drawdown exceeds limits."""
         violations: list[RiskViolation] = []

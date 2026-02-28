@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from sqlalchemy import create_engine
 
 from src.core.db import init_db
 from src.strategies.registry import StrategyRegistry
-from src.strategies.spec import RiskParams, StrategySpec
+from src.strategies.spec import RiskParams, StrategyResult, StrategySpec
 from src.universe.spec import Filter, UniverseSpec
 
 
@@ -124,3 +126,34 @@ class TestRegistryRoundTrip:
         assert loaded.universe_id == spec.universe_id
         assert loaded.risk.max_position_pct == spec.risk.max_position_pct
         assert loaded.risk.max_positions == spec.risk.max_positions
+
+    def test_get_best_specs_returns_latest_result(self, registry):
+        """get_best_specs() should return the latest result per spec_id."""
+        spec = StrategySpec(
+            template="momentum/time-series-momentum",
+            parameters={"lookback": 126},
+            universe_id="sector_etfs",
+            risk=RiskParams(max_position_pct=0.10, max_positions=5),
+        )
+        registry.save_spec(spec)
+
+        # Save an older result with low Sharpe
+        registry.save_result(StrategyResult(
+            spec_id=spec.id, phase="screen", passed=True,
+            sharpe_ratio=0.5, total_return=0.05,
+        ))
+        # Small delay to ensure different created_at timestamps
+        time.sleep(0.01)
+        # Save a newer result with high Sharpe
+        registry.save_result(StrategyResult(
+            spec_id=spec.id, phase="screen", passed=True,
+            sharpe_ratio=2.0, total_return=0.30,
+        ))
+
+        best = registry.get_best_specs(
+            phase="screen", metric="sharpe_ratio", limit=10,
+        )
+        assert len(best) == 1
+        # The dedup picks the first row seen; with ORDER BY created_at DESC
+        # that's the most recent result (Sharpe 2.0)
+        assert best[0][1].sharpe_ratio == 2.0

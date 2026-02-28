@@ -125,6 +125,30 @@ class TestPaperBroker:
         assert positions[0].avg_cost == 150.0  # (100*10 + 200*10) / 20
 
 
+    def test_rehydrate_restores_state(self):
+        """rehydrate() should restore cash and positions from snapshot."""
+        from src.live.models import Position
+
+        broker = PaperBroker(initial_cash=100_000)
+        broker.connect()
+
+        positions = [
+            Position(symbol="SPY", quantity=50, avg_cost=450.0,
+                     market_value=23_000.0, unrealized_pnl=500.0),
+            Position(symbol="QQQ", quantity=30, avg_cost=380.0,
+                     market_value=11_700.0, unrealized_pnl=300.0),
+        ]
+        broker.rehydrate(cash=65_000.0, positions=positions)
+
+        assert broker._cash == 65_000.0
+        assert len(broker._positions) == 2
+        assert broker._positions["SPY"].quantity == 50
+        assert broker._positions["QQQ"].avg_cost == 380.0
+
+        summary = broker.get_account_summary()
+        assert summary["cash"] == 65_000.0
+
+
 class TestIBKRAvailability:
     def test_is_ibkr_available(self):
         # Just test it runs without error — result depends on environment
