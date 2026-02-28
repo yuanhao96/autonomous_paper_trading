@@ -74,7 +74,7 @@ class Deployment:
 
     spec_id: str
     account_id: str
-    mode: str  # "paper" | "live"
+    mode: str  # "paper" | "ibkr_paper" | "live"
     symbols: list[str]
 
     # Auto-populated

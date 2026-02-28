@@ -2,7 +2,7 @@
 
 Pipeline:
   1. Equity screening: Select trading targets via computed universes
-  2. Strategy generation: LLM picks from 83 templates, sets parameters
+  2. Strategy generation: LLM picks from 87 templates, sets parameters
   3. Phase 1 screening: Fast backtest via backtesting.py
   4. Phase 2 validation: Multi-regime walkforward
   5. Audit gate: Risk + consistency checks
@@ -199,18 +199,32 @@ class Orchestrator:
         t0 = time.time()
         result = PipelineResult()
 
-        symbols = self.resolve_symbols(universe_id, computation, computation_params)
-        if not symbols:
+        # Only pass explicit symbol overrides to evolver; otherwise let each
+        # spec resolve its own universe_id inside evolver._resolve_symbols().
+        explicit_symbols = None
+        if self._override_symbols or computation:
+            explicit_symbols = self.resolve_symbols(
+                universe_id, computation, computation_params,
+            )
+            if not explicit_symbols:
+                result.errors.append("No symbols resolved from universe")
+                return result
+
+        # Resolve symbols for logging even when not overriding
+        log_symbols = explicit_symbols or self.resolve_symbols(universe_id)
+        if not log_symbols:
             result.errors.append("No symbols resolved from universe")
             return result
 
         logger.info(
             "Pipeline starting: %d symbols from %s, mode=%s",
-            len(symbols), universe_id or self._universe_id, self._mode,
+            len(log_symbols), universe_id or self._universe_id, self._mode,
         )
 
         # ── Phase 1-3: Evolution cycles (generate → screen → validate) ──
-        cycle_results = self._evolver.run_cycles(n_evolution_cycles, symbols=symbols)
+        cycle_results = self._evolver.run_cycles(
+            n_evolution_cycles, symbols=explicit_symbols,
+        )
         result.cycle_results = cycle_results
 
         for cr in cycle_results:
@@ -226,7 +240,10 @@ class Orchestrator:
         # ── Phase 4: Deploy best strategy ────────────────────────────
         if deploy_best and result.best_spec_id:
             try:
-                deployment = self._deploy_best(result.best_spec_id, symbols)
+                deploy_syms = explicit_symbols or self._resolve_deploy_symbols(
+                    result.best_spec_id,
+                )
+                deployment = self._deploy_best(result.best_spec_id, deploy_syms)
                 if deployment:
                     result.specs_deployed += 1
             except Exception as e:
@@ -246,6 +263,13 @@ class Orchestrator:
         syms = symbols or self.resolve_symbols()
         return self._evolver.run_cycles(n_cycles, symbols=syms)
 
+    def _resolve_deploy_symbols(self, spec_id: str) -> list[str]:
+        """Resolve symbols from a spec's universe_id for deployment."""
+        spec = self._registry.get_spec(spec_id)
+        if spec is not None and spec.universe_id:
+            return self.resolve_symbols(universe_id=spec.universe_id)
+        return self.resolve_symbols()
+
     # ── Deployment ───────────────────────────────────────────────────
 
     def deploy_strategy(
@@ -255,7 +279,7 @@ class Orchestrator:
         mode: str | None = None,
     ) -> Deployment | None:
         """Deploy a strategy by spec ID."""
-        syms = symbols or self.resolve_symbols()
+        syms = symbols or self._resolve_deploy_symbols(spec_id)
         return self._deploy_best(spec_id, syms, mode=mode or self._mode)
 
     def _deploy_best(
@@ -316,7 +340,7 @@ class Orchestrator:
             broker = IBKRBroker(host=host, port=port, client_id=client_id)
             broker.connect()
 
-        deployer._broker = broker
+        deployer._brokers[deploy_mode] = broker
         deployment = deployer.deploy(spec, symbols=symbols, mode=deploy_mode)
         self._deployments.append(deployment)
 

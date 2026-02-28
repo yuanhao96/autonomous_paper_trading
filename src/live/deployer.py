@@ -65,34 +65,47 @@ class Deployer:
         self._auditor = Auditor(preferences=self._prefs)
         self._engine = engine or get_engine()
         init_db(self._engine)
-        self._broker = broker
+        # Per-mode broker cache: allows mixed-mode deployments
+        self._brokers: dict[str, BrokerAPI] = {}
+        # Injected broker (for tests) — assigned to first requested mode
+        self._injected_broker = broker
 
     def _get_broker(self, mode: str = "paper") -> BrokerAPI:
-        """Get or create the broker connection.
+        """Get or create the broker connection for a specific mode.
+
+        Brokers are cached per mode, so a paper and ibkr_paper deployment
+        each get their own broker instance.
 
         Modes:
             paper — local PaperBroker simulation (no external deps)
             ibkr_paper — IBKR paper trading account (port 7497)
             live — IBKR live trading (port 7496)
         """
-        if self._broker is not None:
-            return self._broker
+        if mode in self._brokers:
+            return self._brokers[mode]
+
+        # Use injected broker (test support) for the first mode requested
+        if self._injected_broker is not None:
+            self._brokers[mode] = self._injected_broker
+            self._injected_broker = None
+            return self._brokers[mode]
 
         if mode == "paper":
             initial_cash = self._settings.get("live.initial_cash", 100_000)
-            self._broker = PaperBroker(initial_cash=initial_cash)
+            broker = PaperBroker(initial_cash=initial_cash)
         elif mode == "ibkr_paper":
             host = self._settings.get("live.ibkr_host", "127.0.0.1")
             port = self._settings.get("live.ibkr_paper_port", 7497)
             client_id = self._settings.get("live.ibkr_client_id", 1)
-            self._broker = IBKRBroker(host=host, port=port, client_id=client_id)
+            broker = IBKRBroker(host=host, port=port, client_id=client_id)
         else:  # "live"
             host = self._settings.get("live.ibkr_host", "127.0.0.1")
             port = self._settings.get("live.ibkr_live_port", 7496)
             client_id = self._settings.get("live.ibkr_client_id", 1)
-            self._broker = IBKRBroker(host=host, port=port, client_id=client_id)
+            broker = IBKRBroker(host=host, port=port, client_id=client_id)
 
-        return self._broker
+        self._brokers[mode] = broker
+        return broker
 
     def validate_readiness(
         self,

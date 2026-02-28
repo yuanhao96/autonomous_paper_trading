@@ -226,6 +226,21 @@ class TestDeployer:
         assert len(broker._current_prices) > 0
         assert broker._current_prices["SPY"] > 0
 
+    def test_get_broker_per_mode_isolation(self, db_engine):
+        """Different modes should return different broker instances."""
+        deployer = Deployer(engine=db_engine)
+        paper = deployer._get_broker("paper")
+        ibkr = deployer._get_broker("ibkr_paper")
+        live = deployer._get_broker("live")
+        assert isinstance(paper, PaperBroker)
+        assert isinstance(ibkr, IBKRBroker)
+        assert isinstance(live, IBKRBroker)
+        assert paper is not ibkr
+        assert ibkr is not live
+        # Same mode returns same cached instance
+        assert deployer._get_broker("paper") is paper
+        assert deployer._get_broker("ibkr_paper") is ibkr
+
     def test_restart_rebalance_no_duplicate_trades(self, db_engine):
         """After restart (broker=None), rebalance should not re-enter positions.
 
@@ -246,7 +261,7 @@ class TestDeployer:
 
         # Phase 2: Simulate restart — new deployer, no broker
         deployer2 = Deployer(engine=db_engine)
-        assert deployer2._broker is None  # No broker after "restart"
+        assert len(deployer2._brokers) == 0  # No brokers after "restart"
 
         # Reload deployment from DB (as run_rebalance does)
         loaded = deployer2.list_deployments(status="active")

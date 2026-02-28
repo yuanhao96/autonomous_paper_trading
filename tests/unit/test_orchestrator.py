@@ -158,6 +158,56 @@ class TestOrchestrator:
         mock_deployer.stop.assert_called_once_with(deployment)
 
 
+    def test_resolve_deploy_symbols_uses_spec_universe(self, tmp_engine, mock_dm):
+        """_resolve_deploy_symbols should use the spec's universe_id."""
+        orch = Orchestrator(universe_id="sector_etfs")
+        orch._engine = tmp_engine
+        orch._dm = mock_dm
+        orch._registry = StrategyRegistry(engine=tmp_engine)
+
+        # Create and save a spec with a different universe
+        from src.strategies.spec import RiskParams, StrategySpec
+        spec = StrategySpec(
+            template="momentum/time-series-momentum",
+            parameters={"lookback": 252, "threshold": 0.0},
+            universe_id="sp500",
+            risk=RiskParams(max_position_pct=0.10, max_positions=10),
+        )
+        orch._registry.save_spec(spec)
+
+        # Resolve should use spec's universe_id (sp500), not orchestrator default
+        symbols = orch._resolve_deploy_symbols(spec.id)
+        # sp500 universe has more symbols than sector_etfs
+        assert len(symbols) > 11  # sector_etfs only has 11
+
+    def test_deploy_strategy_uses_spec_universe(self, tmp_engine, mock_dm):
+        """deploy_strategy() without explicit symbols should use spec's universe."""
+        orch = Orchestrator(universe_id="sector_etfs")
+        orch._engine = tmp_engine
+        orch._dm = mock_dm
+        orch._registry = StrategyRegistry(engine=tmp_engine)
+
+        # Mock _deploy_best to capture the symbols passed
+        captured = {}
+        def fake_deploy(spec_id, symbols, mode=None):
+            captured["symbols"] = symbols
+            return None
+        orch._deploy_best = fake_deploy
+
+        from src.strategies.spec import RiskParams, StrategySpec
+        spec = StrategySpec(
+            template="momentum/time-series-momentum",
+            parameters={"lookback": 252, "threshold": 0.0},
+            universe_id="sp500",
+            risk=RiskParams(max_position_pct=0.10, max_positions=10),
+        )
+        orch._registry.save_spec(spec)
+
+        orch.deploy_strategy(spec.id)
+        # Should have resolved sp500, not sector_etfs
+        assert len(captured["symbols"]) > 11
+
+
 class TestCLIInfo:
     def test_available_computations(self):
         computations = get_available_computations()

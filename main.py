@@ -12,7 +12,7 @@ Usage:
     python main.py evolve --cycles 3 --universe sp500
 
     # Deploy a specific strategy
-    python main.py deploy --spec-id <SPEC_ID> --mode paper
+    python main.py deploy <SPEC_ID> --mode paper
 
     # Monitor active deployments
     python main.py status
