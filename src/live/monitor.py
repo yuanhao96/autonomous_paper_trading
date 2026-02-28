@@ -117,6 +117,18 @@ class Monitor:
                 f"Max drawdown {report.live_max_drawdown:.1%} exceeds 1.5x expected {report.expected_max_drawdown:.1%}"
             )
 
+        # Daily loss alert
+        if len(snapshots) >= 2:
+            prev_eq = snapshots[-2].equity
+            curr_eq = snapshots[-1].equity
+            if prev_eq > 0:
+                daily_change = (curr_eq - prev_eq) / prev_eq
+                if daily_change < -self._daily_loss_alert_pct:
+                    alerts.append(
+                        f"Daily loss {abs(daily_change):.1%} exceeds"
+                        f" alert threshold {self._daily_loss_alert_pct:.1%}"
+                    )
+
         report.alerts = alerts
         report.within_tolerance = len(alerts) == 0
 

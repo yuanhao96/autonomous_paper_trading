@@ -259,8 +259,13 @@ class Orchestrator:
         n_cycles: int = 1,
         symbols: list[str] | None = None,
     ) -> list[CycleResult]:
-        """Run evolution cycles only (no deployment)."""
-        syms = symbols or self.resolve_symbols()
+        """Run evolution cycles only (no deployment).
+
+        When symbols is None and no override was set at init, passes None
+        to evolver so each spec resolves its own universe_id.
+        """
+        # Only pass symbols when explicitly provided or overridden at init
+        syms = symbols or self._override_symbols
         return self._evolver.run_cycles(n_cycles, symbols=syms)
 
     def _resolve_deploy_symbols(self, spec_id: str) -> list[str]:

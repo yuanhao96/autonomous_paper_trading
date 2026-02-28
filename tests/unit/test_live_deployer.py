@@ -132,6 +132,31 @@ class TestDeployer:
         assert deployment.status == "stopped"
         assert deployment.stopped_at is not None
 
+    def test_stop_liquidates_positions(self, db_engine):
+        """stop() should sell all positions, not just mark status."""
+        broker = PaperBroker(initial_cash=100_000, commission_rate=0.0)
+        broker.connect()
+        broker.set_prices({"SPY": 200.0})
+        deployer = Deployer(broker=broker, engine=db_engine)
+        spec = _make_spec()
+        deployment = deployer.deploy(spec, symbols=["SPY"])
+        prices = _make_prices()
+        trades = deployer.rebalance(deployment, spec, prices)
+        assert len(trades) >= 1
+        # Verify positions exist before stop
+        positions_before = broker.get_positions()
+        assert len(positions_before) > 0
+        total_qty_before = sum(p.quantity for p in positions_before)
+        assert total_qty_before > 0
+        # Stop should liquidate
+        deployer.stop(deployment)
+        positions_after = broker.get_positions()
+        total_qty_after = sum(p.quantity for p in positions_after)
+        assert total_qty_after == 0, (
+            f"Expected 0 shares after stop, got {total_qty_after}"
+        )
+        assert deployment.status == "stopped"
+
     def test_list_deployments(self, db_engine, paper_broker):
         deployer = Deployer(broker=paper_broker, engine=db_engine)
         spec = _make_spec()

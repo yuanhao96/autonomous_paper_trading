@@ -346,7 +346,7 @@ class Deployer:
         if not deployment.is_active:
             return
 
-        broker = self._get_broker(deployment.mode)
+        broker = self._get_broker(deployment.mode, deployment.id)
         if broker.is_connected():
             # Cancel open orders
             broker.cancel_all_orders()

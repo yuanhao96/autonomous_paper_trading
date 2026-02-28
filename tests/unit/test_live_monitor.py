@@ -114,6 +114,20 @@ class TestMonitorCompare:
         assert len(dd_alerts) > 0
 
 
+    def test_compare_daily_loss_alert(self):
+        """Large daily loss triggers alert in compare()."""
+        monitor = Monitor()
+        snapshots = [
+            _make_snapshot(equity=100_000, hours_offset=24),
+            _make_snapshot(equity=95_000, hours_offset=0),  # 5% daily loss
+        ]
+        deployment = _make_deployment(snapshots=snapshots, days_ago=10)
+        validation = _make_validation_result()
+        report = monitor.compare(deployment, validation)
+        daily_alerts = [a for a in report.alerts if "Daily loss" in a]
+        assert len(daily_alerts) > 0
+
+
 class TestMonitorRisk:
     def test_no_violations_healthy(self):
         """Healthy deployment has no risk violations."""
