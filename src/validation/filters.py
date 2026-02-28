@@ -63,6 +63,14 @@ class ValidationFilters:
         checks["max_drawdown"] = abs(result.max_drawdown) <= max_dd
         details["max_drawdown"] = f"MaxDD {abs(result.max_drawdown):.1%} vs limit {max_dd:.1%}"
 
+        # Regime coverage: ensure enough regimes were tested
+        min_total = criteria["min_total_regimes"]
+        total_regimes = len(result.regime_results)
+        checks["min_total_regimes"] = total_regimes >= min_total
+        details["min_total_regimes"] = (
+            f"{total_regimes} regimes tested vs min {min_total}"
+        )
+
         # Regime performance
         min_positive = criteria["min_positive_regimes"]
         positive_regimes = sum(
@@ -91,6 +99,9 @@ class ValidationFilters:
         return {
             "min_sharpe": self._settings.get("validation.pass_criteria.min_sharpe", 0.3),
             "max_drawdown": self._settings.get("validation.pass_criteria.max_drawdown", 0.35),
+            "min_total_regimes": self._settings.get(
+                "validation.pass_criteria.min_total_regimes", 3
+            ),
             "min_positive_regimes": self._settings.get(
                 "validation.pass_criteria.min_positive_regimes", 2
             ),

@@ -51,6 +51,7 @@ class TestValidationFilters:
             regime_results=[
                 RegimeResult("bull", "2020-01-01", "2021-01-01", 0.10, 0.5, -0.05, 10),
                 RegimeResult("bear", "2022-01-01", "2022-06-01", 0.05, 0.2, -0.10, 5),
+                RegimeResult("sideways", "2023-01-01", "2023-06-01", 0.03, 0.1, -0.03, 8),
             ],
         )
         fr = filters.apply(result)
@@ -64,6 +65,7 @@ class TestValidationFilters:
             regime_results=[
                 RegimeResult("bull", "2020-01-01", "2021-01-01", 0.20, 1.0, -0.10, 20),
                 RegimeResult("bear", "2022-01-01", "2022-06-01", 0.05, 0.3, -0.40, 10),
+                RegimeResult("high_vol", "2020-03-01", "2020-06-01", 0.03, 0.2, -0.15, 8),
             ],
         )
         fr = filters.apply(result)
@@ -92,6 +94,7 @@ class TestValidationFilters:
             regime_results=[
                 RegimeResult("bull", "2020-01-01", "2021-01-01", 0.20, 1.0, -0.05, 20),
                 RegimeResult("bear", "2022-01-01", "2022-06-01", 0.05, 0.3, -0.10, 10),
+                RegimeResult("sideways", "2023-01-01", "2023-06-01", 0.03, 0.2, -0.03, 8),
             ],
         )
         capacity = CapacityEstimate(
@@ -113,7 +116,22 @@ class TestValidationFilters:
             regime_results=[
                 RegimeResult("bull", "2020-01-01", "2021-01-01", 0.10, 0.5, -0.05, 10),
                 RegimeResult("bear", "2022-01-01", "2022-06-01", 0.05, 0.3, -0.10, 5),
+                RegimeResult("high_vol", "2020-03-01", "2020-06-01", 0.03, 0.1, -0.08, 8),
             ],
         )
         fr = filters.apply(result, capacity=None)
         assert fr.passed
+
+    def test_too_few_regimes_tested_fails(self, filters):
+        """Only 2 regimes tested (below min_total_regimes=3) → fails."""
+        result = StrategyResult(
+            spec_id="test", phase="validate", sharpe_ratio=1.0,
+            max_drawdown=-0.10,
+            regime_results=[
+                RegimeResult("bull", "2020-01-01", "2021-01-01", 0.20, 1.0, -0.05, 20),
+                RegimeResult("bear", "2022-01-01", "2022-06-01", 0.05, 0.3, -0.10, 10),
+            ],
+        )
+        fr = filters.apply(result)
+        assert not fr.passed
+        assert "min_total_regimes" in fr.failure_reason

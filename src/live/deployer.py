@@ -360,6 +360,24 @@ class Deployer:
         self._save_deployment(deployment)
         logger.info("Stopped deployment %s", deployment.id)
 
+    def take_snapshot(self, deployment: Deployment) -> LiveSnapshot | None:
+        """Take a fresh snapshot from the broker and persist it.
+
+        Used by monitoring to get current state before comparison.
+        Returns None if broker is not connected.
+        """
+        if not deployment.is_active:
+            return None
+
+        broker = self._get_broker(deployment.mode, deployment.id)
+        if not broker.is_connected():
+            return None
+
+        snapshot = self._take_snapshot(deployment, broker)
+        deployment.snapshots.append(snapshot)
+        self._save_snapshot(snapshot)
+        return snapshot
+
     def get_deployment(self, deployment_id: str) -> Deployment | None:
         """Load a deployment from the database."""
         with self._engine.connect() as conn:

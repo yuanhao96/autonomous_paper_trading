@@ -383,6 +383,15 @@ class Orchestrator:
         reports: list[dict[str, Any]] = []
 
         for deployment in self._deployments:
+            # Take fresh snapshot before comparing to avoid stale data
+            try:
+                self._deployer.take_snapshot(deployment)
+            except Exception as e:
+                logger.warning(
+                    "Could not take fresh snapshot for %s: %s",
+                    deployment.id, e,
+                )
+
             # Fetch the latest validation result for comparison
             val_results = self._registry.get_results(deployment.spec_id, phase="validate")
             val_result = val_results[0] if val_results else None

@@ -51,6 +51,8 @@ def _make_validation(**kwargs) -> StrategyResult:
         "annual_return": 0.12,
         "sharpe_ratio": 1.0,
         "max_drawdown": -0.15,
+        "total_trades": 50,
+        "profit_factor": 1.8,
     }
     defaults.update(kwargs)
     return StrategyResult(**defaults)

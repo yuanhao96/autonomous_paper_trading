@@ -52,6 +52,7 @@ class Auditor:
     2. Minimum trade count
     3. Drawdown limit
     4. Minimum paper trading days (if applicable)
+    5. Look-ahead bias detection (temporal overlap, anomalous perfection)
     """
 
     def __init__(self, preferences: Preferences | None = None) -> None:
@@ -102,6 +103,12 @@ class Auditor:
         # Check 9: Concentration risk (requires spec)
         if spec is not None:
             report.checks.append(self._check_concentration_risk(spec))
+
+        # Check 10: Look-ahead bias detection
+        if validation_result is not None:
+            report.checks.append(
+                self._check_look_ahead_bias(screen_result, validation_result)
+            )
 
         return report
 
@@ -294,6 +301,57 @@ class Auditor:
                 f"Symbol coverage {coverage:.0%} "
                 f"({result.symbols_with_data}/{result.symbols_requested}) "
                 f"{'OK' if passed else 'below 80% threshold'}"
+            ),
+        )
+
+    def _check_look_ahead_bias(
+        self, screen: StrategyResult, validation: StrategyResult
+    ) -> AuditCheck:
+        """Detect potential look-ahead bias via temporal and statistical signals.
+
+        Checks:
+        1. Validation period overlaps screening period (data leakage).
+        2. Validation performance suspiciously close to or better than screening
+           with near-zero drawdown (signals future knowledge).
+        """
+        from datetime import datetime as dt
+
+        reasons: list[str] = []
+
+        # Temporal overlap check
+        if screen.backtest_end and validation.backtest_start:
+            try:
+                screen_end = dt.strptime(screen.backtest_end, "%Y-%m-%d")
+                val_start = dt.strptime(validation.backtest_start, "%Y-%m-%d")
+                if val_start < screen_end:
+                    reasons.append(
+                        f"Validation start {validation.backtest_start} overlaps "
+                        f"screening end {screen.backtest_end}"
+                    )
+            except ValueError:
+                pass  # Unparseable dates — skip check
+
+        # Suspiciously perfect validation: better Sharpe + near-zero drawdown
+        if (
+            validation.sharpe_ratio > screen.sharpe_ratio * 1.2
+            and validation.sharpe_ratio > 3.0
+            and abs(validation.max_drawdown) < 0.02
+            and validation.total_trades > 10
+        ):
+            reasons.append(
+                f"Validation suspiciously better than screening "
+                f"(Sharpe {validation.sharpe_ratio:.2f} vs {screen.sharpe_ratio:.2f}, "
+                f"DD {abs(validation.max_drawdown):.1%})"
+            )
+
+        passed = len(reasons) == 0
+        return AuditCheck(
+            name="look_ahead_bias",
+            passed=passed,
+            message=(
+                "No look-ahead bias signals detected"
+                if passed
+                else f"Look-ahead bias risk: {'; '.join(reasons)}"
             ),
         )
 

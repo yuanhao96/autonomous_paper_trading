@@ -410,3 +410,55 @@ class TestAuditor:
         )
         report = auditor.audit(result)
         assert not any(c.name == "overfit" for c in report.checks)
+
+    # ── Look-ahead bias detection tests ───────────────────────────
+
+    def test_look_ahead_temporal_overlap_fails(self, auditor):
+        """Validation start before screening end → look-ahead risk."""
+        screen = StrategyResult(
+            spec_id="test", phase="screen",
+            total_trades=50, profit_factor=2.0, max_drawdown=-0.10,
+            backtest_start="2019-01-01", backtest_end="2023-12-31",
+        )
+        validation = StrategyResult(
+            spec_id="test", phase="validate", passed=True,
+            backtest_start="2023-01-01", backtest_end="2024-06-30",
+        )
+        report = auditor.audit(screen, validation)
+        check = next(c for c in report.checks if c.name == "look_ahead_bias")
+        assert not check.passed
+        assert "overlaps" in check.message
+
+    def test_look_ahead_no_overlap_passes(self, auditor):
+        """Non-overlapping periods → no look-ahead flag."""
+        screen = StrategyResult(
+            spec_id="test", phase="screen",
+            total_trades=50, profit_factor=2.0, max_drawdown=-0.10,
+            backtest_start="2019-01-01", backtest_end="2023-12-31",
+        )
+        validation = StrategyResult(
+            spec_id="test", phase="validate", passed=True,
+            sharpe_ratio=1.0, max_drawdown=-0.10,
+            backtest_start="2024-01-01", backtest_end="2024-06-30",
+        )
+        report = auditor.audit(screen, validation)
+        check = next(c for c in report.checks if c.name == "look_ahead_bias")
+        assert check.passed
+
+    def test_look_ahead_suspiciously_perfect_validation(self, auditor):
+        """Validation much better than screening with near-zero DD → flag."""
+        screen = StrategyResult(
+            spec_id="test", phase="screen",
+            total_trades=50, profit_factor=2.0,
+            sharpe_ratio=2.0, max_drawdown=-0.10,
+            backtest_start="2019-01-01", backtest_end="2023-12-31",
+        )
+        validation = StrategyResult(
+            spec_id="test", phase="validate", passed=True,
+            sharpe_ratio=4.0, max_drawdown=-0.01, total_trades=30,
+            backtest_start="2024-01-01", backtest_end="2024-06-30",
+        )
+        report = auditor.audit(screen, validation)
+        check = next(c for c in report.checks if c.name == "look_ahead_bias")
+        assert not check.passed
+        assert "suspiciously" in check.message.lower()

@@ -71,8 +71,12 @@ def _load_universe(name: str, fallback: list[str]) -> list[str]:
 
 
 def _build_universes() -> dict[str, list[str]]:
-    """Build the registry, trying Wikipedia for sp500/nasdaq100."""
-    return {
+    """Build the registry, trying Wikipedia for sp500/nasdaq100.
+
+    Note: ``crypto_top20`` is an alias for ``crypto_top`` (10 symbols)
+    to match the architecture doc naming convention.
+    """
+    base = {
         "sp500": _load_universe("sp500", _SP500_FALLBACK),
         "nasdaq100": _load_universe("nasdaq100", _NASDAQ100_FALLBACK),
         "sector_etfs": SECTOR_ETFS,
@@ -80,6 +84,9 @@ def _build_universes() -> dict[str, list[str]]:
         "g10_forex": G10_FOREX,
         "crypto_top": CRYPTO_TOP,
     }
+    # Alias for architecture doc compatibility
+    base["crypto_top20"] = base["crypto_top"]
+    return base
 
 
 # Build once at module load (with graceful fallback on failure)
@@ -93,6 +100,7 @@ UNIVERSE_ASSET_CLASS: dict[str, str] = {
     "broad_etfs": "etf",
     "g10_forex": "forex",
     "crypto_top": "crypto",
+    "crypto_top20": "crypto",
 }
 
 

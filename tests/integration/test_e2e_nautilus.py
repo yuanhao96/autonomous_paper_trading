@@ -55,7 +55,7 @@ class TestE2ENTTranslation:
         result = translate_nautilus(spec)
         assert result is not None
 
-        strategy_cls, config_kwargs = result
+        strategy_cls, config_cls, config_kwargs = result
         assert "instrument_id" not in config_kwargs or isinstance(
             config_kwargs.get("instrument_id"), str
         )
@@ -63,7 +63,7 @@ class TestE2ENTTranslation:
 
         print("\n--- NT Momentum Translation ---")
         print(f"  Strategy: {strategy_cls.__name__}")
-        print(f"  Config:   {config_kwargs}")
+        print(f"  Config:   {config_cls.__name__} -> {config_kwargs}")
 
     def test_calendar_full_cycle(self):
         """Translate calendar spec, create config, instantiate strategy."""
@@ -77,10 +77,10 @@ class TestE2ENTTranslation:
         result = translate_nautilus(spec)
         assert result is not None
 
-        strategy_cls, config_kwargs = result
+        strategy_cls, config_cls, config_kwargs = result
         print("\n--- NT Calendar Translation ---")
         print(f"  Strategy: {strategy_cls.__name__}")
-        print(f"  Config:   {config_kwargs}")
+        print(f"  Config:   {config_cls.__name__} -> {config_kwargs}")
 
     def test_all_46_templates_translate(self):
         """All 46 supported templates should translate successfully."""

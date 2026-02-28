@@ -193,11 +193,13 @@ def _cointegration_pairs(
     Params:
         lookback_days: Data period for cointegration test (default 252).
         p_threshold: ADF p-value threshold (default 0.05).
+            Also accepts ``p_value_threshold`` (architecture doc convention).
         max_pairs: Maximum pairs to return (default 5).
         min_bars: Minimum data bars (default 200).
     """
     lookback = params.get("lookback_days", 252)
-    p_threshold = params.get("p_threshold", 0.05)
+    # Accept both p_threshold and p_value_threshold (architecture doc alias)
+    p_threshold = params.get("p_threshold", params.get("p_value_threshold", 0.05))
     max_pairs = params.get("max_pairs", 5)
     min_bars = params.get("min_bars", 200)
 
@@ -259,11 +261,12 @@ def _mean_reversion_screen(
     Params:
         lookback_days: Period for ADF test (default 252).
         p_threshold: ADF p-value threshold for stationarity (default 0.05).
+            Also accepts ``p_value_threshold`` (architecture doc convention).
         top_n: Number of symbols to return (default 10).
         min_bars: Minimum data bars (default 200).
     """
     lookback = params.get("lookback_days", 252)
-    p_threshold = params.get("p_threshold", 0.05)
+    p_threshold = params.get("p_threshold", params.get("p_value_threshold", 0.05))
     top_n = params.get("top_n", 10)
     min_bars = params.get("min_bars", 200)
 

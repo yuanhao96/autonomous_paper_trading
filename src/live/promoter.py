@@ -17,6 +17,7 @@ from datetime import datetime
 from src.core.config import Preferences, Settings, load_preferences
 from src.live.models import ComparisonReport, Deployment, PromotionReport
 from src.live.monitor import Monitor
+from src.risk.auditor import Auditor
 from src.strategies.spec import StrategyResult
 
 logger = logging.getLogger(__name__)
@@ -41,18 +42,21 @@ class Promoter:
         self._settings = settings or Settings()
         self._prefs = preferences or load_preferences()
         self._monitor = monitor or Monitor(settings=self._settings, preferences=self._prefs)
+        self._auditor = Auditor(preferences=self._prefs)
         self._min_days = self._prefs.min_paper_trading_days
 
     def evaluate(
         self,
         deployment: Deployment,
         validation_result: StrategyResult,
+        screen_result: StrategyResult | None = None,
     ) -> PromotionReport:
         """Evaluate promotion readiness for a paper-traded strategy.
 
         Args:
             deployment: Paper trading deployment with accumulated snapshots.
             validation_result: The validation backtest to compare against.
+            screen_result: Optional screening result for audit checks.
 
         Returns:
             PromotionReport with decision and reasoning.
@@ -73,6 +77,15 @@ class Promoter:
         # Check 3: Risk violations
         violations = self._monitor.check_risk(deployment)
         report.risk_violations = [v.message for v in violations]
+
+        # Check 4: Audit gate (strategy still passes deterministic checks)
+        audit_source = screen_result or validation_result
+        audit_report = self._auditor.audit(audit_source, validation_result)
+        if not audit_report.passed:
+            failed = [c.message for c in audit_report.failed_checks]
+            report.risk_violations.extend(
+                [f"Audit: {msg}" for msg in failed]
+            )
 
         # Make decision
         report.decision, report.reasoning = self._decide(report)
