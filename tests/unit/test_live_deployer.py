@@ -226,20 +226,27 @@ class TestDeployer:
         assert len(broker._current_prices) > 0
         assert broker._current_prices["SPY"] > 0
 
-    def test_get_broker_per_mode_isolation(self, db_engine):
-        """Different modes should return different broker instances."""
+    def test_get_broker_per_deployment_isolation(self, db_engine):
+        """Different deployment IDs get different broker instances."""
         deployer = Deployer(engine=db_engine)
-        paper = deployer._get_broker("paper")
-        ibkr = deployer._get_broker("ibkr_paper")
-        live = deployer._get_broker("live")
-        assert isinstance(paper, PaperBroker)
-        assert isinstance(ibkr, IBKRBroker)
-        assert isinstance(live, IBKRBroker)
-        assert paper is not ibkr
-        assert ibkr is not live
-        # Same mode returns same cached instance
-        assert deployer._get_broker("paper") is paper
-        assert deployer._get_broker("ibkr_paper") is ibkr
+        b1 = deployer._get_broker("paper", "dep1")
+        b2 = deployer._get_broker("paper", "dep2")
+        assert isinstance(b1, PaperBroker)
+        assert isinstance(b2, PaperBroker)
+        assert b1 is not b2
+        # Same deployment_id returns cached instance
+        assert deployer._get_broker("paper", "dep1") is b1
+
+    def test_two_paper_deployments_isolated(self, db_engine):
+        """Two paper deployments should not share broker state."""
+        deployer = Deployer(engine=db_engine)
+        spec = _make_spec()
+        d1 = deployer.deploy(spec, symbols=["SPY"], mode="paper")
+        d2 = deployer.deploy(spec, symbols=["QQQ"], mode="paper")
+        # Each deployment should have its own broker
+        b1 = deployer._get_broker("paper", d1.id)
+        b2 = deployer._get_broker("paper", d2.id)
+        assert b1 is not b2
 
     def test_restart_rebalance_no_duplicate_trades(self, db_engine):
         """After restart (broker=None), rebalance should not re-enter positions.
@@ -269,7 +276,7 @@ class TestDeployer:
         dep = loaded[0]
 
         # Ensure broker is created, then rehydrate from snapshot
-        broker2 = deployer2._get_broker(dep.mode)
+        broker2 = deployer2._get_broker(dep.mode, dep.id)
         broker2.connect()
         if isinstance(broker2, PaperBroker) and dep.snapshots:
             latest_snap = dep.snapshots[-1]

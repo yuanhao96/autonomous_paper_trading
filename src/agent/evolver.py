@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 from src.agent.generator import StrategyGenerator
 from src.agent.reviewer import format_result_for_llm
@@ -176,12 +176,15 @@ class Evolver:
                 if violations:
                     spec = self._risk_engine.clamp_spec(spec)
 
-                # Screen
+                # Screen — dynamic 6-year window ending last month-end
+                today = date.today()
+                screen_end = today.replace(day=1) - timedelta(days=1)
+                screen_start = screen_end.replace(year=screen_end.year - 6)
                 result = self._screener.screen(
                     spec=spec,
                     symbols=syms,
-                    start=date(2019, 1, 1),
-                    end=date(2024, 12, 31),
+                    start=screen_start,
+                    end=screen_end,
                     optimize=self._screen_optimize,
                 )
                 self._registry.save_spec(spec)

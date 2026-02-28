@@ -65,30 +65,33 @@ class Deployer:
         self._auditor = Auditor(preferences=self._prefs)
         self._engine = engine or get_engine()
         init_db(self._engine)
-        # Per-mode broker cache: allows mixed-mode deployments
+        # Per-deployment broker cache: each deployment gets isolated state
         self._brokers: dict[str, BrokerAPI] = {}
-        # Injected broker (for tests) — assigned to first requested mode
+        # Injected broker (for tests) — assigned to first deployment
         self._injected_broker = broker
 
-    def _get_broker(self, mode: str = "paper") -> BrokerAPI:
-        """Get or create the broker connection for a specific mode.
+    def _get_broker(
+        self, mode: str = "paper", deployment_id: str = "",
+    ) -> BrokerAPI:
+        """Get or create a broker connection for a specific deployment.
 
-        Brokers are cached per mode, so a paper and ibkr_paper deployment
-        each get their own broker instance.
+        Each deployment gets its own broker instance so positions, cash,
+        and state don't bleed across deployments in the same mode.
 
         Modes:
             paper — local PaperBroker simulation (no external deps)
             ibkr_paper — IBKR paper trading account (port 7497)
             live — IBKR live trading (port 7496)
         """
-        if mode in self._brokers:
-            return self._brokers[mode]
+        key = deployment_id or mode
+        if key in self._brokers:
+            return self._brokers[key]
 
-        # Use injected broker (test support) for the first mode requested
+        # Use injected broker (test support) for the first deployment
         if self._injected_broker is not None:
-            self._brokers[mode] = self._injected_broker
+            self._brokers[key] = self._injected_broker
             self._injected_broker = None
-            return self._brokers[mode]
+            return self._brokers[key]
 
         if mode == "paper":
             initial_cash = self._settings.get("live.initial_cash", 100_000)
@@ -104,7 +107,7 @@ class Deployer:
             client_id = self._settings.get("live.ibkr_client_id", 1)
             broker = IBKRBroker(host=host, port=port, client_id=client_id)
 
-        self._brokers[mode] = broker
+        self._brokers[key] = broker
         return broker
 
     def validate_readiness(
@@ -210,8 +213,8 @@ class Deployer:
             initial_cash=initial_cash,
         )
 
-        # Connect broker
-        broker = self._get_broker(mode)
+        # Connect broker — keyed by deployment ID for isolation
+        broker = self._get_broker(mode, deployment.id)
         if not broker.is_connected():
             broker.connect()
 
@@ -245,7 +248,7 @@ class Deployer:
             logger.warning("Cannot rebalance inactive deployment %s", deployment.id)
             return []
 
-        broker = self._get_broker(deployment.mode)
+        broker = self._get_broker(deployment.mode, deployment.id)
         if not broker.is_connected():
             broker.connect()
 

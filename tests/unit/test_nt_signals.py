@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.strategies.spec import RiskParams, StrategySpec
 
@@ -32,6 +33,68 @@ def _make_spec(template: str = "time-series-momentum") -> StrategySpec:
         universe_id="sector_etfs",
         risk=RiskParams(max_position_pct=0.10, max_positions=5),
     )
+
+
+class TestTranslateNautilusConfigConstruction:
+    """Verify translate_nautilus returns a callable config class (not a string).
+
+    Covers Finding 5: tests must exercise real config construction
+    to catch `from __future__ import annotations` issues.
+    """
+
+    def test_translate_returns_callable_config_class(self):
+        """Config class from translate_nautilus must be callable, not a string."""
+        from src.validation.translator import is_nautilus_available, translate_nautilus
+
+        if not is_nautilus_available():
+            pytest.skip("NautilusTrader not installed")
+
+        spec = _make_spec("time-series-momentum")
+        result = translate_nautilus(spec)
+        assert result is not None, "translate_nautilus returned None"
+
+        strategy_cls, config_cls, config_kwargs = result
+        # config_cls must be a class, not a string annotation
+        assert callable(config_cls), (
+            f"config_cls should be callable, got {type(config_cls)}: {config_cls}"
+        )
+        # Must be able to construct a config instance
+        config = config_cls(
+            instrument_id="SPY.XNAS", **config_kwargs,
+        )
+        assert config is not None
+        # Strategy must be constructable from the config
+        strategy = strategy_cls(config=config)
+        assert strategy is not None
+
+    def test_all_template_categories_return_callable_config(self):
+        """Every NT builder category produces a callable config class."""
+        from src.validation.translator import is_nautilus_available, translate_nautilus
+
+        if not is_nautilus_available():
+            pytest.skip("NautilusTrader not installed")
+
+        templates = [
+            "time-series-momentum",
+            "moving-average-crossover",
+            "mean-reversion-rsi",
+            "pairs-trading",
+            "breakout",
+            "fama-french-five-factors",
+            "turn-of-the-month-in-equity-indexes",
+            "volatility-effect-in-stocks",
+            "forex-carry-trade",
+        ]
+        for tmpl in templates:
+            spec = _make_spec(tmpl)
+            result = translate_nautilus(spec)
+            assert result is not None, f"translate failed for {tmpl}"
+            _, config_cls, kwargs = result
+            assert callable(config_cls), (
+                f"{tmpl}: config_cls is {type(config_cls)}, not callable"
+            )
+            config = config_cls(instrument_id="SPY.XNAS", **kwargs)
+            assert config is not None
 
 
 class TestComputeNtSignals:
@@ -86,7 +149,7 @@ class TestComputeNtSignals:
         ):
             with patch(
                 "src.validation.translator.translate_nautilus",
-                return_value=(object, {}),
+                return_value=(object, object, {}),
             ):
                 signals = compute_nt_signals(spec, prices)
 
@@ -105,7 +168,7 @@ class TestComputeNtSignals:
         ):
             with patch(
                 "src.validation.translator.translate_nautilus",
-                return_value=(object, {}),
+                return_value=(object, object, {}),
             ):
                 with patch.object(
                     nt_signals, "_run_micro_backtest", return_value="long"
@@ -128,7 +191,7 @@ class TestComputeNtSignals:
         ):
             with patch(
                 "src.validation.translator.translate_nautilus",
-                return_value=(object, {}),
+                return_value=(object, object, {}),
             ):
                 with patch.object(
                     nt_signals,

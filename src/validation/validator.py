@@ -314,7 +314,7 @@ class Validator:
             logger.warning("NT translation failed, falling back to backtesting.py")
             return self._validate_backtest_fallback(spec, symbols, benchmark, t0)
 
-        strategy_cls, config_kwargs = nt_result
+        strategy_cls, config_cls, config_kwargs = nt_result
 
         # Step 4: Run backtest for each regime
         regime_results: list[RegimeResult] = []
@@ -322,7 +322,7 @@ class Validator:
 
         for regime_name, regime_period in regimes.items():
             period_metrics = self._run_nt_regime_backtest(
-                spec, strategy_cls, config_kwargs, all_data,
+                spec, strategy_cls, config_cls, config_kwargs, all_data,
                 regime_period, regime_name,
             )
             if period_metrics is not None:
@@ -362,6 +362,7 @@ class Validator:
         self,
         spec: StrategySpec,
         strategy_cls: type,
+        config_cls: type,
         config_kwargs: dict,
         all_data: dict[str, pd.DataFrame],
         regime: RegimePeriod,
@@ -397,7 +398,8 @@ class Validator:
 
             try:
                 metrics = self._run_single_nt_backtest(
-                    symbol, regime_data, strategy_cls, config_kwargs, initial_cash
+                    symbol, regime_data, strategy_cls, config_cls,
+                    config_kwargs, initial_cash,
                 )
                 if metrics is not None:
                     regime_metrics.append(metrics)
@@ -428,6 +430,7 @@ class Validator:
         symbol: str,
         data: pd.DataFrame,
         strategy_cls: type,
+        config_cls: type,
         config_kwargs: dict,
         initial_cash: int,
     ) -> dict | None:
@@ -469,19 +472,9 @@ class Validator:
         bars = dataframe_to_bars(data, instrument.id)
         engine.add_data(bars)
 
-        # Configure and add strategy
+        # Build strategy config — config_cls provided by translate_nautilus()
         instrument_id_str = f"{symbol}.XNAS"
         strategy_config_kwargs = {**config_kwargs, "instrument_id": instrument_id_str}
-
-        # Get the config class from the strategy's __init__ signature
-        import inspect
-
-        sig = inspect.signature(strategy_cls.__init__)
-        config_param = list(sig.parameters.values())[1]  # First after self
-        config_cls = config_param.annotation
-        if config_cls is inspect.Parameter.empty:
-            # Fall back to matching config class by convention
-            return None
 
         config = config_cls(**strategy_config_kwargs)
         strategy = strategy_cls(config=config)

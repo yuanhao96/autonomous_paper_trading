@@ -51,7 +51,7 @@ def compute_nt_signals(
         from src.live.signals import compute_signals
         return compute_signals(spec, prices)
 
-    strategy_cls, config_kwargs = nt_result
+    strategy_cls, config_cls, config_kwargs = nt_result
     signals: dict[str, str] = {}
 
     for symbol, df in prices.items():
@@ -60,7 +60,7 @@ def compute_nt_signals(
             continue
         try:
             signals[symbol] = _run_micro_backtest(
-                strategy_cls, config_kwargs, symbol, df, initial_cash,
+                strategy_cls, config_cls, config_kwargs, symbol, df, initial_cash,
             )
         except Exception as e:
             logger.warning(
@@ -77,6 +77,7 @@ def compute_nt_signals(
 
 def _run_micro_backtest(
     strategy_cls: type,
+    config_cls: type,
     config_kwargs: dict,
     symbol: str,
     df: pd.DataFrame,
@@ -87,8 +88,6 @@ def _run_micro_backtest(
     Setup mirrors validator.py _run_single_nt_backtest() — same venue,
     instrument, fill model, and strategy config.
     """
-    import inspect
-
     from nautilus_trader.backtest.engine import BacktestEngine
     from nautilus_trader.backtest.models import FillModel
     from nautilus_trader.model.currencies import USD
@@ -129,15 +128,9 @@ def _run_micro_backtest(
     bars = dataframe_to_bars(df, instrument.id)
     engine.add_data(bars)
 
-    # Build strategy config using same pattern as validator
+    # Build strategy config — config_cls provided by translate_nautilus()
     instrument_id_str = f"{symbol}.XNAS"
     strategy_config_kwargs = {**config_kwargs, "instrument_id": instrument_id_str}
-
-    sig = inspect.signature(strategy_cls.__init__)
-    config_param = list(sig.parameters.values())[1]  # First after self
-    config_cls = config_param.annotation
-    if config_cls is inspect.Parameter.empty:
-        return "flat"
 
     config = config_cls(**strategy_config_kwargs)
     strategy = strategy_cls(config=config)

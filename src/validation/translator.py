@@ -73,7 +73,7 @@ def create_backtest_engine_config() -> Any:
         return BacktestEngineConfig()
 
 
-def translate_nautilus(spec: StrategySpec) -> tuple[type, dict] | None:
+def translate_nautilus(spec: StrategySpec) -> tuple[type, type, dict] | None:
     """Translate a StrategySpec into a NautilusTrader Strategy class + config.
 
     Returns None if NautilusTrader is not available.
@@ -82,7 +82,8 @@ def translate_nautilus(spec: StrategySpec) -> tuple[type, dict] | None:
         spec: Strategy specification.
 
     Returns:
-        Tuple of (NTStrategy subclass, config kwargs dict), or None.
+        Tuple of (NTStrategy subclass, config class, config kwargs dict),
+        or None.
     """
     if not _NT_AVAILABLE:
         logger.warning("NautilusTrader not available — cannot translate.")
@@ -106,7 +107,7 @@ def translate_nautilus(spec: StrategySpec) -> tuple[type, dict] | None:
             config_kwargs[k] = v
     config_kwargs["position_pct"] = spec.risk.max_position_pct
 
-    return (strategy_cls, config_kwargs)
+    return (strategy_cls, config_cls, config_kwargs)
 
 
 # ── Data conversion helpers ──────────────────────────────────────────

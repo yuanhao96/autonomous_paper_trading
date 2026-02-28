@@ -31,7 +31,7 @@ from src.core.config import Settings, load_preferences
 from src.core.db import get_engine, init_db
 from src.core.llm import LLMClient
 from src.data.manager import DataManager
-from src.live.broker import IBKRBroker, PaperBroker
+from src.live.broker import PaperBroker
 from src.live.deployer import Deployer
 from src.live.models import Deployment
 from src.live.monitor import Monitor
@@ -322,39 +322,14 @@ class Orchestrator:
             )
             return None
 
-        # Set up broker based on mode
-        if deploy_mode == "paper":
-            initial_cash = self._settings.get("live.initial_cash", 100_000)
-            broker = PaperBroker(initial_cash=initial_cash)
-            broker.connect()
-        elif deploy_mode == "ibkr_paper":
-            host = self._settings.get("live.ibkr_host", "127.0.0.1")
-            port = self._settings.get("live.ibkr_paper_port", 7497)
-            client_id = self._settings.get("live.ibkr_client_id", 1)
-            broker = IBKRBroker(host=host, port=port, client_id=client_id)
-            broker.connect()
-        else:  # "live"
-            host = self._settings.get("live.ibkr_host", "127.0.0.1")
-            port = self._settings.get("live.ibkr_live_port", 7496)
-            client_id = self._settings.get("live.ibkr_client_id", 1)
-            broker = IBKRBroker(host=host, port=port, client_id=client_id)
-            broker.connect()
-
-        deployer._brokers[deploy_mode] = broker
+        # deploy() creates broker internally, keyed by deployment ID
         deployment = deployer.deploy(spec, symbols=symbols, mode=deploy_mode)
         self._deployments.append(deployment)
 
         # Fetch prices and do initial rebalance
+        # (rebalance auto-sets PaperBroker prices from price data)
         prices = self._dm.get_bulk_ohlcv(symbols, period="2y")
         if prices:
-            # Set current prices for PaperBroker
-            if isinstance(broker, PaperBroker):
-                current_prices = {
-                    s: float(df["Close"].iloc[-1])
-                    for s, df in prices.items()
-                }
-                broker.set_prices(current_prices)
-
             trades = deployer.rebalance(deployment, spec, prices)
             logger.info(
                 "Initial rebalance: %d trades for deployment %s",
@@ -474,7 +449,9 @@ class Orchestrator:
 
                 # Ensure broker exists (may be None after restart),
                 # then rehydrate PaperBroker from last snapshot
-                broker = self._deployer._get_broker(deployment.mode)
+                broker = self._deployer._get_broker(
+                    deployment.mode, deployment.id,
+                )
                 if not broker.is_connected():
                     broker.connect()
                 if isinstance(broker, PaperBroker) and deployment.snapshots:

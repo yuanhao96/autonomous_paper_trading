@@ -2,7 +2,7 @@
 
 All tests are skipped when NautilusTrader is not installed.
 Tests verify:
-  - translate_nautilus returns (class, dict) tuples for all 46 templates
+  - translate_nautilus returns (strategy_cls, config_cls, dict) for all templates
   - Data conversion helpers produce correct output
   - Builder registry has complete coverage
 """
@@ -134,7 +134,7 @@ class TestBuilderRegistry:
 
 
 class TestTranslateNautilus:
-    """Verify translate_nautilus produces valid (class, config) tuples."""
+    """Verify translate_nautilus produces valid (cls, config_cls, dict) tuples."""
 
     @skip_no_nt
     @pytest.mark.parametrize("slug", ALL_SLUGS)
@@ -143,8 +143,9 @@ class TestTranslateNautilus:
         result = translate_nautilus(spec)
         assert result is not None, f"translate_nautilus returned None for {slug}"
         assert isinstance(result, tuple)
-        assert len(result) == 2
-        strategy_cls, config_kwargs = result
+        assert len(result) == 3
+        strategy_cls, config_cls, config_kwargs = result
+        assert callable(config_cls), f"config_cls for {slug} is not callable"
         assert isinstance(config_kwargs, dict)
         assert "position_pct" in config_kwargs
 
@@ -161,7 +162,7 @@ class TestTranslateNautilus:
         spec = _make_spec("time-series-momentum", {"lookback": 100, "threshold": 0.05})
         result = translate_nautilus(spec)
         assert result is not None
-        _, config_kwargs = result
+        _, _, config_kwargs = result
         assert config_kwargs.get("position_pct") == 0.10
 
 
