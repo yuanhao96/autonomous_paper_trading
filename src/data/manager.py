@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 import time
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
 
 from src.data.cache import ParquetCache
 from src.data.sources.yfinance_source import YFinanceSource
+
+# Approximate trading-day spans for yfinance period strings
+_PERIOD_MIN_DAYS: dict[str, int] = {
+    "1mo": 20,
+    "3mo": 60,
+    "6mo": 120,
+    "1y": 220,
+    "2y": 450,
+    "5y": 1200,
+    "10y": 2400,
+    "max": 0,  # no minimum
+}
 
 
 class DataManager:
@@ -64,6 +76,13 @@ class DataManager:
                         delta = (pd.Timestamp(end) - cached.index[-1]).days
                         if delta > 5:
                             cache_ok = False
+
+                    # Period-based calls: verify cached data has enough bars
+                    if cache_ok and start is None and end is None:
+                        min_bars = _PERIOD_MIN_DAYS.get(period, 0)
+                        if min_bars > 0 and len(cached) < min_bars:
+                            cache_ok = False
+
                     if cache_ok:
                         return cached
 

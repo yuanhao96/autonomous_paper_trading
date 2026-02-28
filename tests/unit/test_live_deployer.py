@@ -88,6 +88,16 @@ class TestDeployer:
         names = [c.name for c in checks if not c.passed]
         assert "drawdown_limit" in names
 
+    def test_validate_readiness_fails_validation_drawdown(self, db_engine, paper_broker):
+        """Validation drawdown exceeding limit should also fail readiness."""
+        deployer = Deployer(broker=paper_broker, engine=db_engine)
+        spec = _make_spec()
+        screen = _make_result(spec.id, "screen", max_drawdown=-0.10)  # OK
+        validation = _make_result(spec.id, "validate", max_drawdown=-0.50)  # Bad
+        checks = deployer.validate_readiness(spec, screen, validation)
+        names = [c.name for c in checks if not c.passed]
+        assert "drawdown_limit" in names
+
     def test_deploy_creates_active_deployment(self, db_engine, paper_broker):
         deployer = Deployer(broker=paper_broker, engine=db_engine)
         spec = _make_spec()

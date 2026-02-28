@@ -170,7 +170,7 @@ class IBKRBroker(BrokerAPI):
         # Wait for fill (with timeout)
         self._ib.sleep(2)
 
-        if trade.orderStatus.status in ("Filled", "Inactive"):
+        if trade.orderStatus.status == "Filled":
             fill_price = trade.orderStatus.avgFillPrice or 0.0
             commission = sum(f.commissionReport.commission for f in trade.fills if f.commissionReport)
             return TradeRecord(

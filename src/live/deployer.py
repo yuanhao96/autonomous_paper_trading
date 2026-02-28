@@ -163,8 +163,11 @@ class Deployer:
                 message="No validation result — validation is required before deployment",
             ))
 
-        # 5. Drawdown check
-        dd_violations = self._risk_engine.check_result_drawdown(screen_result.max_drawdown)
+        # 5. Drawdown check (worst of screening and validation)
+        worst_dd = abs(screen_result.max_drawdown)
+        if validation_result is not None:
+            worst_dd = max(worst_dd, abs(validation_result.max_drawdown))
+        dd_violations = self._risk_engine.check_result_drawdown(worst_dd)
         checks.append(DeploymentCheck(
             name="drawdown_limit",
             passed=len(dd_violations) == 0,
@@ -364,12 +367,22 @@ class Deployer:
         """Take a fresh snapshot from the broker and persist it.
 
         Used by monitoring to get current state before comparison.
-        Returns None if broker is not connected.
+        Attempts reconnect if broker is disconnected. Returns None only
+        if reconnect also fails.
         """
         if not deployment.is_active:
             return None
 
         broker = self._get_broker(deployment.mode, deployment.id)
+        if not broker.is_connected():
+            try:
+                broker.connect()
+            except Exception as e:
+                logger.warning(
+                    "Cannot reconnect broker for deployment %s: %s",
+                    deployment.id, e,
+                )
+                return None
         if not broker.is_connected():
             return None
 

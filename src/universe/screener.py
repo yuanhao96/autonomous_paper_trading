@@ -36,22 +36,31 @@ class UniverseScreener:
         """Resolve a UniverseSpec to a list of symbols."""
         # Level 1: Static
         if spec.is_static:
-            return list(spec.static_symbols or [])
+            symbols = list(spec.static_symbols or [])
+            return self._enforce_bounds(symbols, spec)
 
         # Level 3: Computed
         if spec.is_computed:
             base_pool = self._get_base_pool(spec.asset_class)
             if not base_pool:
                 return []
-            return compute_universe(
+            symbols = compute_universe(
                 name=spec.computation,
                 base_symbols=base_pool,
                 data_manager=self._dm,
                 params=spec.computation_params,
             )
+            return self._enforce_bounds(symbols, spec)
 
-        # Level 2: Filtered
+        # Level 2: Filtered (already enforces bounds internally)
         return self._resolve_filtered(spec)
+
+    @staticmethod
+    def _enforce_bounds(symbols: list[str], spec: UniverseSpec) -> list[str]:
+        """Enforce min/max securities constraints."""
+        if len(symbols) < spec.min_securities:
+            return []
+        return symbols[: spec.max_securities]
 
     def _resolve_filtered(self, spec: UniverseSpec) -> list[str]:
         """Apply filter chain to a base pool of securities."""

@@ -6,8 +6,8 @@ import logging
 
 import pandas as pd
 
-from src.universe.screener import _apply_filter
-from src.universe.spec import Filter
+from src.universe.screener import UniverseScreener, _apply_filter
+from src.universe.spec import Filter, UniverseSpec
 
 
 class TestApplyFilterWarning:
@@ -35,3 +35,27 @@ class TestApplyFilterWarning:
 
         assert len(result) == 2  # 200, 300
         assert not any("skipped" in record.message.lower() for record in caplog.records)
+
+
+class TestUniverseScreenerBounds:
+    """Enforce max/min securities for static and computed universes."""
+
+    def test_static_universe_respects_max_securities(self):
+        spec = UniverseSpec(
+            asset_class="us_equity",
+            static_symbols=["A", "B", "C", "D", "E"],
+            max_securities=3,
+        )
+        screener = UniverseScreener()
+        result = screener.resolve(spec)
+        assert len(result) == 3
+
+    def test_static_universe_fails_min_securities(self):
+        spec = UniverseSpec(
+            asset_class="us_equity",
+            static_symbols=["A", "B"],
+            min_securities=5,
+        )
+        screener = UniverseScreener()
+        result = screener.resolve(spec)
+        assert result == []  # Too few symbols

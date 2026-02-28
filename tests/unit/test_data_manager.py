@@ -43,9 +43,10 @@ class TestCacheTTL:
             assert not result.empty
 
     def test_period_call_uses_fresh_cache(self, tmp_path):
-        """Period-based call with fresh cache should NOT re-fetch."""
+        """Period-based call with fresh cache that has enough data should NOT re-fetch."""
         dm = DataManager(cache_dir=tmp_path, cache_ttl_hours=24)
-        fresh_df = _make_ohlcv()
+        # 1300 bars satisfies 5y (min 1200)
+        fresh_df = _make_ohlcv(n=1300)
 
         # Write a fresh cached file (mtime = now)
         cache_path = dm._cache._path("AAPL", "daily")
@@ -55,6 +56,21 @@ class TestCacheTTL:
             result = dm.get_ohlcv("AAPL", period="5y")
             mock_fetch.assert_not_called()
             assert not result.empty
+
+    def test_period_call_refetches_undersized_cache(self, tmp_path):
+        """A 1y cache (220 bars) should NOT satisfy a 5y request (1200 bars)."""
+        dm = DataManager(cache_dir=tmp_path, cache_ttl_hours=24)
+        small_df = _make_ohlcv(n=200)  # ~1y of data, below 5y threshold
+        big_df = _make_ohlcv(n=1300)   # full 5y
+
+        # Write small cache (fresh mtime)
+        cache_path = dm._cache._path("AAPL", "daily")
+        small_df.to_parquet(cache_path)
+
+        with patch.object(dm._yf, "get_ohlcv", return_value=big_df) as mock_fetch:
+            result = dm.get_ohlcv("AAPL", period="5y")
+            mock_fetch.assert_called_once()  # Cache was too small, must re-fetch
+            assert len(result) >= 1200
 
     def test_date_range_call_ignores_ttl(self, tmp_path):
         """Calls with explicit start/end should not check TTL."""
