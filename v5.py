@@ -17,6 +17,7 @@ Usage:
 
 import argparse
 import json
+import math
 import sys
 import traceback
 from pathlib import Path
@@ -234,10 +235,26 @@ def already_processed(results: list[dict]) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
+def _to_native(val):
+    """Convert numpy scalars to native Python types."""
+    if hasattr(val, "item"):
+        return val.item()
+    return val
+
+
+def _safe_sharpe(stats_dict: dict) -> float:
+    """Extract Sharpe Ratio, returning 0.0 for NaN/None."""
+    s = stats_dict.get("Sharpe Ratio", 0)
+    if s is None or (isinstance(s, float) and math.isnan(s)):
+        return 0.0
+    return float(s)
+
+
 def _serialize_stats(stats) -> dict:
     """Convert backtesting stats to a JSON-serializable dict."""
     out = {}
     for k, v in dict(stats).items():
+        v = _to_native(v)
         try:
             json.dumps(v)
             out[k] = v
@@ -258,7 +275,7 @@ def optimize_one(v4_result: dict, provider: str, max_tries: int) -> dict:
     knowledge_doc = v4_result["knowledge_doc"]
     spec_dict = v4_result["spec"]
     v4_stats = v4_result.get("stats", {})
-    v4_sharpe = v4_stats.get("Sharpe Ratio", 0) if v4_stats else 0
+    v4_sharpe = _safe_sharpe(v4_stats) if v4_stats else 0.0
 
     result = {
         "knowledge_doc": knowledge_doc,
@@ -328,8 +345,8 @@ def optimize_one(v4_result: dict, provider: str, max_tries: int) -> dict:
             result["test_verdict"] = verdict
             result["test_reasons"] = reasons
             result["optimized_params"] = spec.params
-            test_sharpe = test_stats.get("Sharpe Ratio", 0) or 0
-            result["sharpe_improvement"] = test_sharpe - (v4_sharpe or 0)
+            test_sharpe = _safe_sharpe(result["test_stats"])
+            result["sharpe_improvement"] = test_sharpe - v4_sharpe
             return result
 
         print(f"  Optimizing {len(filtered_ranges)} params: "
@@ -357,7 +374,7 @@ def optimize_one(v4_result: dict, provider: str, max_tries: int) -> dict:
         # 7. Extract best params
         best_params = {}
         for name in filtered_ranges:
-            best_params[name] = getattr(train_stats._strategy, name)
+            best_params[name] = _to_native(getattr(train_stats._strategy, name))
         result["optimized_params"] = best_params
         print(f"  Best params: {best_params}")
 
@@ -377,8 +394,8 @@ def optimize_one(v4_result: dict, provider: str, max_tries: int) -> dict:
         result["test_verdict"] = verdict
         result["test_reasons"] = reasons
 
-        test_sharpe = test_stats.get("Sharpe Ratio", 0) or 0
-        result["sharpe_improvement"] = test_sharpe - (v4_sharpe or 0)
+        test_sharpe = _safe_sharpe(result["test_stats"])
+        result["sharpe_improvement"] = test_sharpe - v4_sharpe
 
         print(f"  Test Sharpe: {test_sharpe:.2f} "
               f"(v4: {v4_sharpe:.2f}, Δ: {result['sharpe_improvement']:+.2f})")
@@ -403,7 +420,10 @@ def print_leaderboard(results: list[dict]) -> None:
     """Print optimized strategies ranked by test Sharpe descending."""
     ranked = [
         r for r in results
-        if r.get("test_stats") and r["test_stats"].get("Sharpe Ratio") is not None
+        if r.get("test_stats")
+        and r["test_stats"].get("Sharpe Ratio") is not None
+        and not (isinstance(r["test_stats"]["Sharpe Ratio"], float)
+                 and math.isnan(r["test_stats"]["Sharpe Ratio"]))
     ]
     ranked.sort(key=lambda r: r["test_stats"]["Sharpe Ratio"], reverse=True)
 
@@ -423,9 +443,11 @@ def print_leaderboard(results: list[dict]) -> None:
 
     for i, r in enumerate(ranked, 1):
         name = (r["name"] or "?")[:31]
-        v4_s = r.get("v4_sharpe", 0) or 0
-        test_s = r["test_stats"]["Sharpe Ratio"] or 0
-        delta = r.get("sharpe_improvement", 0) or 0
+        v4_s = r.get("v4_sharpe") or 0
+        test_s = _safe_sharpe(r["test_stats"])
+        delta = r.get("sharpe_improvement") or 0
+        if isinstance(delta, float) and math.isnan(delta):
+            delta = 0.0
         verdict = r.get("test_verdict", "?")
         print(f"  {i:<4} {name:<32} {v4_s:>10.2f} {test_s:>11.2f} "
               f"{delta:>+7.2f} {verdict:<8}")
