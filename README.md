@@ -109,6 +109,48 @@ results_factors_xs.json     # Cross-sectional analysis results (runtime)
 docs/                       # Detailed documentation
 ```
 
+## Roadmap
+
+### v1.3 — Expand Universe + Optimize XS Factors
+
+The 11-ETF universe is too small for reliable cross-sectional ranking. This is the highest-impact next step.
+
+- Larger universe: S&P 100 (OEX) or sector top-5 (~55 stocks) for quintile support
+- `optimize-xs` command: Grid search XS factor params (mirroring the TS pipeline)
+- Train/test split for XS: 2019–2022 train, 2023+ test
+- Survivorship-bias-safe constituent lists
+
+### v1.4 — Portfolio Construction + Combined Signals
+
+Bridge from factor evaluation to actionable trading.
+
+- Ensemble top TS and XS signals into a combined score
+- Portfolio-level risk: cross-factor correlation, max drawdown limits, position sizing
+- `allocate` command: Generate target weights from combined signals
+- Wire allocation output to Alpaca paper trading via `trade.py`
+
+### v1.5 — More XS Factor Classes
+
+Unlock more of the 85 excluded alphas by approximating missing data:
+
+- VWAP approximation: `(high + low + close) / 3` — unlocks ~12 factors
+- Dollar volume (adv): `close * volume` + rolling mean — unlocks ~15 factors
+- Sector neutralization: `IndNeutralize` with GICS labels on individual stocks — unlocks ~8 factors
+
+### v1.6 — Live Paper Trading Loop
+
+- Scheduled daily runs (cron/scheduler)
+- Order execution: submit Alpaca orders from allocation
+- Performance tracking: log fills, P&L, slippage vs backtest
+- Alerting on signal changes and drawdown breaches
+
+### Longer Term
+
+- Intraday data for true VWAP-dependent factors
+- Alternative data (sentiment, fundamentals, options flow)
+- ML meta-model using factor values as features
+- Multi-asset expansion (crypto, futures, international ETFs)
+
 ## Documentation
 
 - [v1.2 Documentation](docs/v1.2.md) — cross-sectional analysis, evaluation metrics, design decisions
