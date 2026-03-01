@@ -63,7 +63,7 @@ Each version replaces one hand-done step with automation. Don't skip ahead.
 | **v2** | LLM reads a knowledge doc and produces a valid StrategySpec | DONE (`v2.py`) |
 | **v3** | Automated evaluation: pass/fail against performance thresholds | DONE (`v3.py`) |
 | **v4** | Full loop: all 92 strategy docs → spec → code → backtest → evaluate → rank | DONE (`v4.py`) |
-| **v5** | Parameter evolution: tune params within documented bounds | |
+| **v5** | Parameter evolution: tune params within documented bounds | DONE (`v5.py`) |
 | **v6** | Paper trading: deploy winning strategies to Alpaca paper trading | |
 
 ### StrategySpec (minimal, introduced at v1)
