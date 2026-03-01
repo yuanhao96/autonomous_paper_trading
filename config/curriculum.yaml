@@ -218,6 +218,32 @@ stages:
     description: Discovered during study of 'Foreign exchange risk'.
     mastery_criteria: Can explain and apply Translation risk in a concrete trading
       scenario
+  - id: economic_risk
+    name: Economic risk
+    description: Discovered during study of 'Transaction risk'.
+    mastery_criteria: Can explain and apply Economic risk in a concrete trading scenario
+  - id: trading_sessions
+    name: Trading sessions
+    description: Discovered during study of 'Transaction risk'.
+    mastery_criteria: Can explain and apply Trading sessions in a concrete trading
+      scenario
+  - id: ttmltm_earnings
+    name: TTM/LTM Earnings
+    description: Discovered during study of 'Trailing P/E (TTM/LTM)'.
+    mastery_criteria: Can explain and apply TTM/LTM Earnings in a concrete trading
+      scenario
+  - id: trend_analysis
+    name: Trend Analysis
+    description: Discovered during study of 'Trailing P/E (TTM/LTM)'.
+    mastery_criteria: Can explain and apply Trend Analysis in a concrete trading scenario
+  - id: breakouts
+    name: Breakouts
+    description: Discovered during study of 'PEG Ratio'.
+    mastery_criteria: Can explain and apply Breakouts in a concrete trading scenario
+  - id: market_breadth
+    name: Market Breadth
+    description: Discovered during study of 'PEG Ratio'.
+    mastery_criteria: Can explain and apply Market Breadth in a concrete trading scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
