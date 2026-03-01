@@ -23,7 +23,7 @@ This is the third attempt. Previous iterations failed due to:
 - **Backtesting**: backtesting.py
 - **Data**: yfinance (+ local Parquet cache when needed)
 - **LLM**: Claude API (Anthropic)
-- **Broker**: Interactive Brokers (future — paper trading first)
+- **Broker**: Alpaca (paper trading first, then live)
 - **Testing**: pytest
 - **Linting**: ruff (line-length 100) + mypy
 
