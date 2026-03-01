@@ -2,7 +2,7 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 from textwrap import dedent
 
 import pandas as pd
@@ -25,6 +25,7 @@ class FactorSpec:
     category: str = ""
     source: str = ""
     factor_ref: str = ""
+    factor_type: str = "time_series"
 
 
 # ---------------------------------------------------------------------------
@@ -288,3 +289,123 @@ def strip_markdown_fences(raw: str) -> str:
 def parse_llm_json(raw: str) -> dict:
     """Parse JSON from LLM output, stripping markdown fences."""
     return json.loads(strip_markdown_fences(raw))
+
+
+# ---------------------------------------------------------------------------
+# Cross-sectional code generation
+# ---------------------------------------------------------------------------
+
+XS_FACTOR_CODE_SYSTEM_PROMPT = dedent("""\
+    You are a Python code generator for cross-sectional alpha factors.
+
+    You will receive an alpha factor formula and must output a SINGLE Python function:
+
+    ```
+    def compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:
+        \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"
+    ```
+
+    The function receives:
+    - universe_data: dict mapping ticker -> DataFrame with columns [Open, High, Low, Close, Volume]
+    - **params: keyword arguments matching the factor's parameter dict
+
+    How to build panels from universe_data:
+    - close = pd.DataFrame({t: d["Close"] for t, d in universe_data.items()})
+    - open_ = pd.DataFrame({t: d["Open"] for t, d in universe_data.items()})
+    - high = pd.DataFrame({t: d["High"] for t, d in universe_data.items()})
+    - low = pd.DataFrame({t: d["Low"] for t, d in universe_data.items()})
+    - volume = pd.DataFrame({t: d["Volume"] for t, d in universe_data.items()}).astype(float)
+
+    Operator reference (translate the formula using these):
+    - rank(x) → x.rank(axis=1, pct=True)  # ranks across tickers at each date
+    - delay(x, d) → x.shift(d)            # shift forward in time (per column)
+    - delta(x, d) → x.diff(d)             # difference over d periods (per column)
+    - returns → close.pct_change(1)
+    - sma(x, d) → x.rolling(d).mean()
+    - stddev(x, d) → x.rolling(d).std()
+    - correlation(x, y, d) → x.rolling(d).corr(y)  # per-column rolling corr
+    - covariance(x, y, d) → x.rolling(d).cov(y)    # per-column rolling cov
+    - ts_min(x, d) → x.rolling(d).min()
+    - ts_max(x, d) → x.rolling(d).max()
+    - ts_rank(x, d) → x.rolling(d).apply(lambda s: s.rank().iloc[-1] / len(s), raw=False)
+    - ts_argmax(x, d) → x.rolling(d).apply(lambda s: s.argmax(), raw=True)
+    - sum(x, d) → x.rolling(d).sum()
+    - decay_linear(x, d) → x.rolling(d).apply(
+        lambda s: np.dot(s, np.arange(1, d+1)) / np.arange(1, d+1).sum(), raw=True)
+    - sign(x) → np.sign(x)
+    - log(x) → np.log(x)
+    - abs(x) → np.abs(x) or x.abs()
+    - where(cond, a, b) → np.where(cond, a, b)  (wrap result with pd.DataFrame if needed)
+    - SignedPower(x, e) → np.sign(x) * np.abs(x)**e
+    - product(x, d) → x.rolling(d).apply(np.prod, raw=True)
+    - max(x, d) → x.rolling(d).max()  (when used as ts_max)
+    - min(x, d) → x.rolling(d).min()  (when used as ts_min)
+
+    IMPORTANT:
+    - Time-series ops (shift, diff, rolling) apply per-column as usual.
+    - Cross-sectional ops (rank) apply across columns (axis=1) at each date.
+    - The returned DataFrame must have shape (dates × tickers) matching the input panels.
+    - Guard against division by zero with + 1e-8 in denominators.
+    - Cast volume to float.
+
+    Rules:
+    1. Output ONLY the Python code. No markdown, no explanation, no ```python blocks.
+    2. Start with necessary imports (pandas, numpy).
+    3. The function must be named compute_alpha.
+    4. Use **params to accept parameter overrides. Extract with params.get("name", default).
+    5. Keep it simple. Translate the formula directly.
+    6. Align panels on shared index before operations: use .dropna() at the end if needed.
+""")
+
+
+def _build_xs_factor_code_prompt(spec: FactorSpec) -> str:
+    return dedent(f"""\
+        Generate a compute_alpha function for this cross-sectional alpha factor:
+
+        Name: {spec.name}
+        Formula: {spec.formula}
+        Parameters: {spec.params}
+
+        The function signature:
+        def compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:
+
+        Remember:
+        - Function name must be compute_alpha
+        - rank(x) = x.rank(axis=1, pct=True) — cross-sectional ranking
+        - Time-series ops apply per-column
+        - No markdown fences, just raw Python code
+    """)
+
+
+def generate_xs_factor_code(spec: FactorSpec, provider: str = "openai") -> str:
+    """Generate a compute_alpha function from a FactorSpec using the chosen LLM."""
+    print(f"Generating cross-sectional factor code via {provider}...")
+    code = llm_call(
+        XS_FACTOR_CODE_SYSTEM_PROMPT, _build_xs_factor_code_prompt(spec),
+        provider, max_tokens=2000,
+    )
+    print(f"Generated {len(code.splitlines())} lines of code.\n")
+    return code
+
+
+def load_xs_alpha(code: str) -> Callable:
+    """Execute generated code and extract the compute_alpha function."""
+    code = strip_markdown_fences(code)
+
+    try:
+        compile(code, "<generated>", "exec")
+    except SyntaxError as e:
+        raise RuntimeError(f"Generated code has syntax error: {e}") from e
+
+    namespace: dict = {}
+    exec(code, namespace)
+
+    fn = namespace.get("compute_alpha")
+    if fn is None:
+        raise RuntimeError(
+            "Generated code does not define 'compute_alpha'.\n"
+            f"Defined names: {[k for k in namespace if not k.startswith('_')]}"
+        )
+    if not callable(fn):
+        raise RuntimeError(f"compute_alpha is not callable: {type(fn)}")
+    return fn  # type: ignore[no-any-return]

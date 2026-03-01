@@ -51,6 +51,22 @@ def main() -> None:
         help="Number of top factors to use (default: 5)",
     )
 
+    # --- analyze ---
+    p_analyze = sub.add_parser(
+        "analyze", help="Cross-sectional factor analysis on sector ETF universe",
+    )
+    p_analyze.add_argument(
+        "--reset", action="store_true", help="Start fresh, ignore previous results",
+    )
+    p_analyze.add_argument(
+        "--provider", choices=["openai", "anthropic"], default="openai",
+        help="LLM provider (default: openai)",
+    )
+    p_analyze.add_argument(
+        "--n-groups", type=int, default=3,
+        help="Number of portfolio groups/terciles (default: 3)",
+    )
+
     # --- status ---
     sub.add_parser("status", help="Show Alpaca account status and positions")
 
@@ -73,6 +89,12 @@ def main() -> None:
     elif args.command == "signals":
         from stratgen.factor_signals import run_factor_signals
         run_factor_signals(top_n=args.top_n)
+
+    elif args.command == "analyze":
+        from stratgen.factor_analyze import run_factor_analyze
+        run_factor_analyze(
+            provider=args.provider, reset=args.reset, n_groups=args.n_groups,
+        )
 
     elif args.command == "status":
         from stratgen.trade import cmd_status

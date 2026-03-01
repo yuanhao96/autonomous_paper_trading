@@ -10,7 +10,7 @@ build/
 .env
 
 # Data cache
-data/cache/
+data/
 
 # Tool caches
 .mypy_cache/

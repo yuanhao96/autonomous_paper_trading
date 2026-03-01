@@ -16,7 +16,7 @@ from stratgen.core import (
     generate_factor_code,
     load_strategy,
 )
-from stratgen.paths import FACTORS_DIR, RESULTS_FACTORS
+from stratgen.paths import FACTORS_DIR, RESULTS_FACTORS, XS_FACTORS_DIR
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +77,10 @@ def parse_factor_doc(path: Path) -> FactorSpec:
     m = re.search(r"## Category\n(\w+)", text)
     category = m.group(1).strip() if m else ""
 
+    # Type (default: time_series)
+    m = re.search(r"## Type\n(\w+)", text)
+    factor_type = m.group(1).strip() if m else "time_series"
+
     # Source
     m = re.search(r"## Source\n(.+?)(?=\n## |\Z)", text, re.DOTALL)
     source = m.group(1).strip() if m else ""
@@ -90,6 +94,7 @@ def parse_factor_doc(path: Path) -> FactorSpec:
         category=category,
         source=source,
         factor_ref=str(path),
+        factor_type=factor_type,
     )
 
 
@@ -109,12 +114,19 @@ def _parse_number(s: str) -> int | float:
 
 
 def collect_all_factors() -> list[Path]:
-    """Find all factor .md files under FACTORS_DIR, excluding README."""
+    """Find all time-series factor .md files under FACTORS_DIR.
+
+    Excludes README, template, and cross_sectional/ subdirectory.
+    """
     if not FACTORS_DIR.exists():
         return []
     factors = []
+    xs_dir = XS_FACTORS_DIR.resolve()
     for md in sorted(FACTORS_DIR.rglob("*.md")):
         if md.name.lower() in {"readme.md", "template.md"}:
+            continue
+        # Skip cross-sectional factors — handled by factor_analyze.py
+        if md.resolve().is_relative_to(xs_dir):
             continue
         factors.append(md)
     return factors
