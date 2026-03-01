@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stratgen"
+version = "0.6.0"
+description = "Autonomous trading strategy generation and optimization"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic",
+    "alpaca-py",
+    "backtesting",
+    "openai",
+    "pandas",
+    "python-dotenv",
+    "yfinance",
+]
+
+[project.optional-dependencies]
+dev = ["mypy", "pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true

@@ -1,36 +1,66 @@
-"""v3: Automated evaluation with pass/fail thresholds.
+"""Backtesting: run strategies, evaluate, summarize."""
 
-What's new vs v2:
-- Evaluate backtest results against thresholds (PASS / MARGINAL / FAIL)
-- Accept multiple knowledge docs or a directory
-- Summary table at the end
-- Results saved to JSON
-
-What's still manual: you pick which docs to feed it.
-
-Usage:
-    python v3.py knowledge/strategies/momentum/momentum-effect-in-stocks.md
-    python v3.py knowledge/strategies/technical-and-other/          # all docs in dir
-    python v3.py knowledge/strategies/momentum/ knowledge/strategies/calendar-anomalies/
-    python v3.py knowledge/strategies/momentum/ --provider anthropic
-"""
-
-import argparse
 import json
-import sys
 import traceback
 from dataclasses import asdict
-from datetime import datetime
 from pathlib import Path
 
-from core import (
+import pandas as pd
+from backtesting import Backtest, Strategy
+
+from stratgen.core import (
     StrategySpec,
     download_data,
     evaluate,
     generate_strategy_code,
     load_strategy,
 )
-from v2 import extract_spec, run_backtest, validate_spec
+from stratgen.spec import extract_spec, validate_spec
+
+
+# ---------------------------------------------------------------------------
+# Run backtest
+# ---------------------------------------------------------------------------
+
+
+def run_backtest(strategy_cls: type[Strategy], df: pd.DataFrame, spec: StrategySpec) -> dict:
+    """Run backtest and return stats dict. Also prints results."""
+    bt = Backtest(
+        df,
+        strategy_cls,
+        cash=100_000,
+        commission=0.001,
+        exclusive_orders=True,
+    )
+    stats = bt.run()
+
+    n_trades = stats["# Trades"]
+
+    print("=" * 55)
+    print(f"  {spec.name}")
+    print(f"  Ticker: {spec.universe[0]}  |  {df.index[0].date()} to {df.index[-1].date()}")
+    print("=" * 55)
+
+    if n_trades == 0:
+        print("  ** ZERO TRADES — strategy never triggered **")
+    else:
+        print(f"  Total Return:    {stats['Return [%]']:.2f}%")
+        print(f"  Buy & Hold:      {stats['Buy & Hold Return [%]']:.2f}%")
+        print(f"  Sharpe Ratio:    {stats['Sharpe Ratio']:.2f}")
+        print(f"  Max Drawdown:    {stats['Max. Drawdown [%]']:.2f}%")
+        print(f"  # Trades:        {n_trades}")
+        print(f"  Win Rate:        {stats['Win Rate [%]']:.1f}%")
+        print(f"  Avg Trade:       {stats['Avg. Trade [%]']:.2f}%")
+        print(f"  Exposure Time:   {stats['Exposure Time [%]']:.1f}%")
+
+    if spec.adaptations:
+        print("-" * 55)
+        print("  Adaptations from original strategy:")
+        for a in spec.adaptations:
+            print(f"    - {a}")
+
+    print("=" * 55)
+    return dict(stats)
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +152,7 @@ def _is_serializable(v):
 
 
 # ---------------------------------------------------------------------------
-# Collect knowledge docs from args
+# Collect knowledge docs from paths
 # ---------------------------------------------------------------------------
 
 
@@ -183,59 +213,3 @@ def print_summary(results: list[dict]):
         print(f"  {name:<40} {verdict:<10} {sharpe_str} {ret_str} {trades_str}")
 
     print("=" * 75)
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="v3: knowledge doc → spec → code → backtest → evaluate"
-    )
-    parser.add_argument(
-        "knowledge_docs",
-        nargs="+",
-        help="Knowledge doc path(s) or director(ies)",
-    )
-    parser.add_argument(
-        "--provider",
-        choices=["openai", "anthropic"],
-        default="openai",
-        help="LLM provider (default: openai)",
-    )
-    parser.add_argument(
-        "--output",
-        default=None,
-        help="Save results to JSON file (default: results_YYYYMMDD_HHMMSS.json)",
-    )
-    args = parser.parse_args()
-
-    docs = collect_docs(args.knowledge_docs)
-    if not docs:
-        print("No knowledge docs found.")
-        sys.exit(1)
-
-    print(f"Found {len(docs)} knowledge doc(s) to process.\n")
-
-    results = []
-    for i, doc in enumerate(docs, 1):
-        print(f"\n{'#' * 75}")
-        print(f"# [{i}/{len(docs)}] {doc}")
-        print(f"{'#' * 75}")
-        result = run_one(doc, provider=args.provider)
-        results.append(result)
-
-    # Summary
-    print_summary(results)
-
-    # Save results
-    output_path = args.output or f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(output_path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
-    print(f"\nResults saved to {output_path}")
-
-
-if __name__ == "__main__":
-    main()

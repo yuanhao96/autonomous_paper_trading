@@ -19,10 +19,10 @@ This is the third attempt. Previous iterations failed due to:
 
 ## Technology Stack
 
-- **Language**: Python 3.11+
+- **Language**: Python 3.10+
 - **Backtesting**: backtesting.py
 - **Data**: yfinance (+ local Parquet cache when needed)
-- **LLM**: Claude API (Anthropic)
+- **LLM**: Claude API (Anthropic) / OpenAI
 - **Broker**: Alpaca (paper trading first, then live)
 - **Testing**: pytest
 - **Linting**: ruff (line-length 100) + mypy
@@ -30,49 +30,68 @@ This is the third attempt. Previous iterations failed due to:
 ## Commands
 
 ```bash
-conda activate base                      # Or appropriate env
-pip install -r requirements.txt          # Install dependencies
-pytest tests/ -v                         # Run tests
-ruff check .                             # Lint
-mypy .                                   # Type check
+pip install -e .                         # Install package (editable)
+pip install -e ".[dev]"                  # Install with dev tools
+python -m stratgen discover             # Discover + backtest all strategy docs
+python -m stratgen optimize             # Optimize params for passing strategies
+python -m stratgen signals              # Generate trading signals (no orders)
+python -m stratgen run                  # Generate signals + submit Alpaca orders
+python -m stratgen status               # Show Alpaca account + positions
+ruff check src/stratgen/                # Lint
+mypy src/stratgen/                      # Type check
+pytest tests/ -v                        # Run tests
 ```
 
 ## Project Structure
 
 ```
-knowledge/           # 145 curated docs — READ-ONLY
-  strategies/        #   83 strategy templates across 10 categories
-  financial-python/  #   14 financial Python guides
-  key-concepts/      #   15 general trading concepts
-  trading-concepts/  #   33 trading agent modeling concepts
-project_memory/      # Cross-session context (lessons, progress)
-goal.md              # Original project goals and source URLs
-src/                 # All source code (to be built)
-tests/               # All tests
-config/              # Configuration files (YAML)
+pyproject.toml          # Package metadata, ruff/mypy config
+knowledge/              # 145 curated docs — READ-ONLY
+  strategies/           #   83 strategy templates across 10 categories
+  financial-python/     #   14 financial Python guides
+  key-concepts/         #   15 general trading concepts
+  trading-concepts/     #   33 trading agent modeling concepts
+src/
+  stratgen/
+    __init__.py         # Version string
+    __main__.py         # python -m stratgen entry point
+    cli.py              # Argparse CLI with subcommands
+    paths.py            # PROJECT_ROOT, KNOWLEDGE_DIR, result file paths
+    core.py             # StrategySpec, llm_call, codegen, evaluate
+    spec.py             # Knowledge doc → StrategySpec extraction
+    backtest.py         # run_backtest, run_one, print_summary
+    discover.py         # Discovery loop over all strategy docs
+    optimize.py         # Parameter optimization via grid search
+    trade.py            # Alpaca paper trading: signals, orders, status
+archive/                # Historical files (v0.py, v1.py)
+results_v4.json         # Discovery results (runtime artifact)
+results_v5.json         # Optimization results (runtime artifact)
+runs_v6.json            # Trading run logs (runtime artifact)
+tests/                  # All tests
 ```
 
-## Roadmap
+## Pipeline
 
-Each version replaces one hand-done step with automation. Don't skip ahead.
+The pipeline stages build on each other:
 
-| Version | What it does | Status |
-|---------|-------------|--------|
-| **v0** | Hand-picked SMA crossover, hand-written strategy, backtest SPY, print stats | DONE (`v0.py`) |
-| **v1** | LLM generates a backtesting.py strategy class from a StrategySpec | DONE (`v1.py`) |
-| **v2** | LLM reads a knowledge doc and produces a valid StrategySpec | DONE (`v2.py`) |
-| **v3** | Automated evaluation: pass/fail against performance thresholds | DONE (`v3.py`) |
-| **v4** | Full loop: all 92 strategy docs → spec → code → backtest → evaluate → rank | DONE (`v4.py`) |
-| **v5** | Parameter evolution: tune params within documented bounds | DONE (`v5.py`) |
-| **v6** | Paper trading: deploy winning strategies to Alpaca paper trading | |
+| Stage | Command | What it does |
+|-------|---------|-------------|
+| **Discover** | `python -m stratgen discover` | All strategy docs → spec → code → backtest → evaluate → rank |
+| **Optimize** | `python -m stratgen optimize` | Tune params for PASS/MARGINAL strategies via grid search |
+| **Signals** | `python -m stratgen signals` | Generate LONG/FLAT signals from top strategies |
+| **Run** | `python -m stratgen run` | Signals → reconcile Alpaca positions → submit orders |
+| **Status** | `python -m stratgen status` | Show Alpaca account balance and positions |
 
-### StrategySpec (minimal, introduced at v1)
+All LLM subcommands accept `--provider {openai,anthropic}` (default: openai).
+Discovery and optimization support `--reset` to start fresh and auto-resume by default.
+
+### StrategySpec
 
 ```python
 @dataclass
 class StrategySpec:
     name: str                    # "SMA Crossover"
-    knowledge_ref: str           # "strategies/momentum/sma-crossover.md"
+    knowledge_ref: str           # "knowledge/strategies/momentum/sma-crossover.md"
     universe: list[str]          # ["SPY"]
     timeframe: str               # "1d"
     entry_signal: str            # "SMA(20) crosses above SMA(50)"
@@ -82,13 +101,10 @@ class StrategySpec:
     params: dict                 # {"fast_period": 20, "slow_period": 50}
 ```
 
-Grows as needed. Do not add fields until a version requires them.
-
 ## Conventions
 
-- All code must pass `ruff check .` and `mypy .` before commit
+- All code must pass `ruff check src/stratgen/` and `mypy src/stratgen/` before commit
 - Tests in `tests/` with `test_` prefix
-- Configuration in YAML under `config/`
 - Secrets in `.env` (gitignored), loaded via `python-dotenv`
 - Keep modules small and focused — no god classes
 - Prefer composition over inheritance

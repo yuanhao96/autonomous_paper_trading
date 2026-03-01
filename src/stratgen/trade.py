@@ -1,21 +1,5 @@
-"""v6: Paper trading — deploy winning strategies to Alpaca.
+"""Paper trading: signals, orders, and status via Alpaca."""
 
-What's new vs v5:
-- Takes top N PASS strategies from v5 (by test Sharpe)
-- Runs backtest on recent data to extract current signal (LONG / FLAT)
-- Reconciles positions in Alpaca paper account
-- Submits market orders to reach desired allocation
-
-Usage:
-    python v6.py run                      # generate signals + submit orders
-    python v6.py signals                  # show signals only, no trading
-    python v6.py status                   # show Alpaca account + positions
-    python v6.py run --top-n 3            # override strategy count
-    python v6.py run --provider anthropic
-    python v6.py run --v5-results path.json
-"""
-
-import argparse
 import json
 import math
 import sys
@@ -23,20 +7,14 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-from core import (
+from stratgen.core import (
     download_data,
     generate_strategy_code,
     load_strategy,
     spec_from_dict,
 )
+from stratgen.paths import RESULTS_DISCOVER, RESULTS_OPTIMIZE, RUNS_TRADE
 
-load_dotenv()
-
-DEFAULT_V5_RESULTS = Path(__file__).parent / "results_v5.json"
-DEFAULT_V4_RESULTS = Path(__file__).parent / "results_v4.json"
-RUNS_FILE = Path(__file__).parent / "runs_v6.json"
 SIGNAL_DATA_START = "2024-01-01"
 DEFAULT_TOP_N = 5
 
@@ -61,20 +39,23 @@ def get_alpaca_client():
 
 
 # ---------------------------------------------------------------------------
-# Load top strategies from v5 + v4
+# Load top strategies from optimize + discover results
 # ---------------------------------------------------------------------------
 
 
 def load_top_strategies(
-    v5_path: str, v4_path: str, top_n: int,
+    v5_path: str | None, v4_path: str | None, top_n: int,
 ) -> list[dict]:
-    """Load top N PASS strategies from v5, cross-ref v4 for specs.
+    """Load top N PASS strategies from optimize, cross-ref discover for specs.
 
     Returns list of dicts with keys: name, knowledge_doc, spec (dict),
     optimized_params, test_sharpe.
     """
-    # Load v5 results
-    v5_results = json.loads(Path(v5_path).read_text())
+    opt_path = Path(v5_path) if v5_path else RESULTS_OPTIMIZE
+    disc_path = Path(v4_path) if v4_path else RESULTS_DISCOVER
+
+    # Load optimize results
+    v5_results = json.loads(opt_path.read_text())
     pass_strats = [
         r for r in v5_results
         if r.get("test_verdict") == "PASS"
@@ -83,7 +64,7 @@ def load_top_strategies(
     ]
 
     if not pass_strats:
-        print("No PASS strategies found in v5 results.")
+        print("No PASS strategies found in optimize results.")
         return []
 
     # Sort by test Sharpe descending
@@ -91,8 +72,8 @@ def load_top_strategies(
         key=lambda r: r["test_stats"]["Sharpe Ratio"], reverse=True,
     )
 
-    # Load v4 results and index by knowledge_doc
-    v4_results = json.loads(Path(v4_path).read_text())
+    # Load discover results and index by knowledge_doc
+    v4_results = json.loads(disc_path.read_text())
     v4_by_doc = {r["knowledge_doc"]: r for r in v4_results if r.get("spec")}
 
     # Merge top N
@@ -101,7 +82,8 @@ def load_top_strategies(
         doc = r["knowledge_doc"]
         v4 = v4_by_doc.get(doc)
         if v4 is None:
-            print(f"  Warning: v5 strategy '{r['name']}' not found in v4 results, skipping")
+            print(f"  Warning: optimize strategy '{r['name']}' not found in discover results, "
+                  f"skipping")
             continue
 
         selected.append({
@@ -364,19 +346,19 @@ def show_status(client) -> None:
 
 
 def save_run_log(run: dict) -> None:
-    """Append run to runs_v6.json."""
+    """Append run to runs file."""
     runs = []
-    if RUNS_FILE.exists():
+    if RUNS_TRADE.exists():
         try:
-            runs = json.loads(RUNS_FILE.read_text())
+            runs = json.loads(RUNS_TRADE.read_text())
         except (json.JSONDecodeError, ValueError):
             runs = []
     runs.append(run)
-    RUNS_FILE.write_text(json.dumps(runs, indent=2, default=str))
+    RUNS_TRADE.write_text(json.dumps(runs, indent=2, default=str))
 
 
 # ---------------------------------------------------------------------------
-# Commands
+# Commands (called from cli.py)
 # ---------------------------------------------------------------------------
 
 
@@ -388,7 +370,9 @@ def cmd_status(args) -> None:
 
 def cmd_signals(args) -> None:
     """Generate signals only, no trading."""
-    strategies = load_top_strategies(args.v5_results, args.v4_results, args.top_n)
+    v5_path = getattr(args, "v5_results", None)
+    v4_path = getattr(args, "v4_results", None)
+    strategies = load_top_strategies(v5_path, v4_path, args.top_n)
     if not strategies:
         sys.exit(1)
 
@@ -437,7 +421,9 @@ def cmd_run(args) -> None:
     print(f"Account equity: ${equity:,.2f}\n")
 
     # 4. Load top strategies
-    strategies = load_top_strategies(args.v5_results, args.v4_results, args.top_n)
+    v5_path = getattr(args, "v5_results", None)
+    v4_path = getattr(args, "v4_results", None)
+    strategies = load_top_strategies(v5_path, v4_path, args.top_n)
     if not strategies:
         sys.exit(1)
 
@@ -504,7 +490,7 @@ def cmd_run(args) -> None:
         "account_equity": equity,
     }
     save_run_log(run_log)
-    print(f"Run log saved to {RUNS_FILE}")
+    print(f"Run log saved to {RUNS_TRADE}")
 
     # Final summary
     print("\n" + "=" * 55)
@@ -517,49 +503,3 @@ def cmd_run(args) -> None:
     print(f"  Orders:     {len(order_results)} submitted")
     print(f"  Equity:     ${equity:,.2f}")
     print("=" * 55)
-
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="v6: paper trading — deploy winning strategies to Alpaca",
-    )
-    parser.add_argument(
-        "command",
-        nargs="?",
-        default="signals",
-        choices=["run", "signals", "status"],
-        help="Command to run (default: signals)",
-    )
-    parser.add_argument(
-        "--top-n", type=int, default=DEFAULT_TOP_N,
-        help=f"Number of top strategies to deploy (default: {DEFAULT_TOP_N})",
-    )
-    parser.add_argument(
-        "--provider", choices=["openai", "anthropic"], default="openai",
-        help="LLM provider for code generation (default: openai)",
-    )
-    parser.add_argument(
-        "--v5-results", default=str(DEFAULT_V5_RESULTS),
-        help="Path to v5 results JSON",
-    )
-    parser.add_argument(
-        "--v4-results", default=str(DEFAULT_V4_RESULTS),
-        help="Path to v4 results JSON",
-    )
-    args = parser.parse_args()
-
-    if args.command == "status":
-        cmd_status(args)
-    elif args.command == "signals":
-        cmd_signals(args)
-    elif args.command == "run":
-        cmd_run(args)
-
-
-if __name__ == "__main__":
-    main()

@@ -1,27 +1,11 @@
-"""v4: Full autonomous loop over all strategy docs.
+"""Discovery loop: find all strategy docs, run pipeline, rank results."""
 
-What's new vs v3:
-- Auto-discover all strategy .md files under knowledge/strategies/
-- Resume: saves results after each doc, skips already-processed on restart
-- Leaderboard: ranks passing strategies by Sharpe ratio
-- Default to all strategies: run with no args
-
-Usage:
-    python v4.py                          # run all strategy docs (auto-resumes)
-    python v4.py --reset                  # start fresh, ignore previous results
-    python v4.py --provider anthropic     # use Anthropic instead of OpenAI
-"""
-
-import argparse
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
-from v3 import evaluate, print_summary, run_one
-
-STRATEGIES_DIR = Path(__file__).parent / "knowledge" / "strategies"
-RESULTS_FILE = Path(__file__).parent / "results_v4.json"
+from stratgen.backtest import print_summary, run_one
+from stratgen.paths import RESULTS_DISCOVER, STRATEGIES_DIR
 
 
 # ---------------------------------------------------------------------------
@@ -102,27 +86,12 @@ def print_leaderboard(results: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Main entry point
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="v4: autonomous loop — discover all strategy docs → spec → code → backtest → evaluate"
-    )
-    parser.add_argument(
-        "--reset",
-        action="store_true",
-        help="Start fresh, ignore previous results",
-    )
-    parser.add_argument(
-        "--provider",
-        choices=["openai", "anthropic"],
-        default="openai",
-        help="LLM provider (default: openai)",
-    )
-    args = parser.parse_args()
-
+def run_discover(provider: str = "openai", reset: bool = False) -> None:
+    """Run the discovery loop over all strategy docs."""
     # 1. Discover all strategy docs
     all_docs = collect_all_strategy_docs()
     print(f"Found {len(all_docs)} strategy docs under {STRATEGIES_DIR}\n")
@@ -132,13 +101,13 @@ def main() -> None:
         sys.exit(1)
 
     # 2. Load or reset results
-    if args.reset:
+    if reset:
         results: list[dict] = []
         print("Starting fresh (--reset).\n")
     else:
-        results = load_results(RESULTS_FILE)
+        results = load_results(RESULTS_DISCOVER)
         if results:
-            print(f"Loaded {len(results)} previous results from {RESULTS_FILE.name}")
+            print(f"Loaded {len(results)} previous results from {RESULTS_DISCOVER.name}")
 
     done = already_processed(results)
     remaining = [d for d in all_docs if d not in done]
@@ -156,11 +125,11 @@ def main() -> None:
         print(f"# [{idx}/{total}] {doc}")
         print(f"{'#' * 75}")
 
-        result = run_one(doc, provider=args.provider)
+        result = run_one(doc, provider=provider)
         results.append(result)
 
         # Save after each doc for resume capability
-        save_results(results, RESULTS_FILE)
+        save_results(results, RESULTS_DISCOVER)
 
         # Progress line
         verdict = result["verdict"] or "?"
@@ -185,8 +154,4 @@ def main() -> None:
         if v in counts:
             print(f"  {v}: {counts[v]}")
 
-    print(f"\nResults saved to {RESULTS_FILE}")
-
-
-if __name__ == "__main__":
-    main()
+    print(f"\nResults saved to {RESULTS_DISCOVER}")

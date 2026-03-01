@@ -1,14 +1,4 @@
-"""core.py: Shared code extracted from v2/v3/v5.
-
-Provides:
-- StrategySpec dataclass
-- llm_call() — unified LLM call for OpenAI / Anthropic
-- generate_strategy_code() — spec → backtesting.py code
-- load_strategy() — exec code → Strategy class
-- download_data() — yfinance OHLCV download
-- evaluate() — pass/fail against thresholds
-- spec_from_dict() — reconstruct StrategySpec from dict
-"""
+"""Shared primitives: StrategySpec, LLM calls, codegen, evaluation."""
 
 import json
 from dataclasses import dataclass, field
@@ -17,9 +7,6 @@ from textwrap import dedent
 import pandas as pd
 import yfinance as yf
 from backtesting import Strategy
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +259,7 @@ def spec_from_dict(d: dict) -> StrategySpec:
 
 
 # ---------------------------------------------------------------------------
-# JSON helpers (used by v5, v6)
+# JSON helpers
 # ---------------------------------------------------------------------------
 
 

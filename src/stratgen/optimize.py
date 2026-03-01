@@ -1,21 +1,5 @@
-"""v5: Parameter evolution — optimize strategy params via grid search.
+"""Parameter optimization: grid search on train split, evaluate on test."""
 
-What's new vs v4:
-- Takes PASS/MARGINAL strategies from v4 results
-- LLM extracts param ranges from knowledge docs (knowledge-constrained)
-- Grid search optimization on train split (2020–2023H1)
-- Out-of-sample evaluation on test split (2023H2–2025)
-- Resume support: saves after each strategy
-
-Usage:
-    python v5.py                          # optimize all v4 PASS/MARGINAL (auto-resume)
-    python v5.py --reset                  # start fresh
-    python v5.py --provider anthropic     # use Anthropic instead of OpenAI
-    python v5.py --v4-results path.json   # custom v4 results file
-    python v5.py --max-tries 500          # increase grid search budget (default: 200)
-"""
-
-import argparse
 import json
 import math
 import sys
@@ -23,8 +7,7 @@ import traceback
 from pathlib import Path
 from textwrap import dedent
 
-from core import (
-    StrategySpec,
+from stratgen.core import (
     download_data,
     evaluate,
     generate_strategy_code,
@@ -33,9 +16,8 @@ from core import (
     parse_llm_json,
     spec_from_dict,
 )
+from stratgen.paths import RESULTS_DISCOVER, RESULTS_OPTIMIZE
 
-RESULTS_FILE = Path(__file__).parent / "results_v5.json"
-DEFAULT_V4_RESULTS = Path(__file__).parent / "results_v4.json"
 TRAIN_END = "2023-06-30"
 
 
@@ -429,36 +411,21 @@ def print_leaderboard(results: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Main entry point
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="v5: parameter evolution — optimize v4 PASS/MARGINAL strategies",
-    )
-    parser.add_argument(
-        "--reset", action="store_true",
-        help="Start fresh, ignore previous results",
-    )
-    parser.add_argument(
-        "--provider", choices=["openai", "anthropic"], default="openai",
-        help="LLM provider (default: openai)",
-    )
-    parser.add_argument(
-        "--v4-results", default=str(DEFAULT_V4_RESULTS),
-        help="Path to v4 results JSON (default: results_v4.json)",
-    )
-    parser.add_argument(
-        "--max-tries", type=int, default=200,
-        help="Max grid search combinations to try (default: 200)",
-    )
-    args = parser.parse_args()
-
+def run_optimize(
+    provider: str = "openai",
+    reset: bool = False,
+    v4_results_path: str | None = None,
+    max_tries: int = 200,
+) -> None:
+    """Run parameter optimization on PASS/MARGINAL strategies from discover."""
     # 1. Load v4 results, filter to PASS/MARGINAL
-    v4_path = Path(args.v4_results)
+    v4_path = Path(v4_results_path) if v4_results_path else RESULTS_DISCOVER
     if not v4_path.exists():
-        print(f"v4 results not found: {v4_path}")
+        print(f"Discover results not found: {v4_path}")
         sys.exit(1)
 
     with open(v4_path) as f:
@@ -470,20 +437,20 @@ def main() -> None:
         and r.get("spec")
         and r.get("stats")
     ]
-    print(f"Found {len(candidates)} PASS/MARGINAL strategies from v4\n")
+    print(f"Found {len(candidates)} PASS/MARGINAL strategies from discover\n")
 
     if not candidates:
         print("No candidates to optimize.")
         sys.exit(0)
 
-    # 2. Load or reset v5 results
-    if args.reset:
+    # 2. Load or reset results
+    if reset:
         results: list[dict] = []
         print("Starting fresh (--reset).\n")
     else:
-        results = load_results(RESULTS_FILE)
+        results = load_results(RESULTS_OPTIMIZE)
         if results:
-            print(f"Loaded {len(results)} previous results from {RESULTS_FILE.name}")
+            print(f"Loaded {len(results)} previous results from {RESULTS_OPTIMIZE.name}")
 
     done = already_processed(results)
     remaining = [c for c in candidates if c["knowledge_doc"] not in done]
@@ -502,11 +469,11 @@ def main() -> None:
         print(f"# [{idx}/{total}] {v4_res['name']}")
         print(f"{'#' * 75}")
 
-        result = optimize_one(v4_res, provider=args.provider, max_tries=args.max_tries)
+        result = optimize_one(v4_res, provider=provider, max_tries=max_tries)
         results.append(result)
 
         # Save after each for resume
-        save_results(results, RESULTS_FILE)
+        save_results(results, RESULTS_OPTIMIZE)
 
         verdict = result.get("test_verdict", "?")
         name = result["name"] or "?"
@@ -528,8 +495,4 @@ def main() -> None:
         if v in counts:
             print(f"  {v}: {counts[v]}")
 
-    print(f"\nResults saved to {RESULTS_FILE}")
-
-
-if __name__ == "__main__":
-    main()
+    print(f"\nResults saved to {RESULTS_OPTIMIZE}")

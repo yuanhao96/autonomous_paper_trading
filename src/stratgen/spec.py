@@ -1,45 +1,16 @@
-"""v2: LLM reads a knowledge doc and produces a StrategySpec.
+"""Spec extraction: knowledge doc → StrategySpec via LLM."""
 
-What's new vs v1:
-- LLM reads a knowledge base markdown doc and extracts a StrategySpec (JSON)
-- StrategySpec gains 'adaptations' and 'skipped' fields
-- Validation: check ticker exists, check zero trades
-- Two LLM calls: knowledge doc → spec, spec → code
-
-What's still manual: you pick which knowledge doc to feed it.
-
-Usage:
-    python v2.py knowledge/strategies/momentum/momentum-effect-in-stocks.md
-    python v2.py knowledge/strategies/technical-and-other/ichimoku-cloud.md --provider anthropic
-    python v2.py knowledge/strategies/calendar-anomalies/pre-holiday-effect.md
-"""
-
-import argparse
-import sys
 from pathlib import Path
 from textwrap import dedent
 
-import pandas as pd
 import yfinance as yf
-from backtesting import Backtest, Strategy
-from dotenv import load_dotenv
 
-from core import (
-    StrategySpec,
-    download_data,
-    generate_strategy_code,
-    llm_call,
-    load_strategy,
-    parse_llm_json,
-)
-
-load_dotenv()
-
-KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
+from stratgen.core import StrategySpec, llm_call, parse_llm_json
+from stratgen.paths import KNOWLEDGE_DIR, PROJECT_ROOT
 
 
 # ---------------------------------------------------------------------------
-# Step 1: Knowledge doc → StrategySpec (NEW in v2)
+# LLM prompt
 # ---------------------------------------------------------------------------
 
 SPEC_SYSTEM_PROMPT = dedent("""\
@@ -92,6 +63,11 @@ SPEC_SYSTEM_PROMPT = dedent("""\
     - Choose a sensible default ticker: SPY for broad equity, QQQ for tech, GLD for gold, etc.
     - Use 0 temperature thinking — be precise, not creative
 """)
+
+
+# ---------------------------------------------------------------------------
+# Extraction
+# ---------------------------------------------------------------------------
 
 
 def _extract_spec_llm(
@@ -148,7 +124,7 @@ def extract_spec(knowledge_path: str, provider: str = "openai") -> StrategySpec:
 
     knowledge_text = path.read_text()
     path = path.resolve()
-    knowledge_ref = str(path.relative_to(Path(__file__).resolve().parent))
+    knowledge_ref = str(path.relative_to(PROJECT_ROOT))
 
     print(f"Reading: {knowledge_ref}")
     print(f"Extracting StrategySpec via {provider}...")
@@ -183,116 +159,3 @@ def validate_spec(spec: StrategySpec) -> list[str]:
     if spec.stop_loss_pct < 0 or spec.stop_loss_pct > 0.5:
         errors.append(f"stop_loss_pct={spec.stop_loss_pct} out of range [0, 0.5]")
     return errors
-
-
-# ---------------------------------------------------------------------------
-# Backtest
-# ---------------------------------------------------------------------------
-
-
-def run_backtest(strategy_cls: type[Strategy], df: pd.DataFrame, spec: StrategySpec) -> dict:
-    """Run backtest and return stats dict. Also prints results."""
-    bt = Backtest(
-        df,
-        strategy_cls,
-        cash=100_000,
-        commission=0.001,
-        exclusive_orders=True,
-    )
-    stats = bt.run()
-
-    n_trades = stats["# Trades"]
-
-    print("=" * 55)
-    print(f"  {spec.name}")
-    print(f"  Ticker: {spec.universe[0]}  |  {df.index[0].date()} to {df.index[-1].date()}")
-    print("=" * 55)
-
-    if n_trades == 0:
-        print("  ** ZERO TRADES — strategy never triggered **")
-    else:
-        print(f"  Total Return:    {stats['Return [%]']:.2f}%")
-        print(f"  Buy & Hold:      {stats['Buy & Hold Return [%]']:.2f}%")
-        print(f"  Sharpe Ratio:    {stats['Sharpe Ratio']:.2f}")
-        print(f"  Max Drawdown:    {stats['Max. Drawdown [%]']:.2f}%")
-        print(f"  # Trades:        {n_trades}")
-        print(f"  Win Rate:        {stats['Win Rate [%]']:.1f}%")
-        print(f"  Avg Trade:       {stats['Avg. Trade [%]']:.2f}%")
-        print(f"  Exposure Time:   {stats['Exposure Time [%]']:.1f}%")
-
-    if spec.adaptations:
-        print("-" * 55)
-        print("  Adaptations from original strategy:")
-        for a in spec.adaptations:
-            print(f"    - {a}")
-
-    print("=" * 55)
-    return dict(stats)
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="v2: LLM reads a knowledge doc → StrategySpec → code → backtest"
-    )
-    parser.add_argument("knowledge_doc", help="Path to a knowledge base markdown file")
-    parser.add_argument(
-        "--provider",
-        choices=["openai", "anthropic"],
-        default="openai",
-        help="LLM provider (default: openai)",
-    )
-    args = parser.parse_args()
-
-    # Step 1: Knowledge doc → StrategySpec
-    spec = extract_spec(args.knowledge_doc, provider=args.provider)
-
-    if spec.skipped:
-        print(f"\n** SKIPPED: {spec.name} **")
-        print(f"   Reason: {spec.skipped}")
-        sys.exit(0)
-
-    print(f"\n--- Extracted Spec ---")
-    print(f"  Name:           {spec.name}")
-    print(f"  Ticker:         {spec.universe}")
-    print(f"  Entry:          {spec.entry_signal}")
-    print(f"  Exit:           {spec.exit_signal}")
-    print(f"  Stop Loss:      {spec.stop_loss_pct:.1%}")
-    print(f"  Position Size:  {spec.position_size_pct:.0%}")
-    print(f"  Params:         {spec.params}")
-    if spec.adaptations:
-        print(f"  Adaptations:    {spec.adaptations}")
-    print(f"--- End Spec ---\n")
-
-    # Step 1b: Validate spec
-    errors = validate_spec(spec)
-    if errors:
-        print("** Spec validation failed:")
-        for e in errors:
-            print(f"   - {e}")
-        sys.exit(1)
-
-    # Step 2: StrategySpec → code
-    code = generate_strategy_code(spec, provider=args.provider)
-    print("--- Generated Code ---")
-    print(code)
-    print("--- End Generated Code ---\n")
-
-    # Step 3: Load strategy
-    try:
-        strategy_cls = load_strategy(code)
-    except Exception as e:
-        print(f"** Code loading failed: {e}")
-        sys.exit(1)
-
-    # Step 4: Download data and run backtest
-    df = download_data(spec.universe[0])
-    run_backtest(strategy_cls, df, spec)
-
-
-if __name__ == "__main__":
-    main()
