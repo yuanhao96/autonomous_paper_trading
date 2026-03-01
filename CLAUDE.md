@@ -59,13 +59,12 @@ Each version replaces one hand-done step with automation. Don't skip ahead.
 | Version | What it does | Status |
 |---------|-------------|--------|
 | **v0** | Hand-picked SMA crossover, hand-written strategy, backtest SPY, print stats | DONE (`v0.py`) |
-| **v1** | LLM generates a backtesting.py strategy class from a StrategySpec | |
-| **v2** | LLM reads a knowledge doc and produces a valid StrategySpec | |
-| **v3** | Automated evaluation: pass/fail against performance thresholds | |
-| **v4** | Full loop: pick strategy → generate code → backtest → evaluate → repeat | |
-| **v5** | Multi-strategy: run loop across multiple knowledge docs, rank results | |
-| **v6** | Parameter evolution: tune params within documented bounds | |
-| **v7** | Paper trading: deploy winning strategies to Alpaca paper trading | |
+| **v1** | LLM generates a backtesting.py strategy class from a StrategySpec | DONE (`v1.py`) |
+| **v2** | LLM reads a knowledge doc and produces a valid StrategySpec | DONE (`v2.py`) |
+| **v3** | Automated evaluation: pass/fail against performance thresholds | DONE (`v3.py`) |
+| **v4** | Full loop: all 92 strategy docs → spec → code → backtest → evaluate → rank | DONE (`v4.py`) |
+| **v5** | Parameter evolution: tune params within documented bounds | |
+| **v6** | Paper trading: deploy winning strategies to Alpaca paper trading | |
 
 ### StrategySpec (minimal, introduced at v1)
 
