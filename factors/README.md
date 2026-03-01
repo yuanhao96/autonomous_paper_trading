@@ -2,15 +2,26 @@
 
 A unified collection of individual alpha factor formulas for the stratgen pipeline. Each `.md` file contains exactly one factor with a standardized format.
 
-## Signal Rule
+## Factor Types
 
-All factors produce a continuous signal value:
+### Time-series factors (115 factors)
+
+Located in `momentum/`, `volume_price/`, `mean_reversion/`, `volatility/`, `price_channel/`, `trend/`, `composite/`. These produce a signal for a single ticker (SPY):
 - **alpha > 0** → LONG (buy/hold SPY at 95% equity)
 - **alpha ≤ 0** → FLAT (no position)
 - **Stop-loss**: 2% trailing stop on all positions
 - **Rebalancing**: Daily
 
+### Cross-sectional factors (18 factors)
+
+Located in `cross_sectional/`. These rank tickers relative to each other across a universe of sector ETFs:
+- `rank()` = `.rank(axis=1, pct=True)` — percentile rank across tickers at each date
+- Evaluated via Information Coefficient, tercile portfolios, and return monotonicity
+- No backtesting.py — pure pandas computation
+
 ## Factor Doc Format
+
+### Time-series factor
 
 ```markdown
 # WQ-NNN: Short Description
@@ -33,6 +44,34 @@ momentum
 WorldQuant Alpha#NNN (Kakushadze 2015)
 ```
 
+### Cross-sectional factor
+
+Same format plus a `## Type` field:
+
+```markdown
+# WQ-NNN: Short Description
+
+## Formula
+-1 * correlation(rank(open), rank(volume), 10)
+
+## Interpretation
+One or two sentences.
+
+## Parameters
+| Param | Default | Range |
+|-------|---------|-------|
+| lookback | 10 | [5, 20] |
+
+## Type
+cross_sectional
+
+## Category
+cross_sectional
+
+## Source
+WorldQuant Alpha#NNN (Kakushadze 2015)
+```
+
 ## Operator Reference
 
 These operators appear in alpha formulas. All operate on pandas Series.
@@ -41,6 +80,7 @@ These operators appear in alpha formulas. All operate on pandas Series.
 |----------|---------|-------------------|
 | `delay(x, d)` | Value of x, d days ago | `x.shift(d)` |
 | `delta(x, d)` | x − delay(x, d) | `x.diff(d)` |
+| `rank(x)` | Cross-sectional percentile rank | `x.rank(axis=1, pct=True)` |
 | `correlation(x, y, d)` | Rolling correlation over d days | `x.rolling(d).corr(y)` |
 | `covariance(x, y, d)` | Rolling covariance over d days | `x.rolling(d).cov(y)` |
 | `ts_min(x, d)` | Rolling minimum over d days | `x.rolling(d).min()` |
@@ -60,6 +100,8 @@ These operators appear in alpha formulas. All operate on pandas Series.
 | `returns` | Daily close-to-close return | `close.pct_change()` |
 | `SignedPower(x, a)` | sign(x) × \|x\|^a | `np.sign(x) * np.abs(x)**a` |
 
+Note: `rank()` is cross-sectional (axis=1) for XS factors. Time-series operators (delay, delta, rolling) apply per-column as usual.
+
 ## Category Index
 
 | Category | Dir | WQ Count | Trad Count | Total | Description |
@@ -71,8 +113,9 @@ These operators appear in alpha formulas. All operate on pandas Series.
 | Trend | `trend/` | 11 | 1 | 12 | Directional, ADX-like, persistence |
 | Price Channel | `price_channel/` | 11 | 2 | 13 | Donchian, breakout, support/resistance |
 | Composite | `composite/` | 3 | 0 | 3 | Multi-factor blends |
+| Cross-Sectional | `cross_sectional/` | 18 | 0 | 18 | Rank-based cross-sectional factors |
 
-**Total**: 115 factors (106 WorldQuant + 9 traditional)
+**Total**: 133 factors (124 WorldQuant + 9 traditional)
 
 ## Naming Convention
 
