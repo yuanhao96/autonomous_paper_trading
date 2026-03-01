@@ -18,10 +18,13 @@ python -m stratgen optimize
 # 3. Signals — generate LONG/FLAT from top factors
 python -m stratgen signals
 
-# 4. Analyze — cross-sectional factor analysis on sector ETFs
+# 4. Analyze — cross-sectional factor analysis on S&P 100
 python -m stratgen analyze
 
-# 5. Status — Alpaca account info
+# 5. Optimize XS — grid search XS factor params (score by |IC|)
+python -m stratgen optimize-xs
+
+# 6. Status — Alpaca account info
 python -m stratgen status
 ```
 
@@ -44,15 +47,17 @@ Factor doc (.md)  →  Deterministic parse  →  LLM codegen  →  Backtest  →
 ```
 Factor doc (.md)  →  Deterministic parse  →  LLM codegen  →  Compute alpha panel
                                                   ↓ (code cached)
-                                             Rank across tickers  →  Form terciles
+                                             Rank across S&P 100  →  Form quintiles
                                                   ↓
                                              IC, monotonicity, long-short spread
+                                                  ↓ (code cached)
+                                             Optimize-XS (grid search, train/test split)
 ```
 
 ## Factor Knowledge Base
 
 - **115 time-series factors** across 7 categories (momentum, volume-price, mean reversion, volatility, price channel, trend, composite) — backtested on SPY
-- **18 cross-sectional factors** using `rank()` for cross-sectional ranking — evaluated on 11 sector ETFs (XLB, XLC, XLE, XLF, XLI, XLK, XLP, XLRE, XLU, XLV, XLY)
+- **18 cross-sectional factors** using `rank()` for cross-sectional ranking — evaluated on S&P 100 (~101 stocks, quintiles ~20 per group)
 - Sourced from Kakushadze (2015) "101 Formulaic Alphas" + 9 traditional strategy factors
 - **Deterministic parsing** — factor docs follow a fixed markdown format, no LLM needed for spec extraction
 - **Code caching** — LLM is only called in `discover` and `analyze`; optimize and signals reuse cached code
@@ -64,7 +69,8 @@ Factor doc (.md)  →  Deterministic parse  →  LLM codegen  →  Compute alpha
 | Discover | `python -m stratgen discover` | Yes | Parse 115 factor docs → LLM codegen → backtest on SPY → evaluate |
 | Optimize | `python -m stratgen optimize` | No | Grid search params on train set (2020–2023), evaluate on test (2024+) |
 | Signals | `python -m stratgen signals` | No | Run top factors on recent data → LONG/FLAT signals |
-| Analyze | `python -m stratgen analyze` | Yes | Parse 18 XS factor docs → LLM codegen → rank across 11 ETFs → IC/mono |
+| Analyze | `python -m stratgen analyze` | Yes | Parse 18 XS factor docs → LLM codegen → rank across S&P 100 → IC/mono |
+| Optimize-XS | `python -m stratgen optimize-xs` | No | Grid search XS factor params, score by |IC| on train (2019–2022) |
 | Status | `python -m stratgen status` | No | Show Alpaca account balance and positions |
 
 ## Configuration
@@ -94,31 +100,31 @@ knowledge/                  # 145 curated trading knowledge docs (read-only)
 src/stratgen/               # Main package
   cli.py                    #   CLI entry point
   core.py                   #   FactorSpec, LLM calls, TS + XS codegen, evaluate
-  universe.py               #   Sector ETF download, Parquet cache, build panels
+  universe.py               #   Universe management: SP100/sector ETFs, download, cache
   cross_section.py          #   Ranking, portfolios, IC, monotonicity, XS evaluation
   factor_discover.py        #   Time-series discovery loop
   factor_optimize.py        #   Grid search optimization
   factor_signals.py         #   Signal generation
   factor_analyze.py         #   Cross-sectional analysis loop
+  factor_optimize_xs.py     #   XS grid search optimization (score by |IC|)
   trade.py                  #   Alpaca integration
   paths.py                  #   Path constants
 data/                       # Cached universe data (Parquet, gitignored)
 results_factors.json        # Discovery results (runtime)
 results_factors_opt.json    # Optimization results (runtime)
 results_factors_xs.json     # Cross-sectional analysis results (runtime)
+results_factors_xs_opt.json # XS optimization results (runtime)
 docs/                       # Detailed documentation
 ```
 
 ## Roadmap
 
-### v1.3 — Expand Universe + Optimize XS Factors
+### v1.3 — Expand Universe + Optimize XS Factors (done)
 
-The 11-ETF universe is too small for reliable cross-sectional ranking. This is the highest-impact next step.
-
-- Larger universe: S&P 100 (OEX) or sector top-5 (~55 stocks) for quintile support
-- `optimize-xs` command: Grid search XS factor params (mirroring the TS pipeline)
-- Train/test split for XS: 2019–2022 train, 2023+ test
-- Survivorship-bias-safe constituent lists
+- S&P 100 universe (~101 large-cap stocks) for proper quintile support (~20 per group)
+- `--universe {sp100, sector-etfs}` flag on `analyze` and `optimize-xs`
+- `optimize-xs` command: Grid search XS factor params, score by |IC| on train (2019–2022), evaluate on test (2023+)
+- Graceful download failures for large universes
 
 ### v1.4 — Portfolio Construction + Combined Signals
 
@@ -153,6 +159,7 @@ Unlock more of the 85 excluded alphas by approximating missing data:
 
 ## Documentation
 
+- [v1.3 Documentation](docs/v1.3.md) — expanded universe (S&P 100), XS optimization, quintiles
 - [v1.2 Documentation](docs/v1.2.md) — cross-sectional analysis, evaluation metrics, design decisions
 - [v1.1 Documentation](docs/v1.1.md) — time-series factor pipeline architecture
 - [v1.0 Documentation](docs/v1.0.md) — previous strategy-based pipeline

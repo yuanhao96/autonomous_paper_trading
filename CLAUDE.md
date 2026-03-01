@@ -8,7 +8,7 @@ This is the third attempt. Previous iterations failed due to:
 1. **v1** (`autonomou_evolving_investment`): Unbounded strategy space + custom infrastructure
 2. **v2** (this repo, prior code): Over-engineered multi-stage pipeline, too many abstractions before anything worked end-to-end
 
-**v1.0** got the strategy-based pipeline working end-to-end. **v1.1** pivots to structured alpha factors with deterministic parsing, cached code, and train/test optimization. **v1.2** adds cross-sectional factor analysis on a universe of sector ETFs.
+**v1.0** got the strategy-based pipeline working end-to-end. **v1.1** pivots to structured alpha factors with deterministic parsing, cached code, and train/test optimization. **v1.2** adds cross-sectional factor analysis on a universe of sector ETFs. **v1.3** expands the universe to S&P 100 (~101 stocks) for proper quintile support and adds `optimize-xs` for grid-searching XS factor params.
 
 ## Key Principles
 
@@ -38,7 +38,8 @@ pip install -e ".[dev]"                  # Install with dev tools
 python -m stratgen discover             # Factor docs → code → backtest → evaluate
 python -m stratgen optimize             # Grid search params on train/test split
 python -m stratgen signals              # Generate LONG/FLAT signals from top factors
-python -m stratgen analyze              # Cross-sectional factor analysis on sector ETFs
+python -m stratgen analyze              # Cross-sectional factor analysis (SP100 default)
+python -m stratgen optimize-xs          # Grid search XS factor params (score by |IC|)
 python -m stratgen status               # Show Alpaca account + positions
 ruff check src/stratgen/                # Lint
 mypy src/stratgen/                      # Type check
@@ -70,12 +71,13 @@ src/
     cli.py                  # Argparse CLI with subcommands
     paths.py                # PROJECT_ROOT, FACTORS_DIR, result file paths
     core.py                 # FactorSpec, llm_call, codegen (time-series + XS), evaluate
-    universe.py             # Sector ETF universe: download, Parquet cache, build panels
+    universe.py             # Universe management: SP100/sector ETFs, download, cache, panels
     cross_section.py        # Cross-sectional: ranking, portfolios, IC, monotonicity
     factor_discover.py      # Discovery loop: parse → codegen → backtest → evaluate
     factor_optimize.py      # Grid search optimization with train/test split
     factor_signals.py       # Signal generation from top optimized factors
     factor_analyze.py       # Cross-sectional analysis loop with resume support
+    factor_optimize_xs.py   # XS grid search optimization (score by |IC|, train/test)
     trade.py                # Alpaca paper trading: status
 archive/                    # Historical files (v0–v6)
 docs/                       # Version documentation
@@ -83,6 +85,7 @@ data/                       # Cached universe data (Parquet, gitignored)
 results_factors.json        # Discovery results (runtime artifact)
 results_factors_opt.json    # Optimization results (runtime artifact)
 results_factors_xs.json     # Cross-sectional analysis results (runtime artifact)
+results_factors_xs_opt.json # XS optimization results (runtime artifact)
 tests/                      # All tests
 ```
 
@@ -95,7 +98,8 @@ The pipeline stages build on each other:
 | **Discover** | `python -m stratgen discover` | Parse factor docs → LLM codegen → backtest on SPY 2020–2025 → evaluate → cache code |
 | **Optimize** | `python -m stratgen optimize` | Grid search params on train (2020–2023), evaluate on test (2024+) — LLM-free |
 | **Signals** | `python -m stratgen signals` | Run top factors on recent data → LONG/FLAT signals — LLM-free |
-| **Analyze** | `python -m stratgen analyze` | Cross-sectional factor analysis on 11 sector ETFs — rank, form terciles, compute IC |
+| **Analyze** | `python -m stratgen analyze` | Cross-sectional factor analysis on SP100 (or sector ETFs) — rank, form quintiles, compute IC |
+| **Optimize-XS** | `python -m stratgen optimize-xs` | Grid search XS factor params, score by |IC| on train (2019–2022), evaluate on test (2023+) |
 | **Status** | `python -m stratgen status` | Show Alpaca account balance and positions |
 
 Only `discover` and `analyze` call the LLM. Optimize and signals reuse cached code from `results_factors.json`.
@@ -121,10 +125,12 @@ class FactorSpec:
 | Flag | Applies to | Description |
 |------|-----------|-------------|
 | `--provider {openai,anthropic}` | discover, analyze | LLM provider (default: openai) |
-| `--reset` | discover, optimize, analyze | Ignore previous results, start fresh |
-| `--max-tries N` | optimize | Grid search budget per factor (default: 200) |
+| `--reset` | discover, optimize, analyze, optimize-xs | Ignore previous results, start fresh |
+| `--max-tries N` | optimize, optimize-xs | Grid search budget per factor (default: 200) |
 | `--top-n N` | signals | Number of top factors to use (default: 5) |
-| `--n-groups N` | analyze | Number of portfolio groups (default: 3 = terciles) |
+| `--n-groups N` | analyze, optimize-xs | Number of portfolio groups (default: 5 = quintiles) |
+| `--universe {sp100,sector-etfs}` | analyze, optimize-xs | Stock universe (default: sp100) |
+| `--train-end` / `--test-start` | optimize-xs | Train/test split dates (default: 2022-12-31 / 2023-01-01) |
 
 ## Conventions
 

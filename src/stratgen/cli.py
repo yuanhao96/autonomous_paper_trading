@@ -53,7 +53,7 @@ def main() -> None:
 
     # --- analyze ---
     p_analyze = sub.add_parser(
-        "analyze", help="Cross-sectional factor analysis on sector ETF universe",
+        "analyze", help="Cross-sectional factor analysis on a stock universe",
     )
     p_analyze.add_argument(
         "--reset", action="store_true", help="Start fresh, ignore previous results",
@@ -63,8 +63,40 @@ def main() -> None:
         help="LLM provider (default: openai)",
     )
     p_analyze.add_argument(
-        "--n-groups", type=int, default=3,
-        help="Number of portfolio groups/terciles (default: 3)",
+        "--n-groups", type=int, default=5,
+        help="Number of portfolio groups/quintiles (default: 5)",
+    )
+    p_analyze.add_argument(
+        "--universe", choices=["sp100", "sector-etfs"], default="sp100",
+        help="Stock universe (default: sp100)",
+    )
+
+    # --- optimize-xs ---
+    p_opt_xs = sub.add_parser(
+        "optimize-xs", help="Optimize XS factor params via grid search (score by |IC|)",
+    )
+    p_opt_xs.add_argument(
+        "--reset", action="store_true", help="Start fresh, ignore previous results",
+    )
+    p_opt_xs.add_argument(
+        "--max-tries", type=int, default=200,
+        help="Max param combos per factor (default: 200)",
+    )
+    p_opt_xs.add_argument(
+        "--n-groups", type=int, default=5,
+        help="Number of portfolio groups/quintiles (default: 5)",
+    )
+    p_opt_xs.add_argument(
+        "--universe", choices=["sp100", "sector-etfs"], default="sp100",
+        help="Stock universe (default: sp100)",
+    )
+    p_opt_xs.add_argument(
+        "--train-end", type=str, default="2022-12-31",
+        help="Last date of train period (default: 2022-12-31)",
+    )
+    p_opt_xs.add_argument(
+        "--test-start", type=str, default="2023-01-01",
+        help="First date of test period (default: 2023-01-01)",
     )
 
     # --- status ---
@@ -93,7 +125,16 @@ def main() -> None:
     elif args.command == "analyze":
         from stratgen.factor_analyze import run_factor_analyze
         run_factor_analyze(
-            provider=args.provider, reset=args.reset, n_groups=args.n_groups,
+            provider=args.provider, reset=args.reset,
+            n_groups=args.n_groups, universe=args.universe,
+        )
+
+    elif args.command == "optimize-xs":
+        from stratgen.factor_optimize_xs import run_factor_optimize_xs
+        run_factor_optimize_xs(
+            reset=args.reset, max_tries=args.max_tries,
+            n_groups=args.n_groups, universe=args.universe,
+            train_end=args.train_end, test_start=args.test_start,
         )
 
     elif args.command == "status":

@@ -23,7 +23,7 @@ from stratgen.factor_discover import (
     save_results,
 )
 from stratgen.paths import RESULTS_FACTORS_XS, XS_FACTORS_DIR
-from stratgen.universe import build_panel, download_universe, SECTOR_ETFS
+from stratgen.universe import build_panel, download_universe, get_universe_tickers
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,8 @@ def print_xs_leaderboard(results: list[dict]) -> None:
 def run_factor_analyze(
     provider: str = "openai",
     reset: bool = False,
-    n_groups: int = 3,
+    n_groups: int = 5,
+    universe: str = "sp100",
 ) -> None:
     """Run cross-sectional factor analysis over all XS factor docs."""
     # 1. Collect factor docs
@@ -238,8 +239,9 @@ def run_factor_analyze(
 
     # 3. Download universe data (cached Parquet)
     if remaining:
-        print("Downloading universe data...")
-        universe_data = download_universe(SECTOR_ETFS)
+        tickers = get_universe_tickers(universe)
+        print(f"Downloading universe data ({universe}: {len(tickers)} tickers)...")
+        universe_data = download_universe(tickers)
 
         # Build returns panel
         returns_df = build_panel(universe_data, "Close").pct_change()
