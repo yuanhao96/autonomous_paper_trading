@@ -221,9 +221,20 @@ def load_results(path: Path) -> list[dict]:
         return json.load(f)
 
 
+def _sanitize_for_json(obj):
+    """Recursively replace NaN/Infinity with None for valid JSON."""
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    return obj
+
+
 def save_results(results: list[dict], path: Path) -> None:
     with open(path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
+        json.dump(_sanitize_for_json(results), f, indent=2, default=str)
 
 
 def already_processed(results: list[dict]) -> set[str]:
@@ -251,10 +262,12 @@ def _safe_sharpe(stats_dict: dict) -> float:
 
 
 def _serialize_stats(stats) -> dict:
-    """Convert backtesting stats to a JSON-serializable dict."""
+    """Convert backtesting stats to a JSON-serializable dict, NaN → None."""
     out = {}
     for k, v in dict(stats).items():
         v = _to_native(v)
+        if isinstance(v, float) and math.isnan(v):
+            v = None
         try:
             json.dumps(v)
             out[k] = v
