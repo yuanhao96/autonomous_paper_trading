@@ -23,82 +23,14 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
-from v2 import (
+from core import (
     StrategySpec,
     download_data,
-    extract_spec,
+    evaluate,
     generate_strategy_code,
     load_strategy,
-    run_backtest,
-    validate_spec,
 )
-
-# ---------------------------------------------------------------------------
-# Evaluation thresholds
-# ---------------------------------------------------------------------------
-
-THRESHOLDS = {
-    "min_trades_fail": 3,
-    "min_trades_pass": 3,
-    "sharpe_fail": 0.0,
-    "sharpe_pass": 0.3,
-    "max_drawdown_fail": -50.0,
-    "max_drawdown_pass": -30.0,
-    "return_fail": 0.0,
-    "return_pass": 0.0,
-}
-
-
-def evaluate(stats: dict) -> tuple[str, list[str]]:
-    """Evaluate backtest stats. Returns (verdict, reasons).
-
-    Verdict: "PASS", "MARGINAL", or "FAIL".
-    """
-    reasons = []
-    n_trades = stats.get("# Trades", 0)
-    sharpe = stats.get("Sharpe Ratio", float("nan"))
-    max_dd = stats.get("Max. Drawdown [%]", 0)
-    total_return = stats.get("Return [%]", 0)
-
-    # --- Hard fails ---
-    if n_trades < THRESHOLDS["min_trades_fail"]:
-        reasons.append(f"FAIL: only {n_trades} trades (min {THRESHOLDS['min_trades_fail']})")
-
-    if sharpe < THRESHOLDS["sharpe_fail"]:
-        reasons.append(f"FAIL: Sharpe {sharpe:.2f} < {THRESHOLDS['sharpe_fail']}")
-
-    if max_dd < THRESHOLDS["max_drawdown_fail"]:
-        reasons.append(f"FAIL: drawdown {max_dd:.1f}% < {THRESHOLDS['max_drawdown_fail']}%")
-
-    if total_return < THRESHOLDS["return_fail"]:
-        reasons.append(f"FAIL: return {total_return:.1f}% < {THRESHOLDS['return_fail']}%")
-
-    if any(r.startswith("FAIL") for r in reasons):
-        return "FAIL", reasons
-
-    # --- Pass checks ---
-    is_pass = True
-
-    if n_trades < THRESHOLDS["min_trades_pass"]:
-        reasons.append(f"MARGINAL: {n_trades} trades")
-        is_pass = False
-
-    if sharpe < THRESHOLDS["sharpe_pass"]:
-        reasons.append(f"MARGINAL: Sharpe {sharpe:.2f} < {THRESHOLDS['sharpe_pass']}")
-        is_pass = False
-
-    if max_dd < THRESHOLDS["max_drawdown_pass"]:
-        reasons.append(f"MARGINAL: drawdown {max_dd:.1f}% < {THRESHOLDS['max_drawdown_pass']}%")
-        is_pass = False
-
-    if is_pass:
-        reasons.append(
-            f"Sharpe {sharpe:.2f}, {n_trades} trades, "
-            f"dd {max_dd:.1f}%, return {total_return:.1f}%"
-        )
-        return "PASS", reasons
-    else:
-        return "MARGINAL", reasons
+from v2 import extract_spec, run_backtest, validate_spec
 
 
 # ---------------------------------------------------------------------------

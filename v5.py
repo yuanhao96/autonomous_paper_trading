@@ -23,8 +23,16 @@ import traceback
 from pathlib import Path
 from textwrap import dedent
 
-from v2 import StrategySpec, download_data, generate_strategy_code, load_strategy
-from v3 import evaluate
+from core import (
+    StrategySpec,
+    download_data,
+    evaluate,
+    generate_strategy_code,
+    llm_call,
+    load_strategy,
+    parse_llm_json,
+    spec_from_dict,
+)
 
 RESULTS_FILE = Path(__file__).parent / "results_v5.json"
 DEFAULT_V4_RESULTS = Path(__file__).parent / "results_v4.json"
@@ -84,49 +92,15 @@ def _build_param_ranges_prompt(knowledge_text: str, spec_params: dict) -> str:
     """)
 
 
-def _extract_ranges_openai(knowledge_text: str, spec_params: dict) -> dict:
-    import openai
-
-    client = openai.OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-5.2",
-        max_completion_tokens=1500,
-        temperature=0,
-        messages=[
-            {"role": "system", "content": PARAM_RANGES_SYSTEM_PROMPT},
-            {"role": "user", "content": _build_param_ranges_prompt(knowledge_text, spec_params)},
-        ],
+def _extract_ranges_llm(
+    knowledge_text: str, spec_params: dict, provider: str,
+) -> dict:
+    raw = llm_call(
+        PARAM_RANGES_SYSTEM_PROMPT,
+        _build_param_ranges_prompt(knowledge_text, spec_params),
+        provider,
     )
-    raw = response.choices[0].message.content or "{}"
-    return _parse_ranges_json(raw)
-
-
-def _extract_ranges_anthropic(knowledge_text: str, spec_params: dict) -> dict:
-    import anthropic
-
-    client = anthropic.Anthropic()
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1500,
-        temperature=0,
-        system=PARAM_RANGES_SYSTEM_PROMPT,
-        messages=[
-            {"role": "user", "content": _build_param_ranges_prompt(knowledge_text, spec_params)},
-        ],
-    )
-    raw = response.content[0].text
-    return _parse_ranges_json(raw)
-
-
-def _parse_ranges_json(raw: str) -> dict:
-    """Parse LLM JSON output into param ranges dict."""
-    cleaned = raw.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.split("\n", 1)[1]
-    if cleaned.endswith("```"):
-        cleaned = cleaned.rsplit("```", 1)[0]
-    cleaned = cleaned.strip()
-    return json.loads(cleaned)
+    return parse_llm_json(raw)
 
 
 def extract_param_ranges(
@@ -139,13 +113,7 @@ def extract_param_ranges(
 
     knowledge_text = path.read_text()
     print(f"  Extracting param ranges via {provider}...")
-
-    if provider == "openai":
-        return _extract_ranges_openai(knowledge_text, spec_params)
-    elif provider == "anthropic":
-        return _extract_ranges_anthropic(knowledge_text, spec_params)
-    else:
-        raise ValueError(f"Unknown provider: {provider}")
+    return _extract_ranges_llm(knowledge_text, spec_params, provider)
 
 
 # ---------------------------------------------------------------------------
@@ -185,28 +153,6 @@ def parse_constraint(constraint_str: str | None):
     except Exception as e:
         print(f"    Warning: invalid constraint '{constraint_str}': {e}")
     return None
-
-
-# ---------------------------------------------------------------------------
-# Reconstruct StrategySpec from v4 result dict
-# ---------------------------------------------------------------------------
-
-
-def spec_from_dict(d: dict) -> StrategySpec:
-    """Reconstruct a StrategySpec from a serialized dict."""
-    return StrategySpec(
-        name=d["name"],
-        knowledge_ref=d["knowledge_ref"],
-        universe=d["universe"],
-        timeframe=d.get("timeframe", "1d"),
-        entry_signal=d["entry_signal"],
-        exit_signal=d["exit_signal"],
-        stop_loss_pct=d.get("stop_loss_pct", 0.02),
-        position_size_pct=d.get("position_size_pct", 0.95),
-        params=d.get("params", {}),
-        adaptations=d.get("adaptations", []),
-        skipped=d.get("skipped"),
-    )
 
 
 # ---------------------------------------------------------------------------
