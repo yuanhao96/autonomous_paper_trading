@@ -65,7 +65,7 @@ Each version replaces one hand-done step with automation. Don't skip ahead.
 | **v4** | Full loop: pick strategy → generate code → backtest → evaluate → repeat | |
 | **v5** | Multi-strategy: run loop across multiple knowledge docs, rank results | |
 | **v6** | Parameter evolution: tune params within documented bounds | |
-| **v7** | Paper trading: deploy winning strategies to IBKR paper account | |
+| **v7** | Paper trading: deploy winning strategies to Alpaca paper trading | |
 
 ### StrategySpec (minimal, introduced at v1)
 
