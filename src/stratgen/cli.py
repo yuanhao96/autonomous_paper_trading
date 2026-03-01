@@ -1,4 +1,4 @@
-"""Unified CLI for stratgen: discover, optimize, signals, run, status."""
+"""Unified CLI for stratgen: discover, optimize, signals, status."""
 
 import argparse
 
@@ -10,59 +10,46 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         prog="stratgen",
-        description="Autonomous trading strategy generation and optimization",
+        description="Autonomous trading: alpha factor discovery and trading",
     )
     sub = parser.add_subparsers(dest="command")
 
     # --- discover ---
-    p_disc = sub.add_parser("discover", help="Discover and backtest all strategy docs")
-    p_disc.add_argument("--reset", action="store_true", help="Start fresh, ignore previous results")
+    p_disc = sub.add_parser(
+        "discover", help="Discover and backtest all alpha factor docs",
+    )
+    p_disc.add_argument(
+        "--reset", action="store_true", help="Start fresh, ignore previous results",
+    )
     p_disc.add_argument(
         "--provider", choices=["openai", "anthropic"], default="openai",
         help="LLM provider (default: openai)",
     )
 
     # --- optimize ---
-    p_opt = sub.add_parser("optimize", help="Optimize params for PASS/MARGINAL strategies")
-    p_opt.add_argument("--reset", action="store_true", help="Start fresh, ignore previous results")
-    p_opt.add_argument(
-        "--provider", choices=["openai", "anthropic"], default="openai",
-        help="LLM provider (default: openai)",
+    p_opt = sub.add_parser(
+        "optimize", help="Optimize params for passing factors via grid search",
     )
     p_opt.add_argument(
-        "--v4-results", default=None,
-        help="Path to discover results JSON (default: results_v4.json)",
+        "--reset", action="store_true", help="Start fresh, ignore previous results",
+    )
+    p_opt.add_argument(
+        "--provider", choices=["openai", "anthropic"], default="openai",
+        help="LLM provider (unused — code is cached from discover)",
     )
     p_opt.add_argument(
         "--max-tries", type=int, default=200,
-        help="Max grid search combinations to try (default: 200)",
+        help="Max param combos per factor (default: 200)",
     )
 
     # --- signals ---
-    p_sig = sub.add_parser("signals", help="Generate trading signals (no orders)")
-    p_sig.add_argument(
-        "--top-n", type=int, default=5,
-        help="Number of top strategies (default: 5)",
+    p_sig = sub.add_parser(
+        "signals", help="Generate LONG/FLAT signals from top optimized factors",
     )
     p_sig.add_argument(
-        "--provider", choices=["openai", "anthropic"], default="openai",
-        help="LLM provider (default: openai)",
-    )
-    p_sig.add_argument("--v5-results", default=None, help="Path to optimize results JSON")
-    p_sig.add_argument("--v4-results", default=None, help="Path to discover results JSON")
-
-    # --- run ---
-    p_run = sub.add_parser("run", help="Generate signals and submit orders to Alpaca")
-    p_run.add_argument(
         "--top-n", type=int, default=5,
-        help="Number of top strategies (default: 5)",
+        help="Number of top factors to use (default: 5)",
     )
-    p_run.add_argument(
-        "--provider", choices=["openai", "anthropic"], default="openai",
-        help="LLM provider (default: openai)",
-    )
-    p_run.add_argument("--v5-results", default=None, help="Path to optimize results JSON")
-    p_run.add_argument("--v4-results", default=None, help="Path to discover results JSON")
 
     # --- status ---
     sub.add_parser("status", help="Show Alpaca account status and positions")
@@ -74,26 +61,19 @@ def main() -> None:
         return
 
     if args.command == "discover":
-        from stratgen.discover import run_discover
-        run_discover(provider=args.provider, reset=args.reset)
+        from stratgen.factor_discover import run_factor_discover
+        run_factor_discover(provider=args.provider, reset=args.reset)
 
     elif args.command == "optimize":
-        from stratgen.optimize import run_optimize
-        run_optimize(
-            provider=args.provider,
-            reset=args.reset,
-            v4_results_path=args.v4_results,
-            max_tries=args.max_tries,
+        from stratgen.factor_optimize import run_factor_optimize
+        run_factor_optimize(
+            provider=args.provider, reset=args.reset, max_tries=args.max_tries,
         )
 
     elif args.command == "signals":
-        from stratgen.trade import cmd_signals
-        cmd_signals(args)
-
-    elif args.command == "run":
-        from stratgen.trade import cmd_run
-        cmd_run(args)
+        from stratgen.factor_signals import run_factor_signals
+        run_factor_signals(top_n=args.top_n)
 
     elif args.command == "status":
         from stratgen.trade import cmd_status
-        cmd_status(args)
+        cmd_status()

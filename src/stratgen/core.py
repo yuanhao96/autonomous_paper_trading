@@ -1,7 +1,8 @@
-"""Shared primitives: StrategySpec, LLM calls, codegen, evaluation."""
+"""Core primitives: FactorSpec, LLM calls, codegen, evaluation."""
 
 import json
 from dataclasses import dataclass, field
+from typing import Any
 from textwrap import dedent
 
 import pandas as pd
@@ -10,23 +11,20 @@ from backtesting import Strategy
 
 
 # ---------------------------------------------------------------------------
-# StrategySpec
+# FactorSpec
 # ---------------------------------------------------------------------------
 
 
 @dataclass
-class StrategySpec:
+class FactorSpec:
     name: str
-    knowledge_ref: str
-    universe: list[str]
-    timeframe: str
-    entry_signal: str
-    exit_signal: str
-    stop_loss_pct: float
-    position_size_pct: float
-    params: dict = field(default_factory=dict)
-    adaptations: list[str] = field(default_factory=list)
-    skipped: str | None = None
+    formula: str
+    interpretation: str
+    params: dict[str, Any] = field(default_factory=dict)
+    param_ranges: dict[str, list] = field(default_factory=dict)
+    category: str = ""
+    source: str = ""
+    factor_ref: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -69,17 +67,19 @@ def llm_call(
 
 
 # ---------------------------------------------------------------------------
-# Code generation: StrategySpec → backtesting.py code
+# Code generation: FactorSpec → backtesting.py code
 # ---------------------------------------------------------------------------
 
-CODE_SYSTEM_PROMPT = dedent("""\
+FACTOR_CODE_SYSTEM_PROMPT = dedent("""\
     You are a Python code generator for backtesting.py strategies.
 
-    You will receive a StrategySpec and must output a SINGLE Python class that:
+    You will receive an alpha factor formula and must output a SINGLE Python class that:
     - Inherits from backtesting.Strategy
+    - Computes the alpha factor value from OHLCV data
+    - Buys when alpha > 0, sells (goes flat) when alpha <= 0
     - Has class-level parameter attributes (for optimization)
-    - Implements init() using self.I() to create indicators
-    - Implements next() with entry/exit logic using self.buy(), self.sell(), self.position.close()
+    - Implements init() using self.I() to create the alpha indicator
+    - Implements next() with entry/exit logic
 
     backtesting.py API reference:
     - self.data.Open, .High, .Low, .Close, .Volume — numpy-like arrays
@@ -88,42 +88,67 @@ CODE_SYSTEM_PROMPT = dedent("""\
       To use pandas rolling/ewm, wrap with: pd.Series(values).rolling(n).mean()
     - self.buy() / self.sell() — market orders. Optional params: sl=, tp=, size=
     - self.position — current position. .close() to exit. .is_long / .is_short
-    - crossover(series1, series2) — True if series1 just crossed above series2
+
+    Operator reference (use these to translate the formula):
+    - delay(x, d) → pd.Series(x).shift(d)
+    - delta(x, d) → pd.Series(x).diff(d)
+    - sma(x, d) → pd.Series(x).rolling(d).mean()
+    - stddev(x, d) → pd.Series(x).rolling(d).std()
+    - correlation(x, y, d) → pd.Series(x).rolling(d).corr(pd.Series(y))
+    - ts_min(x, d) → pd.Series(x).rolling(d).min()
+    - ts_max(x, d) → pd.Series(x).rolling(d).max()
+    - ts_rank(x, d) → pd.Series(x).rolling(d).apply(lambda s: s.rank().iloc[-1]/len(s))
+    - sum(x, d) → pd.Series(x).rolling(d).sum()
+    - decay_linear(x, d) → pd.Series(x).rolling(d).apply(lambda s: np.dot(s, np.arange(1,d+1))/np.arange(1,d+1).sum())
+    - sign(x) → np.sign(x)
+    - log(x) → np.log(x)
+    - where(cond, a, b) → np.where(cond, a, b)
 
     Rules:
     1. Output ONLY the Python code. No markdown, no explanation, no ```python blocks.
     2. Start with necessary imports (pandas, numpy, etc.)
-    3. Import crossover from backtesting.lib if needed.
-    4. The class must be named GeneratedStrategy.
-    5. Use helper functions for indicators (def sma(values, n): return pd.Series(values)...).
-    6. Class-level params must match the spec's params dict.
-    7. Implement stop-loss via sl= parameter in buy()/sell() if stop_loss_pct > 0.
-    8. Keep it simple. No unnecessary complexity.
+    3. The class must be named GeneratedStrategy.
+    4. Use class-level params matching the spec's params dict.
+    5. In init(), define a helper function that computes the alpha from raw arrays,
+       then wrap it with self.I().
+    6. In next(), buy when alpha > 0 and not already long.
+       Set stop-loss: sl=self.data.Close[-1] * (1 - 0.02).
+       Close position when alpha <= 0 and currently long.
+    7. Guard against division by zero with + 1e-8 in denominators.
+    8. Keep it simple. Translate the formula directly.
+    9. Cast volume to float: pd.Series(volume).astype(float).
 """)
 
 
-def _build_code_prompt(spec: StrategySpec) -> str:
+def _build_factor_code_prompt(spec: FactorSpec) -> str:
     return dedent(f"""\
-        Generate a backtesting.py Strategy class for this spec:
+        Generate a backtesting.py Strategy class for this alpha factor:
 
         Name: {spec.name}
-        Entry signal: {spec.entry_signal}
-        Exit signal: {spec.exit_signal}
-        Stop loss: {spec.stop_loss_pct:.1%} below entry
-        Position size: {spec.position_size_pct:.0%} of equity
+        Formula: {spec.formula}
         Parameters: {spec.params}
+
+        The strategy:
+        - Computes the alpha factor value each day
+        - Goes LONG (buy) when alpha > 0
+        - Goes FLAT (close position) when alpha <= 0
+        - Uses 2% stop-loss below entry: sl=self.data.Close[-1] * 0.98
+        - Position size: 95% of equity (size=0.95)
 
         Remember:
         - Class name must be GeneratedStrategy
         - self.I() receives numpy arrays, use pd.Series() wrapper for rolling operations
-        - Use crossover() from backtesting.lib for crossover signals
+        - No markdown fences, just raw Python code
     """)
 
 
-def generate_strategy_code(spec: StrategySpec, provider: str = "openai") -> str:
-    """Generate a Strategy class from a spec using the chosen LLM provider."""
-    print(f"Generating strategy code via {provider}...")
-    code = llm_call(CODE_SYSTEM_PROMPT, _build_code_prompt(spec), provider, max_tokens=2000)
+def generate_factor_code(spec: FactorSpec, provider: str = "openai") -> str:
+    """Generate a Strategy class from a FactorSpec using the chosen LLM."""
+    print(f"Generating factor code via {provider}...")
+    code = llm_call(
+        FACTOR_CODE_SYSTEM_PROMPT, _build_factor_code_prompt(spec),
+        provider, max_tokens=2000,
+    )
     print(f"Generated {len(code.splitlines())} lines of code.\n")
     return code
 
@@ -135,6 +160,15 @@ def generate_strategy_code(spec: StrategySpec, provider: str = "openai") -> str:
 
 def load_strategy(code: str) -> type[Strategy]:
     """Execute generated code and extract the GeneratedStrategy class."""
+    # Strip markdown fences the LLM may have included
+    code = strip_markdown_fences(code)
+
+    # Compile first to catch syntax errors with clear messages
+    try:
+        compile(code, "<generated>", "exec")
+    except SyntaxError as e:
+        raise RuntimeError(f"Generated code has syntax error: {e}") from e
+
     namespace: dict = {}
     exec(code, namespace)
 
@@ -234,28 +268,6 @@ def evaluate(stats: dict) -> tuple[str, list[str]]:
         return "PASS", reasons
     else:
         return "MARGINAL", reasons
-
-
-# ---------------------------------------------------------------------------
-# Reconstruct StrategySpec from dict
-# ---------------------------------------------------------------------------
-
-
-def spec_from_dict(d: dict) -> StrategySpec:
-    """Reconstruct a StrategySpec from a serialized dict."""
-    return StrategySpec(
-        name=d["name"],
-        knowledge_ref=d["knowledge_ref"],
-        universe=d["universe"],
-        timeframe=d.get("timeframe", "1d"),
-        entry_signal=d["entry_signal"],
-        exit_signal=d["exit_signal"],
-        stop_loss_pct=d.get("stop_loss_pct", 0.02),
-        position_size_pct=d.get("position_size_pct", 0.95),
-        params=d.get("params", {}),
-        adaptations=d.get("adaptations", []),
-        skipped=d.get("skipped"),
-    )
 
 
 # ---------------------------------------------------------------------------
