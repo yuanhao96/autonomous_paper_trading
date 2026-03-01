@@ -1,6 +1,6 @@
 # Trading Strategy Knowledge Base
 
-Comprehensive documentation of 92 trading strategies from the [QuantConnect Investment Strategy Library](https://www.quantconnect.com/learning/articles/investment-strategy-library) and related sources.
+Comprehensive documentation of 99 trading strategies from the [QuantConnect Investment Strategy Library](https://www.quantconnect.com/learning/articles/investment-strategy-library), [WorldQuant 101 Formulaic Alphas](https://arxiv.org/abs/1601.00991), and related sources.
 
 Each strategy is documented with trading rules, academic references, backtest results, implementation notes, and risk considerations. See [TEMPLATE.md](TEMPLATE.md) for the document format.
 
@@ -177,3 +177,19 @@ Each strategy is documented with trading rules, academic references, backtest re
 | 83a | Moving Average Crossover | [technical-and-other/moving-average-crossover.md](technical-and-other/moving-average-crossover.md) |
 | 83b | Breakout Strategy | [technical-and-other/breakout.md](technical-and-other/breakout.md) |
 | 83c | Trend Following | [technical-and-other/trend-following.md](technical-and-other/trend-following.md) |
+
+---
+
+## Alpha Factors (7 strategy docs, 106 alphas)
+
+Formulaic alpha factors adapted from the WorldQuant "101 Formulaic Alphas" (Kakushadze, 2015). Filtered to 106 alphas compatible with single-ticker daily OHLCV data. See [alpha-factors/README.md](alpha-factors/README.md) for full details and operator reference.
+
+| # | Theme | Alphas | File |
+|---|-------|--------|------|
+| 84 | Momentum & Price Alphas | 30 | [alpha-factors/momentum-price-alphas.md](alpha-factors/momentum-price-alphas.md) |
+| 85 | Mean Reversion & RSI Alphas | 13 | [alpha-factors/mean-reversion-rsi-alphas.md](alpha-factors/mean-reversion-rsi-alphas.md) |
+| 86 | Volume-Price Alphas | 25 | [alpha-factors/volume-price-alphas.md](alpha-factors/volume-price-alphas.md) |
+| 87 | Volatility Alphas | 13 | [alpha-factors/volatility-alphas.md](alpha-factors/volatility-alphas.md) |
+| 88 | Trend & Directional Alphas | 11 | [alpha-factors/trend-directional-alphas.md](alpha-factors/trend-directional-alphas.md) |
+| 89 | Price Channel Alphas | 11 | [alpha-factors/price-channel-alphas.md](alpha-factors/price-channel-alphas.md) |
+| 90 | Composite Alphas | 3 | [alpha-factors/composite-alphas.md](alpha-factors/composite-alphas.md) |
