@@ -347,6 +347,11 @@ XS_FACTOR_CODE_SYSTEM_PROMPT = dedent("""\
     - The returned DataFrame must have shape (dates × tickers) matching the input panels.
     - Guard against division by zero with + 1e-8 in denominators.
     - Cast volume to float.
+    - DataFrame.align() returns exactly 2 DataFrames, NEVER 3.
+      To align multiple panels, do it pairwise:
+        idx = close.index.intersection(high.index).intersection(volume.index)
+        close = close.loc[idx]; high = high.loc[idx]; volume = volume.loc[idx]
+      NEVER write: close, high, volume = close.align(high, ...) — this will crash.
 
     Rules:
     1. Output ONLY the Python code. No markdown, no explanation, no ```python blocks.
