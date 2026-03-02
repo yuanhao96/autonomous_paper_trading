@@ -244,6 +244,35 @@ stages:
     name: Market Breadth
     description: Discovered during study of 'PEG Ratio'.
     mastery_criteria: Can explain and apply Market Breadth in a concrete trading scenario
+  - id: point-and-figure_charts
+    name: Point-and-Figure Charts
+    description: Discovered during study of 'Basic EPS'.
+    mastery_criteria: Can explain and apply Point-and-Figure Charts in a concrete
+      trading scenario
+  - id: weighted_average_shares_outstanding
+    name: Weighted Average Shares Outstanding
+    description: Discovered during study of 'Basic EPS'.
+    mastery_criteria: Can explain and apply Weighted Average Shares Outstanding in
+      a concrete trading scenario
+  - id: convertible_securities
+    name: Convertible Securities
+    description: Discovered during study of 'Diluted EPS'.
+    mastery_criteria: Can explain and apply Convertible Securities in a concrete trading
+      scenario
+  - id: relative_pe
+    name: Relative P/E
+    description: Discovered during study of 'Diluted EPS'.
+    mastery_criteria: Can explain and apply Relative P/E in a concrete trading scenario
+  - id: primarysecondaryminor_trends
+    name: Primary/Secondary/Minor Trends
+    description: Discovered during study of 'Dow Theory'.
+    mastery_criteria: Can explain and apply Primary/Secondary/Minor Trends in a concrete
+      trading scenario
+  - id: advance-decline_line
+    name: Advance-Decline Line
+    description: Discovered during study of 'Dow Theory'.
+    mastery_criteria: Can explain and apply Advance-Decline Line in a concrete trading
+      scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
