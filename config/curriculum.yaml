@@ -273,6 +273,31 @@ stages:
     description: Discovered during study of 'Dow Theory'.
     mastery_criteria: Can explain and apply Advance-Decline Line in a concrete trading
       scenario
+  - id: reactive_vs_proactive_supportresistance_methods
+    name: Reactive vs. proactive support/resistance methods
+    description: Discovered during study of 'Support and Resistance'.
+    mastery_criteria: Can explain and apply Reactive vs. proactive support/resistance
+      methods in a concrete trading scenario
+  - id: trailing_pe_ratio_ttmltm
+    name: Trailing P/E Ratio (TTM/LTM)
+    description: Discovered during study of 'Earnings Yield'.
+    mastery_criteria: Can explain and apply Trailing P/E Ratio (TTM/LTM) in a concrete
+      trading scenario
+  - id: earnings_yield_ep
+    name: Earnings Yield (E/P)
+    description: Discovered during study of 'Earnings Yield'.
+    mastery_criteria: Can explain and apply Earnings Yield (E/P) in a concrete trading
+      scenario
+  - id: absolute_pe_ratio
+    name: Absolute P/E Ratio
+    description: Discovered during study of 'Absolute P/E'.
+    mastery_criteria: Can explain and apply Absolute P/E Ratio in a concrete trading
+      scenario
+  - id: relative_pe_ratio
+    name: Relative P/E Ratio
+    description: Discovered during study of 'Absolute P/E'.
+    mastery_criteria: Can explain and apply Relative P/E Ratio in a concrete trading
+      scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
