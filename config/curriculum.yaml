@@ -298,6 +298,32 @@ stages:
     description: Discovered during study of 'Absolute P/E'.
     mastery_criteria: Can explain and apply Relative P/E Ratio in a concrete trading
       scenario
+  - id: daylight_saving_time_dst
+    name: Daylight Saving Time (DST)
+    description: Discovered during study of 'Daylight Saving Time shifts'.
+    mastery_criteria: Can explain and apply Daylight Saving Time (DST) in a concrete
+      trading scenario
+  - id: summer_time
+    name: Summer Time
+    description: Discovered during study of 'Daylight Saving Time shifts'.
+    mastery_criteria: Can explain and apply Summer Time in a concrete trading scenario
+  - id: bid-ask_spread
+    name: Bid-Ask Spread
+    description: Discovered during study of 'Bid-ask spreads'.
+    mastery_criteria: Can explain and apply Bid-Ask Spread in a concrete trading scenario
+  - id: price-time_priority
+    name: Price-Time Priority
+    description: Discovered during study of 'Bid-ask spreads'.
+    mastery_criteria: Can explain and apply Price-Time Priority in a concrete trading
+      scenario
+  - id: market_order
+    name: Market order
+    description: Discovered during study of 'Limit orders vs market orders'.
+    mastery_criteria: Can explain and apply Market order in a concrete trading scenario
+  - id: limit_order
+    name: Limit order
+    description: Discovered during study of 'Limit orders vs market orders'.
+    mastery_criteria: Can explain and apply Limit order in a concrete trading scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
