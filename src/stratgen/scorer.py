@@ -219,11 +219,14 @@ def composite_alpha(
         mean_ic = float(rolling_ic.dropna().mean()) if rolling_ic.dropna().shape[0] > 0 else 0.0
         ic_summary[name] = mean_ic
 
-        # 3. Weight = rolling IC value (sign preserves direction)
+        # 3. Weight = lagged rolling IC (avoid look-ahead bias)
+        # Shift IC by 1 so weight at date t uses IC computed through t-1
+        lagged_ic = rolling_ic.shift(1)
+
         # Broadcast IC (per-date scalar) across tickers
-        common_idx = z.index.intersection(rolling_ic.index)
+        common_idx = z.index.intersection(lagged_ic.index)
         z_aligned = z.loc[common_idx]
-        ic_aligned = rolling_ic.loc[common_idx]
+        ic_aligned = lagged_ic.loc[common_idx]
 
         # Weighted z-score: z * IC_weight
         weighted_z = z_aligned.mul(ic_aligned, axis=0)

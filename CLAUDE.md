@@ -48,6 +48,7 @@ python -m stratgen optimize-xs          # Grid search XS factor params (score by
 # v2.x — Screen → Score → Allocate
 python -m stratgen screen               # Filter S&P 500 by liquidity/price/data quality
 python -m stratgen score                # Compute IC-weighted composite alpha per stock
+python -m stratgen validate             # Quintile analysis + multi-horizon IC validation
 python -m stratgen allocate             # Generate portfolio weights with risk constraints (planned)
 
 # Utilities
@@ -91,8 +92,10 @@ src/
     factor_optimize_xs.py   # XS grid search optimization (score by |IC|, train/test)
     screener.py             # Stock screener: liquidity, price, data quality filters
     scorer.py               # Alpha scoring: factor extraction, z-score, rolling IC, composite
+    validator.py            # Validation: quintile analysis, composite IC, multi-horizon
     factor_screen.py        # Screen command runner
     factor_score.py         # Score command runner
+    factor_validate.py      # Validate command runner
     trade.py                # Alpaca paper trading: status
 archive/                    # Historical files (v0–v6)
 docs/                       # Version documentation
@@ -103,6 +106,7 @@ results_factors_xs.json     # Cross-sectional analysis results (runtime artifact
 results_factors_xs_opt.json # XS optimization results (runtime artifact)
 results_screen.json         # Screen results (runtime artifact)
 results_score.json          # Score results (runtime artifact)
+results_validate.json       # Validation results (runtime artifact)
 tests/                      # All tests
 ```
 
@@ -140,6 +144,7 @@ S&P 500 → Screen (liquidity/price/data) → ~300 stocks
 |-------|---------|------|-------------|
 | **Screen** | `stratgen screen` | No | Filter S&P 500 by ADV, price, data completeness → ~300 stocks |
 | **Score** | `stratgen score` | No | Compute all TS factors per stock, IC-weighted z-score combination |
+| **Validate** | `stratgen validate` | No | Quintile analysis, composite IC, multi-horizon IC, verdict |
 | **Allocate** | `stratgen allocate` | No | *(planned)* Portfolio weights with sector/position limits, turnover penalty |
 | **Status** | `stratgen status` | No | Alpaca account balance and positions |
 
@@ -170,8 +175,9 @@ class FactorSpec:
 | `--max-tries N` | optimize, optimize-xs | Grid search budget per factor (default: 200) |
 | `--top-n N` | signals, score | Number of top factors to use (default: 5 / all) |
 | `--ic-window N` | score | Rolling IC window in trading days (default: 60) |
-| `--min-verdict {PASS,MARGINAL}` | score | Minimum factor verdict to include (default: MARGINAL) |
-| `--n-groups N` | analyze, optimize-xs | Number of portfolio groups (default: 5 = quintiles) |
+| `--min-verdict {PASS,MARGINAL}` | score, validate | Minimum factor verdict to include (default: MARGINAL) |
+| `--n-groups N` | analyze, optimize-xs, validate | Number of portfolio groups (default: 5 = quintiles) |
+| `--horizons` | validate | Forward return horizons, comma-separated (default: 1,5,10,20) |
 | `--universe {sp100,sector-etfs}` | analyze, optimize-xs | Stock universe (default: sp100) |
 | `--train-end` / `--test-start` | optimize-xs | Train/test split dates (default: 2022-12-31 / 2023-01-01) |
 

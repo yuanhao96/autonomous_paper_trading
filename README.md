@@ -21,6 +21,7 @@ python -m stratgen optimize             # Grid search params on train/test split
 # --- v2.x: Screen → Score → Allocate ---
 python -m stratgen screen               # Filter S&P 500 by liquidity, price, data quality
 python -m stratgen score                # IC-weighted composite alpha per stock
+python -m stratgen validate             # Quintile analysis + multi-horizon IC validation
 
 # --- Other ---
 python -m stratgen signals              # LONG/FLAT signals from top factors (v1.x)
@@ -79,6 +80,7 @@ results_factors_opt.json ──────────────→  Z-score 
 |-------|---------|------|-------------|
 | Screen | `stratgen screen` | No | Filter S&P 500 by ADV, price, data completeness → ~478 stocks |
 | Score | `stratgen score` | No | Run optimized TS factors per stock, IC-weighted z-score → composite alpha |
+| Validate | `stratgen validate` | No | Quintile analysis, composite IC, multi-horizon IC, verdict (STRONG/WEAK/NONE) |
 | Allocate | `stratgen allocate` | No | *(planned)* Portfolio weights with sector/position limits, turnover penalty |
 | Status | `stratgen status` | No | Alpaca account balance and positions |
 
@@ -113,6 +115,7 @@ src/stratgen/               # Main package
   cross_section.py          #   Ranking, portfolios, IC, monotonicity, XS evaluation
   screener.py               #   Stock screener: liquidity, price, data quality filters
   scorer.py                 #   Alpha scoring: extract values, z-score, rolling IC, composite
+  validator.py              #   Validation: quintile analysis, composite IC, multi-horizon
   factor_discover.py        #   Time-series discovery loop
   factor_optimize.py        #   Grid search optimization
   factor_signals.py         #   Signal generation
@@ -120,6 +123,7 @@ src/stratgen/               # Main package
   factor_optimize_xs.py     #   XS grid search optimization (score by |IC|)
   factor_screen.py          #   Screen command runner
   factor_score.py           #   Score command runner
+  factor_validate.py        #   Validate command runner
   trade.py                  #   Alpaca integration
   paths.py                  #   Path constants
 data/                       # Cached universe data (Parquet, gitignored)
@@ -129,6 +133,7 @@ results_factors_xs.json     # Cross-sectional analysis results (runtime)
 results_factors_xs_opt.json # XS optimization results (runtime)
 results_screen.json         # Screen results (runtime)
 results_score.json          # Score results (runtime)
+results_validate.json       # Validation results (runtime)
 docs/                       # Detailed documentation
 ```
 
@@ -159,14 +164,14 @@ docs/                       # Detailed documentation
 - Composite alpha score per stock per day
 - `score` command: computes and ranks stocks by composite alpha
 
-### v2.2 — Cross-Sectional Validation
+### v2.2 — Cross-Sectional Validation (done)
 
-Validate that the composite scoring actually predicts forward returns on the larger universe.
-
-- Rank stocks by composite alpha → form quintiles on the 500-stock universe
-- Measure IC, monotonicity, long-short spread on out-of-sample data
-- Per-category IC analysis: which factor categories contribute most?
-- Factor decay analysis: how quickly does alpha decay over 1/5/10/20 day horizons?
+- Quintile analysis: rank stocks by composite alpha, measure group returns
+- Composite IC: Spearman correlation vs forward returns with t-stat and IR
+- Multi-horizon IC: evaluate at 1, 5, 10, 20-day forward horizons
+- Automated verdict: STRONG / WEAK / NONE based on IC, t-stat, monotonicity, spread
+- Look-ahead bias fix: IC weights use lagged rolling IC (data through t-1 only)
+- `validate` command: full validation report with formatted output
 
 ### v2.3 — Portfolio Construction
 
@@ -197,6 +202,7 @@ Convert alpha scores into tradeable portfolio weights with risk controls.
 
 ## Documentation
 
+- [v2.2 Design](docs/v2.2.md) — Composite alpha validation, quintile analysis, multi-horizon IC
 - [v2.1 Design](docs/v2.1.md) — Single-stock alpha factor scoring, IC-weighted composite
 - [v2.0 Design](docs/v2.0.md) — S&P 500 universe, stock screener, revised pipeline
 - [v1.3 Documentation](docs/v1.3.md) — expanded universe (S&P 100), XS optimization, quintiles

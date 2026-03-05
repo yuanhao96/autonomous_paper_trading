@@ -97,6 +97,35 @@ def main() -> None:
         help="Minimum factor verdict to include (default: MARGINAL)",
     )
 
+    # --- validate ---
+    p_val = sub.add_parser(
+        "validate", help="Validate composite alpha via quintile analysis and multi-horizon IC",
+    )
+    p_val.add_argument(
+        "--universe", choices=["sp100", "sp500", "sector-etfs"], default="sp500",
+        help="Stock universe (default: sp500)",
+    )
+    p_val.add_argument(
+        "--ic-window", type=int, default=60,
+        help="Rolling IC window in trading days (default: 60)",
+    )
+    p_val.add_argument(
+        "--top-n", type=int, default=None,
+        help="Use only top N factors (default: all passing)",
+    )
+    p_val.add_argument(
+        "--min-verdict", choices=["PASS", "MARGINAL"], default="MARGINAL",
+        help="Minimum factor verdict to include (default: MARGINAL)",
+    )
+    p_val.add_argument(
+        "--n-groups", type=int, default=5,
+        help="Number of quintile groups (default: 5)",
+    )
+    p_val.add_argument(
+        "--horizons", type=str, default="1,5,10,20",
+        help="Forward return horizons, comma-separated (default: 1,5,10,20)",
+    )
+
     # --- analyze ---
     p_analyze = sub.add_parser(
         "analyze", help="Cross-sectional factor analysis on a stock universe",
@@ -154,7 +183,18 @@ def main() -> None:
         parser.print_help()
         return
 
-    if args.command == "score":
+    if args.command == "validate":
+        from stratgen.factor_validate import run_validate
+        run_validate(
+            universe=args.universe,
+            min_verdict=args.min_verdict,
+            ic_window=args.ic_window,
+            top_n=args.top_n,
+            n_groups=args.n_groups,
+            horizons=args.horizons,
+        )
+
+    elif args.command == "score":
         from stratgen.factor_score import run_score
         run_score(
             universe=args.universe,
