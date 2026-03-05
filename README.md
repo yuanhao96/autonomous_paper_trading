@@ -119,32 +119,57 @@ docs/                       # Detailed documentation
 
 ## Roadmap
 
-### v1.3 — Expand Universe + Optimize XS Factors (done)
+### v1.x — Factor Discovery & Cross-Sectional Analysis (done)
 
-- S&P 100 universe (~101 large-cap stocks) for proper quintile support (~20 per group)
-- `--universe {sp100, sector-etfs}` flag on `analyze` and `optimize-xs`
-- `optimize-xs` command: Grid search XS factor params, score by |IC| on train (2019–2022), evaluate on test (2023+)
-- Graceful download failures for large universes
+- v1.0: Strategy-based pipeline (end-to-end working)
+- v1.1: Structured alpha factors with deterministic parsing, cached code, train/test optimization
+- v1.2: Cross-sectional factor analysis on sector ETFs
+- v1.3: S&P 100 universe, `optimize-xs` command, quintile support
 
-### v1.4 — Portfolio Construction + Combined Signals
+**Lessons learned:** Cross-sectional factors underperformed on S&P 100 (17/18 FAIL, 1 MARGINAL). WorldQuant-style short-horizon XS alphas need 500+ stocks for meaningful cross-sectional dispersion. The 100 large-cap stocks are too correlated.
 
-Bridge from factor evaluation to actionable trading.
+### v2.0 — S&P 500 Universe + Stock Screener (next)
 
-- Ensemble top TS and XS signals into a combined score
-- Portfolio-level risk: cross-factor correlation, max drawdown limits, position sizing
-- `allocate` command: Generate target weights from combined signals
+Expand to S&P 500 and add a quantitative screener to filter the universe before factor analysis.
+
+- S&P 500 ticker list (~503 stocks) with survivorship bias caveat
+- Quantitative screener: liquidity (ADV > $5M), price floor ($10+), data completeness
+- Sector classification for downstream sector-aware analysis
+- Efficient batch download with Parquet cache
+- `screen` command: Run screener, output filtered universe
+
+### v2.1 — Single-Stock Alpha Factor Scoring
+
+Apply existing 115 time-series factors per-stock across the screened universe. Produce a composite alpha score per stock per day.
+
+- Per-stock factor computation: run each TS factor on each stock independently
+- Cross-sectional z-scoring: normalize factor values across stocks at each date
+- IC-weighted combination: weight factors by rolling Information Coefficient (trailing 60-day)
+- Composite alpha score per stock per day
+- `score` command: Compute and display stock rankings
+
+### v2.2 — Cross-Sectional Validation
+
+Validate that the composite scoring actually predicts forward returns on the larger universe.
+
+- Rank stocks by composite alpha → form quintiles on the 500-stock universe
+- Measure IC, monotonicity, long-short spread on out-of-sample data
+- Per-category IC analysis: which factor categories contribute most?
+- Factor decay analysis: how quickly does alpha decay over 1/5/10/20 day horizons?
+
+### v2.3 — Portfolio Construction
+
+Convert alpha scores into tradeable portfolio weights with risk controls.
+
+- Long-only portfolio: top N stocks weighted by alpha score
+- Risk constraints: max position size, sector concentration limits
+- Turnover penalty: penalize excessive rebalancing
+- Transaction cost model: estimate slippage and commissions
+- `allocate` command: Generate target weights from composite alpha
+
+### v2.4 — Live Paper Trading Loop
+
 - Wire allocation output to Alpaca paper trading via `trade.py`
-
-### v1.5 — More XS Factor Classes
-
-Unlock more of the 85 excluded alphas by approximating missing data:
-
-- VWAP approximation: `(high + low + close) / 3` — unlocks ~12 factors
-- Dollar volume (adv): `close * volume` + rolling mean — unlocks ~15 factors
-- Sector neutralization: `IndNeutralize` with GICS labels on individual stocks — unlocks ~8 factors
-
-### v1.6 — Live Paper Trading Loop
-
 - Scheduled daily runs (cron/scheduler)
 - Order execution: submit Alpaca orders from allocation
 - Performance tracking: log fills, P&L, slippage vs backtest
@@ -152,13 +177,16 @@ Unlock more of the 85 excluded alphas by approximating missing data:
 
 ### Longer Term
 
-- Intraday data for true VWAP-dependent factors
+- Long-short portfolio construction (requires margin account)
+- Sector-neutral portfolio variants
+- ML meta-model (XGBoost/Ridge) using factor z-scores as features
 - Alternative data (sentiment, fundamentals, options flow)
-- ML meta-model using factor values as features
+- Intraday data for VWAP-dependent factors
 - Multi-asset expansion (crypto, futures, international ETFs)
 
 ## Documentation
 
+- [v2.0 Design](docs/v2.0.md) — S&P 500 universe, stock screener, revised pipeline
 - [v1.3 Documentation](docs/v1.3.md) — expanded universe (S&P 100), XS optimization, quintiles
 - [v1.2 Documentation](docs/v1.2.md) — cross-sectional analysis, evaluation metrics, design decisions
 - [v1.1 Documentation](docs/v1.1.md) — time-series factor pipeline architecture

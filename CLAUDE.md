@@ -2,13 +2,15 @@
 
 ## Project Purpose
 
-An autonomous trading agent that discovers, optimizes, and trades alpha factors. It uses 133 curated factor formulas (124 WorldQuant + 9 traditional) as a structured knowledge base, generates executable backtesting code via LLM, and deploys the best-performing factors to an Alpaca paper trading account.
+An autonomous trading agent that discovers, scores, and trades alpha factors on a screened S&P 500 universe. It uses 133 curated factor formulas (124 WorldQuant + 9 traditional) as a structured knowledge base, generates executable code via LLM, scores individual stocks using IC-weighted factor combination, and deploys portfolio allocations to an Alpaca paper trading account.
 
 This is the third attempt. Previous iterations failed due to:
 1. **v1** (`autonomou_evolving_investment`): Unbounded strategy space + custom infrastructure
 2. **v2** (this repo, prior code): Over-engineered multi-stage pipeline, too many abstractions before anything worked end-to-end
 
-**v1.0** got the strategy-based pipeline working end-to-end. **v1.1** pivots to structured alpha factors with deterministic parsing, cached code, and train/test optimization. **v1.2** adds cross-sectional factor analysis on a universe of sector ETFs. **v1.3** expands the universe to S&P 100 (~101 stocks) for proper quintile support and adds `optimize-xs` for grid-searching XS factor params.
+**v1.x** built the factor discovery and evaluation infrastructure: deterministic parsing, LLM codegen, time-series backtesting, cross-sectional analysis, and parameter optimization. Key finding: XS factors underperformed on S&P 100 (17/18 FAIL) — the universe was too small and correlated for rank-based alphas.
+
+**v2.x** pivots to a screen → score → allocate pipeline on S&P 500. Instead of evaluating factors in isolation, it applies all 115 time-series factors per-stock, combines them via IC-weighted z-scores into a composite alpha, and constructs a risk-managed portfolio.
 
 ## Key Principles
 
@@ -35,11 +37,20 @@ This is the third attempt. Previous iterations failed due to:
 ```bash
 pip install -e .                         # Install package (editable)
 pip install -e ".[dev]"                  # Install with dev tools
+
+# v1.x — Factor discovery & evaluation
 python -m stratgen discover             # Factor docs → code → backtest → evaluate
 python -m stratgen optimize             # Grid search params on train/test split
 python -m stratgen signals              # Generate LONG/FLAT signals from top factors
 python -m stratgen analyze              # Cross-sectional factor analysis (SP100 default)
 python -m stratgen optimize-xs          # Grid search XS factor params (score by |IC|)
+
+# v2.x — Screen → Score → Allocate (planned)
+python -m stratgen screen               # Filter S&P 500 by liquidity/price/data quality
+python -m stratgen score                # Compute IC-weighted composite alpha per stock
+python -m stratgen allocate             # Generate portfolio weights with risk constraints
+
+# Utilities
 python -m stratgen status               # Show Alpaca account + positions
 ruff check src/stratgen/                # Lint
 mypy src/stratgen/                      # Type check
@@ -91,18 +102,42 @@ tests/                      # All tests
 
 ## Pipeline
 
-The pipeline stages build on each other:
+### v1.x pipeline (factor discovery & evaluation)
 
-| Stage | Command | What it does |
-|-------|---------|-------------|
-| **Discover** | `python -m stratgen discover` | Parse factor docs → LLM codegen → backtest on SPY 2020–2025 → evaluate → cache code |
-| **Optimize** | `python -m stratgen optimize` | Grid search params on train (2020–2023), evaluate on test (2024+) — LLM-free |
-| **Signals** | `python -m stratgen signals` | Run top factors on recent data → LONG/FLAT signals — LLM-free |
-| **Analyze** | `python -m stratgen analyze` | Cross-sectional factor analysis on SP100 (or sector ETFs) — rank, form quintiles, compute IC |
-| **Optimize-XS** | `python -m stratgen optimize-xs` | Grid search XS factor params, score by |IC| on train (2019–2022), evaluate on test (2023+) |
-| **Status** | `python -m stratgen status` | Show Alpaca account balance and positions |
+| Stage | Command | LLM? | What it does |
+|-------|---------|------|-------------|
+| **Discover** | `stratgen discover` | Yes | Parse factor docs → LLM codegen → backtest on SPY → evaluate → cache code |
+| **Optimize** | `stratgen optimize` | No | Grid search params on train (2020–2023), evaluate on test (2024+) |
+| **Signals** | `stratgen signals` | No | Run top factors on recent data → LONG/FLAT signals |
+| **Analyze** | `stratgen analyze` | Yes | XS factor analysis on SP100 — rank, quintiles, IC |
+| **Optimize-XS** | `stratgen optimize-xs` | No | Grid search XS factor params, score by |IC| |
 
-Only `discover` and `analyze` call the LLM. Optimize and signals reuse cached code from `results_factors.json`.
+### v2.x pipeline (screen → score → allocate)
+
+```
+S&P 500 → Screen (liquidity/price/data) → ~300 stocks
+                                              ↓
+                              Run 115 TS factors per stock
+                                              ↓
+                              Z-score each factor cross-sectionally
+                                              ↓
+                              IC-weighted combination → composite alpha
+                                              ↓
+                              Rank → Validate (IC, quintile spread)
+                                              ↓
+                              Portfolio optimizer (risk constraints, turnover)
+                                              ↓
+                              Alpaca paper trading
+```
+
+| Stage | Command | LLM? | What it does |
+|-------|---------|------|-------------|
+| **Screen** | `stratgen screen` | No | Filter S&P 500 by ADV, price, data completeness → ~300 stocks |
+| **Score** | `stratgen score` | No | Compute all TS factors per stock, IC-weighted z-score combination |
+| **Allocate** | `stratgen allocate` | No | Portfolio weights with sector/position limits, turnover penalty |
+| **Status** | `stratgen status` | No | Alpaca account balance and positions |
+
+The v2.x pipeline is LLM-free at runtime — it reuses cached factor code from v1.x discovery.
 
 ### FactorSpec
 
