@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -23,7 +25,7 @@ class _MockStrategy:
     """
 
     data: object = None
-    I: object = None
+    I: object = None  # noqa: E741 — matches backtesting.py's Strategy.I() API
 
 
 def extract_factor_values(code: str, df: pd.DataFrame, params: dict) -> pd.Series:
@@ -138,7 +140,9 @@ def zscore_cross_sectional(panel: pd.DataFrame) -> pd.DataFrame:
     row_std = panel.std(axis=1)
     # Avoid division by zero
     row_std = row_std.replace(0, np.nan)
-    return panel.sub(row_mean, axis=0).div(row_std, axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return panel.sub(row_mean, axis=0).div(row_std, axis=0)
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +178,14 @@ def compute_rolling_ic(
             daily_ics.append(np.nan)
             ic_dates.append(date)
             continue
-        corr, _ = stats.spearmanr(f[common], r[common])
+        # Skip if either array is constant (no variance to correlate)
+        if f[common].nunique() < 2 or r[common].nunique() < 2:
+            daily_ics.append(np.nan)
+            ic_dates.append(date)
+            continue
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", stats.ConstantInputWarning)
+            corr, _ = stats.spearmanr(f[common], r[common])
         daily_ics.append(corr if not np.isnan(corr) else np.nan)
         ic_dates.append(date)
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -127,7 +129,11 @@ def compute_composite_ic(
         common = a.index.intersection(r.index)
         if len(common) < 10:
             continue
-        corr, _ = stats.spearmanr(a[common], r[common])
+        if a[common].nunique() < 2 or r[common].nunique() < 2:
+            continue
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", stats.ConstantInputWarning)
+            corr, _ = stats.spearmanr(a[common], r[common])
         if not np.isnan(corr):
             daily_ics.append(corr)
 
