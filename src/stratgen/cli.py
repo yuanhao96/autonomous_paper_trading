@@ -51,6 +51,31 @@ def main() -> None:
         help="Number of top factors to use (default: 5)",
     )
 
+    # --- screen ---
+    p_screen = sub.add_parser(
+        "screen", help="Filter universe by liquidity, price, data quality",
+    )
+    p_screen.add_argument(
+        "--universe", choices=["sp100", "sp500", "sector-etfs"], default="sp500",
+        help="Stock universe (default: sp500)",
+    )
+    p_screen.add_argument(
+        "--min-adv", type=float, default=5_000_000,
+        help="Min 20-day avg dollar volume (default: 5000000)",
+    )
+    p_screen.add_argument(
+        "--min-price", type=float, default=10.0,
+        help="Min last close price (default: 10.0)",
+    )
+    p_screen.add_argument(
+        "--min-completeness", type=float, default=0.95,
+        help="Min data completeness fraction (default: 0.95)",
+    )
+    p_screen.add_argument(
+        "--min-history-days", type=int, default=504,
+        help="Min trading days of history (default: 504)",
+    )
+
     # --- analyze ---
     p_analyze = sub.add_parser(
         "analyze", help="Cross-sectional factor analysis on a stock universe",
@@ -67,7 +92,7 @@ def main() -> None:
         help="Number of portfolio groups/quintiles (default: 5)",
     )
     p_analyze.add_argument(
-        "--universe", choices=["sp100", "sector-etfs"], default="sp100",
+        "--universe", choices=["sp100", "sp500", "sector-etfs"], default="sp100",
         help="Stock universe (default: sp100)",
     )
 
@@ -87,7 +112,7 @@ def main() -> None:
         help="Number of portfolio groups/quintiles (default: 5)",
     )
     p_opt_xs.add_argument(
-        "--universe", choices=["sp100", "sector-etfs"], default="sp100",
+        "--universe", choices=["sp100", "sp500", "sector-etfs"], default="sp100",
         help="Stock universe (default: sp100)",
     )
     p_opt_xs.add_argument(
@@ -108,7 +133,17 @@ def main() -> None:
         parser.print_help()
         return
 
-    if args.command == "discover":
+    if args.command == "screen":
+        from stratgen.factor_screen import run_screen
+        run_screen(
+            universe=args.universe,
+            min_adv=args.min_adv,
+            min_price=args.min_price,
+            min_completeness=args.min_completeness,
+            min_history_days=args.min_history_days,
+        )
+
+    elif args.command == "discover":
         from stratgen.factor_discover import run_factor_discover
         run_factor_discover(provider=args.provider, reset=args.reset)
 
