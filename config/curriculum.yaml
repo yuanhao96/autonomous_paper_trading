@@ -324,6 +324,34 @@ stages:
     name: Limit order
     description: Discovered during study of 'Limit orders vs market orders'.
     mastery_criteria: Can explain and apply Limit order in a concrete trading scenario
+  - id: price_formation
+    name: Price formation
+    description: Discovered during study of 'Price discovery'.
+    mastery_criteria: Can explain and apply Price formation in a concrete trading
+      scenario
+  - id: liquidity
+    name: Liquidity
+    description: Discovered during study of 'Price discovery'.
+    mastery_criteria: Can explain and apply Liquidity in a concrete trading scenario
+  - id: dark_pools
+    name: Dark pools
+    description: Discovered during study of 'Alternative Trading Systems (ATS)'.
+    mastery_criteria: Can explain and apply Dark pools in a concrete trading scenario
+  - id: crossing_networks
+    name: Crossing networks
+    description: Discovered during study of 'Alternative Trading Systems (ATS)'.
+    mastery_criteria: Can explain and apply Crossing networks in a concrete trading
+      scenario
+  - id: effective_spread
+    name: Effective Spread
+    description: Discovered during study of 'Bid-ask spread components'.
+    mastery_criteria: Can explain and apply Effective Spread in a concrete trading
+      scenario
+  - id: adverse_selection
+    name: Adverse Selection
+    description: Discovered during study of 'Bid-ask spread components'.
+    mastery_criteria: Can explain and apply Adverse Selection in a concrete trading
+      scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
