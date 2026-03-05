@@ -45,10 +45,10 @@ python -m stratgen signals              # Generate LONG/FLAT signals from top fa
 python -m stratgen analyze              # Cross-sectional factor analysis (SP100 default)
 python -m stratgen optimize-xs          # Grid search XS factor params (score by |IC|)
 
-# v2.x — Screen → Score → Allocate (planned)
+# v2.x — Screen → Score → Allocate
 python -m stratgen screen               # Filter S&P 500 by liquidity/price/data quality
 python -m stratgen score                # Compute IC-weighted composite alpha per stock
-python -m stratgen allocate             # Generate portfolio weights with risk constraints
+python -m stratgen allocate             # Generate portfolio weights with risk constraints (planned)
 
 # Utilities
 python -m stratgen status               # Show Alpaca account + positions
@@ -89,6 +89,10 @@ src/
     factor_signals.py       # Signal generation from top optimized factors
     factor_analyze.py       # Cross-sectional analysis loop with resume support
     factor_optimize_xs.py   # XS grid search optimization (score by |IC|, train/test)
+    screener.py             # Stock screener: liquidity, price, data quality filters
+    scorer.py               # Alpha scoring: factor extraction, z-score, rolling IC, composite
+    factor_screen.py        # Screen command runner
+    factor_score.py         # Score command runner
     trade.py                # Alpaca paper trading: status
 archive/                    # Historical files (v0–v6)
 docs/                       # Version documentation
@@ -97,6 +101,8 @@ results_factors.json        # Discovery results (runtime artifact)
 results_factors_opt.json    # Optimization results (runtime artifact)
 results_factors_xs.json     # Cross-sectional analysis results (runtime artifact)
 results_factors_xs_opt.json # XS optimization results (runtime artifact)
+results_screen.json         # Screen results (runtime artifact)
+results_score.json          # Score results (runtime artifact)
 tests/                      # All tests
 ```
 
@@ -134,7 +140,7 @@ S&P 500 → Screen (liquidity/price/data) → ~300 stocks
 |-------|---------|------|-------------|
 | **Screen** | `stratgen screen` | No | Filter S&P 500 by ADV, price, data completeness → ~300 stocks |
 | **Score** | `stratgen score` | No | Compute all TS factors per stock, IC-weighted z-score combination |
-| **Allocate** | `stratgen allocate` | No | Portfolio weights with sector/position limits, turnover penalty |
+| **Allocate** | `stratgen allocate` | No | *(planned)* Portfolio weights with sector/position limits, turnover penalty |
 | **Status** | `stratgen status` | No | Alpaca account balance and positions |
 
 The v2.x pipeline is LLM-free at runtime — it reuses cached factor code from v1.x discovery.
@@ -162,7 +168,9 @@ class FactorSpec:
 | `--provider {openai,anthropic}` | discover, analyze | LLM provider (default: openai) |
 | `--reset` | discover, optimize, analyze, optimize-xs | Ignore previous results, start fresh |
 | `--max-tries N` | optimize, optimize-xs | Grid search budget per factor (default: 200) |
-| `--top-n N` | signals | Number of top factors to use (default: 5) |
+| `--top-n N` | signals, score | Number of top factors to use (default: 5 / all) |
+| `--ic-window N` | score | Rolling IC window in trading days (default: 60) |
+| `--min-verdict {PASS,MARGINAL}` | score | Minimum factor verdict to include (default: MARGINAL) |
 | `--n-groups N` | analyze, optimize-xs | Number of portfolio groups (default: 5 = quintiles) |
 | `--universe {sp100,sector-etfs}` | analyze, optimize-xs | Stock universe (default: sp100) |
 | `--train-end` / `--test-start` | optimize-xs | Train/test split dates (default: 2022-12-31 / 2023-01-01) |

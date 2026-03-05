@@ -1,57 +1,56 @@
 # stratgen
 
-Autonomous alpha factor discovery, optimization, and cross-sectional analysis for trading.
+Autonomous alpha factor discovery, scoring, and trading on a screened S&P 500 universe.
 
-stratgen takes a curated set of 133 alpha factor formulas (115 time-series + 18 cross-sectional), uses an LLM to generate executable code for each, evaluates them against performance thresholds, optimizes parameters via grid search with out-of-sample validation, and generates trading signals from the winners.
+stratgen uses a two-phase workflow:
+
+1. **v1.x — Factor Discovery**: Take 133 curated alpha factor formulas, use an LLM to generate executable code, backtest on SPY, and optimize parameters via grid search with out-of-sample validation.
+2. **v2.x — Stock Scoring & Trading**: Screen the S&P 500 by liquidity/data quality, run all optimized factors per-stock, combine via IC-weighted z-scores into a composite alpha, and (planned) construct a risk-managed portfolio for paper trading.
+
+The v2.x pipeline is **LLM-free at runtime** — it reuses cached factor code from v1.x discovery.
 
 ## Quick Start
 
 ```bash
 pip install -e .
 
-# 1. Discover — parse factor docs, generate code, backtest, evaluate
-python -m stratgen discover
+# --- v1.x: Factor Discovery & Tuning ---
+python -m stratgen discover             # Parse factor docs → LLM codegen → backtest → evaluate
+python -m stratgen optimize             # Grid search params on train/test split
 
-# 2. Optimize — grid search params on train/test split
-python -m stratgen optimize
+# --- v2.x: Screen → Score → Allocate ---
+python -m stratgen screen               # Filter S&P 500 by liquidity, price, data quality
+python -m stratgen score                # IC-weighted composite alpha per stock
 
-# 3. Signals — generate LONG/FLAT from top factors
-python -m stratgen signals
-
-# 4. Analyze — cross-sectional factor analysis on S&P 100
-python -m stratgen analyze
-
-# 5. Optimize XS — grid search XS factor params (score by |IC|)
-python -m stratgen optimize-xs
-
-# 6. Status — Alpaca account info
-python -m stratgen status
+# --- Other ---
+python -m stratgen signals              # LONG/FLAT signals from top factors (v1.x)
+python -m stratgen analyze              # Cross-sectional factor analysis on S&P 100 (v1.x)
+python -m stratgen optimize-xs          # XS factor param optimization (v1.x)
+python -m stratgen status               # Alpaca account info
 ```
 
 Requires Python 3.10+ and at least one LLM API key (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) in a `.env` file.
 
 ## How It Works
 
-### Time-series pipeline (single-ticker backtesting)
+### End-to-end workflow
 
 ```
-Factor doc (.md)  →  Deterministic parse  →  LLM codegen  →  Backtest  →  Evaluate
-                                                  ↓ (code cached)
-                                             Optimize (grid search, train/test split)
-                                                  ↓
-                                             Signals (LONG / FLAT per factor)
-```
-
-### Cross-sectional pipeline (multi-ticker ranking)
-
-```
-Factor doc (.md)  →  Deterministic parse  →  LLM codegen  →  Compute alpha panel
-                                                  ↓ (code cached)
-                                             Rank across S&P 100  →  Form quintiles
-                                                  ↓
-                                             IC, monotonicity, long-short spread
-                                                  ↓ (code cached)
-                                             Optimize-XS (grid search, train/test split)
+v1.x: Factor Discovery                    v2.x: Stock Scoring
+─────────────────────                      ────────────────────
+Factor docs (133)                          S&P 500 (~503 tickers)
+      ↓ LLM codegen                             ↓
+Backtest on SPY → Evaluate               Screen (liquidity/price/data)
+      ↓                                         ↓ ~478 passing
+Optimize (grid search)                    Run 48 optimized TS factors per stock
+      ↓                                         ↓
+results_factors_opt.json ──────────────→  Z-score cross-sectionally
+  (48 PASS/MARGINAL,                            ↓
+   cached code + params)                  IC-weighted combination
+                                                ↓
+                                          Composite alpha → Rank stocks
+                                                ↓ (planned)
+                                          Portfolio optimizer → Alpaca
 ```
 
 ## Factor Knowledge Base
@@ -64,14 +63,24 @@ Factor doc (.md)  →  Deterministic parse  →  LLM codegen  →  Compute alpha
 
 ## Pipeline
 
+### v1.x — Factor Discovery & Evaluation
+
 | Stage | Command | LLM? | What it does |
 |-------|---------|------|-------------|
-| Discover | `python -m stratgen discover` | Yes | Parse 115 factor docs → LLM codegen → backtest on SPY → evaluate |
-| Optimize | `python -m stratgen optimize` | No | Grid search params on train set (2020–2023), evaluate on test (2024+) |
-| Signals | `python -m stratgen signals` | No | Run top factors on recent data → LONG/FLAT signals |
-| Analyze | `python -m stratgen analyze` | Yes | Parse 18 XS factor docs → LLM codegen → rank across S&P 100 → IC/mono |
-| Optimize-XS | `python -m stratgen optimize-xs` | No | Grid search XS factor params, score by |IC| on train (2019–2022) |
-| Status | `python -m stratgen status` | No | Show Alpaca account balance and positions |
+| Discover | `stratgen discover` | Yes | Parse 115 factor docs → LLM codegen → backtest on SPY → evaluate |
+| Optimize | `stratgen optimize` | No | Grid search params on train set (2020–2023), evaluate on test (2024+) |
+| Signals | `stratgen signals` | No | Run top factors on recent data → LONG/FLAT signals |
+| Analyze | `stratgen analyze` | Yes | Parse 18 XS factor docs → LLM codegen → rank across S&P 100 → IC/mono |
+| Optimize-XS | `stratgen optimize-xs` | No | Grid search XS factor params, score by |IC| on train (2019–2022) |
+
+### v2.x — Screen → Score → Allocate
+
+| Stage | Command | LLM? | What it does |
+|-------|---------|------|-------------|
+| Screen | `stratgen screen` | No | Filter S&P 500 by ADV, price, data completeness → ~478 stocks |
+| Score | `stratgen score` | No | Run optimized TS factors per stock, IC-weighted z-score → composite alpha |
+| Allocate | `stratgen allocate` | No | *(planned)* Portfolio weights with sector/position limits, turnover penalty |
+| Status | `stratgen status` | No | Alpaca account balance and positions |
 
 ## Configuration
 
@@ -100,13 +109,17 @@ knowledge/                  # 145 curated trading knowledge docs (read-only)
 src/stratgen/               # Main package
   cli.py                    #   CLI entry point
   core.py                   #   FactorSpec, LLM calls, TS + XS codegen, evaluate
-  universe.py               #   Universe management: SP100/sector ETFs, download, cache
+  universe.py               #   Universe management: SP100/SP500/sector ETFs, download, cache
   cross_section.py          #   Ranking, portfolios, IC, monotonicity, XS evaluation
+  screener.py               #   Stock screener: liquidity, price, data quality filters
+  scorer.py                 #   Alpha scoring: extract values, z-score, rolling IC, composite
   factor_discover.py        #   Time-series discovery loop
   factor_optimize.py        #   Grid search optimization
   factor_signals.py         #   Signal generation
   factor_analyze.py         #   Cross-sectional analysis loop
   factor_optimize_xs.py     #   XS grid search optimization (score by |IC|)
+  factor_screen.py          #   Screen command runner
+  factor_score.py           #   Score command runner
   trade.py                  #   Alpaca integration
   paths.py                  #   Path constants
 data/                       # Cached universe data (Parquet, gitignored)
@@ -114,6 +127,8 @@ results_factors.json        # Discovery results (runtime)
 results_factors_opt.json    # Optimization results (runtime)
 results_factors_xs.json     # Cross-sectional analysis results (runtime)
 results_factors_xs_opt.json # XS optimization results (runtime)
+results_screen.json         # Screen results (runtime)
+results_score.json          # Score results (runtime)
 docs/                       # Detailed documentation
 ```
 
@@ -128,25 +143,21 @@ docs/                       # Detailed documentation
 
 **Lessons learned:** Cross-sectional factors underperformed on S&P 100 (17/18 FAIL, 1 MARGINAL). WorldQuant-style short-horizon XS alphas need 500+ stocks for meaningful cross-sectional dispersion. The 100 large-cap stocks are too correlated.
 
-### v2.0 — S&P 500 Universe + Stock Screener (next)
-
-Expand to S&P 500 and add a quantitative screener to filter the universe before factor analysis.
+### v2.0 — S&P 500 Universe + Stock Screener (done)
 
 - S&P 500 ticker list (~503 stocks) with survivorship bias caveat
-- Quantitative screener: liquidity (ADV > $5M), price floor ($10+), data completeness
-- Sector classification for downstream sector-aware analysis
+- Quantitative screener: liquidity (ADV > $5M), price floor ($10+), data completeness (>95%), history (>2yr)
 - Efficient batch download with Parquet cache
-- `screen` command: Run screener, output filtered universe
+- `screen` command: filters ~503 tickers to ~478 passing stocks
 
-### v2.1 — Single-Stock Alpha Factor Scoring
+### v2.1 — Single-Stock Alpha Factor Scoring (done)
 
-Apply existing 115 time-series factors per-stock across the screened universe. Produce a composite alpha score per stock per day.
-
-- Per-stock factor computation: run each TS factor on each stock independently
+- Mock Strategy extraction: run cached factor code per-stock without full backtests
 - Cross-sectional z-scoring: normalize factor values across stocks at each date
-- IC-weighted combination: weight factors by rolling Information Coefficient (trailing 60-day)
+- Rolling IC computation: Spearman rank correlation of factors vs forward returns
+- IC-weighted combination: weight factors by trailing 60-day IC, sign-adjusted
 - Composite alpha score per stock per day
-- `score` command: Compute and display stock rankings
+- `score` command: computes and ranks stocks by composite alpha
 
 ### v2.2 — Cross-Sectional Validation
 
@@ -186,6 +197,7 @@ Convert alpha scores into tradeable portfolio weights with risk controls.
 
 ## Documentation
 
+- [v2.1 Design](docs/v2.1.md) — Single-stock alpha factor scoring, IC-weighted composite
 - [v2.0 Design](docs/v2.0.md) — S&P 500 universe, stock screener, revised pipeline
 - [v1.3 Documentation](docs/v1.3.md) — expanded universe (S&P 100), XS optimization, quintiles
 - [v1.2 Documentation](docs/v1.2.md) — cross-sectional analysis, evaluation metrics, design decisions

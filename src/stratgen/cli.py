@@ -76,6 +76,27 @@ def main() -> None:
         help="Min trading days of history (default: 504)",
     )
 
+    # --- score ---
+    p_score = sub.add_parser(
+        "score", help="Compute IC-weighted composite alpha per stock",
+    )
+    p_score.add_argument(
+        "--universe", choices=["sp100", "sp500", "sector-etfs"], default="sp500",
+        help="Stock universe (default: sp500)",
+    )
+    p_score.add_argument(
+        "--ic-window", type=int, default=60,
+        help="Rolling IC window in trading days (default: 60)",
+    )
+    p_score.add_argument(
+        "--top-n", type=int, default=None,
+        help="Use only top N factors (default: all passing)",
+    )
+    p_score.add_argument(
+        "--min-verdict", choices=["PASS", "MARGINAL"], default="MARGINAL",
+        help="Minimum factor verdict to include (default: MARGINAL)",
+    )
+
     # --- analyze ---
     p_analyze = sub.add_parser(
         "analyze", help="Cross-sectional factor analysis on a stock universe",
@@ -133,7 +154,16 @@ def main() -> None:
         parser.print_help()
         return
 
-    if args.command == "screen":
+    if args.command == "score":
+        from stratgen.factor_score import run_score
+        run_score(
+            universe=args.universe,
+            min_verdict=args.min_verdict,
+            ic_window=args.ic_window,
+            top_n=args.top_n,
+        )
+
+    elif args.command == "screen":
         from stratgen.factor_screen import run_screen
         run_screen(
             universe=args.universe,
