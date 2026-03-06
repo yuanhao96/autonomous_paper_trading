@@ -352,6 +352,34 @@ stages:
     description: Discovered during study of 'Bid-ask spread components'.
     mastery_criteria: Can explain and apply Adverse Selection in a concrete trading
       scenario
+  - id: resting_order
+    name: Resting order
+    description: Discovered during study of 'Limit Order Book (LOB)'.
+    mastery_criteria: Can explain and apply Resting order in a concrete trading scenario
+  - id: top_of_book_tob
+    name: Top Of Book (TOB)
+    description: Discovered during study of 'Limit Order Book (LOB)'.
+    mastery_criteria: Can explain and apply Top Of Book (TOB) in a concrete trading
+      scenario
+  - id: good_til_cancelled_gtc
+    name: Good 'Til Cancelled (GTC)
+    description: Discovered during study of 'Central Limit Order Book (CLOB)'.
+    mastery_criteria: Can explain and apply Good 'Til Cancelled (GTC) in a concrete
+      trading scenario
+  - id: all_or_none_aon
+    name: All or None (AON)
+    description: Discovered during study of 'Central Limit Order Book (CLOB)'.
+    mastery_criteria: Can explain and apply All or None (AON) in a concrete trading
+      scenario
+  - id: forward_premium_puzzle
+    name: Forward premium puzzle
+    description: Discovered during study of 'Carry trade'.
+    mastery_criteria: Can explain and apply Forward premium puzzle in a concrete trading
+      scenario
+  - id: forward_bias
+    name: Forward bias
+    description: Discovered during study of 'Carry trade'.
+    mastery_criteria: Can explain and apply Forward bias in a concrete trading scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
