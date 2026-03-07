@@ -380,6 +380,32 @@ stages:
     name: Forward bias
     description: Discovered during study of 'Carry trade'.
     mastery_criteria: Can explain and apply Forward bias in a concrete trading scenario
+  - id: correlation
+    name: Correlation
+    description: Discovered during study of 'Inflation hedge'.
+    mastery_criteria: Can explain and apply Correlation in a concrete trading scenario
+  - id: hedging
+    name: Hedging
+    description: Discovered during study of 'Inflation hedge'.
+    mastery_criteria: Can explain and apply Hedging in a concrete trading scenario
+  - id: forward_contracts
+    name: Forward contracts
+    description: Discovered during study of 'Asset class correlation'.
+    mastery_criteria: Can explain and apply Forward contracts in a concrete trading
+      scenario
+  - id: options
+    name: Options
+    description: Discovered during study of 'Asset class correlation'.
+    mastery_criteria: Can explain and apply Options in a concrete trading scenario
+  - id: risk_reversal
+    name: Risk reversal
+    description: Discovered during study of 'Positive/negative correlation'.
+    mastery_criteria: Can explain and apply Risk reversal in a concrete trading scenario
+  - id: natural_hedging
+    name: Natural hedging
+    description: Discovered during study of 'Positive/negative correlation'.
+    mastery_criteria: Can explain and apply Natural hedging in a concrete trading
+      scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
