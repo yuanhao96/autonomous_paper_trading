@@ -406,6 +406,35 @@ stages:
     description: Discovered during study of 'Positive/negative correlation'.
     mastery_criteria: Can explain and apply Natural hedging in a concrete trading
       scenario
+  - id: economic_risk_forecast_risk
+    name: Economic risk (forecast risk)
+    description: Discovered during study of 'Foreign exchange risk (FX risk)'.
+    mastery_criteria: Can explain and apply Economic risk (forecast risk) in a concrete
+      trading scenario
+  - id: contingent_risk
+    name: Contingent risk
+    description: Discovered during study of 'Foreign exchange risk (FX risk)'.
+    mastery_criteria: Can explain and apply Contingent risk in a concrete trading
+      scenario
+  - id: trading_sessions_tokyolondonnew_york
+    name: Trading sessions (Tokyo/London/New York)
+    description: Discovered during study of 'Translation risk'.
+    mastery_criteria: Can explain and apply Trading sessions (Tokyo/London/New York)
+      in a concrete trading scenario
+  - id: value_at_risk_var
+    name: Value at risk (VaR)
+    description: Discovered during study of 'Translation risk'.
+    mastery_criteria: Can explain and apply Value at risk (VaR) in a concrete trading
+      scenario
+  - id: financial_risk_management
+    name: Financial risk management
+    description: Discovered during study of 'Economic risk'.
+    mastery_criteria: Can explain and apply Financial risk management in a concrete
+      trading scenario
+  - id: liquidity_risk
+    name: Liquidity risk
+    description: Discovered during study of 'Economic risk'.
+    mastery_criteria: Can explain and apply Liquidity risk in a concrete trading scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
