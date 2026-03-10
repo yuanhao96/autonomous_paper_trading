@@ -435,6 +435,25 @@ stages:
     name: Liquidity risk
     description: Discovered during study of 'Economic risk'.
     mastery_criteria: Can explain and apply Liquidity risk in a concrete trading scenario
+  - id: ttm_vs_ltm_distinction
+    name: TTM vs LTM distinction
+    description: Discovered during study of 'TTM/LTM Earnings'.
+    mastery_criteria: Can explain and apply TTM vs LTM distinction in a concrete trading
+      scenario
+  - id: ai_revenue_growth
+    name: AI Revenue Growth
+    description: Discovered during study of 'TTM/LTM Earnings'.
+    mastery_criteria: Can explain and apply AI Revenue Growth in a concrete trading
+      scenario
+  - id: sentiment_indicators
+    name: Sentiment Indicators
+    description: Discovered during study of 'Trend Analysis'.
+    mastery_criteria: Can explain and apply Sentiment Indicators in a concrete trading
+      scenario
+  - id: stop_orders
+    name: Stop Orders
+    description: Discovered during study of 'Trend Analysis'.
+    mastery_criteria: Can explain and apply Stop Orders in a concrete trading scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
