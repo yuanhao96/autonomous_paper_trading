@@ -454,6 +454,35 @@ stages:
     name: Stop Orders
     description: Discovered during study of 'Trend Analysis'.
     mastery_criteria: Can explain and apply Stop Orders in a concrete trading scenario
+  - id: breakout
+    name: Breakout
+    description: Discovered during study of 'Breakouts'.
+    mastery_criteria: Can explain and apply Breakout in a concrete trading scenario
+  - id: false_breakoutfakeout
+    name: False Breakout/Fakeout
+    description: Discovered during study of 'Breakouts'.
+    mastery_criteria: Can explain and apply False Breakout/Fakeout in a concrete trading
+      scenario
+  - id: advance-decline_line_adl
+    name: Advance-Decline Line (ADL)
+    description: Discovered during study of 'Market Breadth'.
+    mastery_criteria: Can explain and apply Advance-Decline Line (ADL) in a concrete
+      trading scenario
+  - id: arms_index_trin
+    name: Arms Index (TRIN)
+    description: Discovered during study of 'Market Breadth'.
+    mastery_criteria: Can explain and apply Arms Index (TRIN) in a concrete trading
+      scenario
+  - id: trend_analysis_and_dow_theory
+    name: Trend analysis and Dow Theory
+    description: Discovered during study of 'Point-and-Figure Charts'.
+    mastery_criteria: Can explain and apply Trend analysis and Dow Theory in a concrete
+      trading scenario
+  - id: bar_charts_high_low_close_volume
+    name: Bar charts (high, low, close, volume)
+    description: Discovered during study of 'Point-and-Figure Charts'.
+    mastery_criteria: Can explain and apply Bar charts (high, low, close, volume)
+      in a concrete trading scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
