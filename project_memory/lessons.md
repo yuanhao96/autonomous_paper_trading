@@ -35,3 +35,20 @@
 
 ### Patterns to Avoid
 - Don't compare uncapped weights with strict equality — use tolerance (1e-10)
+
+## Milestone: Paper Trading Execution via Alpaca (2026-03-11)
+
+### What Worked
+- Separating pure rebalance logic (`compute_rebalance_orders`) from API calls — enables thorough testing without Alpaca credentials
+- Sells-first-then-buys ordering avoids buying power issues
+- `min_trade_value` filter prevents unnecessary small trades
+
+### What Didn't Work
+- N/A — implementation was straightforward
+
+### Patterns to Reuse
+- Keep broker-dependent code in thin wrappers; test pure logic independently
+- Floor rounding for share quantities (conservative, avoids over-allocation)
+
+### Patterns to Avoid
+- Don't require live API credentials for unit testing — mock the client or test pure logic only

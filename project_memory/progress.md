@@ -26,20 +26,28 @@ Build a paper trading system that autonomously learns alpha factors. The system 
   - [x] No single stock > 5%
   - [x] Output saved to results_allocate.json
 
+### Milestone: Paper Trading Execution via Alpaca
+- **Status**: completed
+- **Date completed**: 2026-03-11
+- **Summary**: Built `stratgen trade` command with rebalance logic (compute target shares, market orders, sells-first). Pure logic tested with 9 unit tests. Live trading requires Alpaca credentials in .env.
+- **Acceptance criteria met**:
+  - [x] `stratgen trade` command submits orders to Alpaca paper trading
+  - [x] Orders match the allocation weights from results_allocate.json
+  - [x] Position sizing accounts for account equity
+  - [x] `stratgen status` shows updated positions after trading
+
 ## Current Milestone
 
-### Milestone: Paper Trading Execution via Alpaca
+### Milestone: Autonomous Learning Loop
 - **Status**: in-progress
+- **Priority**: high
 - **Acceptance criteria**:
-  - [ ] `stratgen trade` command submits orders to Alpaca paper trading
-  - [ ] Orders match the allocation weights from results_allocate.json
-  - [ ] Position sizing accounts for account equity
-  - [ ] `stratgen status` shows updated positions after trading
+  - [ ] A single command re-optimizes factor params on a rolling window
+  - [ ] Factor combination weights are re-learned from recent IC data
+  - [ ] Screening thresholds can be auto-tuned based on portfolio quality metrics
+  - [ ] Results are logged for comparison across runs
 - **Phase**: brainstorm
 
 ## Upcoming Milestones
 
-### Milestone: Autonomous Learning Loop
-- **Priority**: medium
-- **Depends on**: Paper Trading Execution via Alpaca
-- **Rough scope**: Build a periodic re-optimization pipeline that re-trains factor params, screening thresholds, and combination weights on rolling windows.
+(none — Autonomous Learning Loop is the final milestone)

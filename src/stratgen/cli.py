@@ -224,6 +224,15 @@ def main() -> None:
         help="First date of test period (default: 2023-01-01)",
     )
 
+    # --- trade ---
+    p_trade = sub.add_parser(
+        "trade", help="Rebalance Alpaca paper account to match allocation weights",
+    )
+    p_trade.add_argument(
+        "--dry-run", action="store_true",
+        help="Print orders without executing",
+    )
+
     # --- status ---
     sub.add_parser("status", help="Show Alpaca account status and positions")
 
@@ -307,6 +316,10 @@ def main() -> None:
             n_groups=args.n_groups, universe=args.universe,
             train_end=args.train_end, test_start=args.test_start,
         )
+
+    elif args.command == "trade":
+        from stratgen.trade import cmd_trade
+        cmd_trade(dry_run=args.dry_run)
 
     elif args.command == "status":
         from stratgen.trade import cmd_status

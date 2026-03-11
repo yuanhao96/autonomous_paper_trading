@@ -2,36 +2,37 @@
 
 ## Active Milestone
 
-**Name**: Implement Portfolio Allocation
-**Goal**: Build the `allocate` command that converts composite alpha scores into portfolio weights with position limits.
+**Name**: Paper Trading Execution via Alpaca
+**Goal**: Extend trade.py to submit orders to Alpaca paper trading based on allocation weights.
 
 ## Current Phase
 
-**Phase**: execute
+**Phase**: review
 **Started**: 2026-03-11
 
 ## Key Decisions
 
-- [AUTO] Chose alpha-proportional weighting with caps over equal-weight (too simple) and MVO (too complex)
-- [AUTO] Long-only portfolio, top-N stocks by composite alpha
-- [AUTO] Position cap at 5% (configurable), remaining weight redistributed
-- [AUTO] No sector constraints for now — keep simple, add in future milestone if needed
+- [AUTO] Implement order submission as `stratgen trade` command (rebalance to target weights)
+- [AUTO] Use market orders for simplicity — limit orders add complexity without clear benefit for paper trading
+- [AUTO] Compute target shares from allocation weights * account equity / current price
+- [AUTO] No Alpaca credentials available — implement and test with mocks, flag for user to add credentials
 
 ## Blockers
+
+- [ ] ALPACA_API_KEY and ALPACA_SECRET_KEY not set in .env — needed for live testing
 
 ## Plan Reference
 
 ### Steps
 
-1. [ ] Create `src/stratgen/allocator.py` — core allocation functions
-2. [ ] Create `src/stratgen/factor_allocate.py` — command runner
-3. [ ] Add `allocate` subcommand to `cli.py`
-4. [ ] Add `RESULTS_ALLOCATE` path to `paths.py`
-5. [ ] Create `tests/test_allocator.py`
-6. [ ] Run `stratgen allocate` and verify output
+1. [x] Add `compute_rebalance_orders()` and `execute_orders()` to trade.py
+2. [x] Add `cmd_trade()` to trade.py — load allocation, call rebalance
+3. [x] Add `trade` subcommand to cli.py (parser + dispatch)
+4. [x] Create tests/test_trade.py with 9 tests for rebalance logic
+5. [x] All 48 tests pass, lint clean
 
 ## Notes
 
-- Composite alpha scores available from score/validate pipeline
-- Alpha-proportional: weight_i = max(alpha_i, 0) / sum(max(alpha_j, 0)) for j in top-N
-- Position cap applied iteratively: excess weight redistributed to uncapped positions
+- Existing: get_alpaca_client(), show_status(), cmd_status()
+- alpaca-py SDK: TradingClient, MarketOrderRequest, OrderSide, TimeInForce
+- Live testing blocked on Alpaca credentials — all pure logic fully tested
