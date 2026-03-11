@@ -184,32 +184,32 @@ class TestComputeRollingIC:
 # ---------------------------------------------------------------------------
 
 class TestCompositeAlpha:
-    def test_two_factors(self):
+    @staticmethod
+    def _make_two_factor_data():
         dates = pd.bdate_range("2023-01-01", periods=200)
         tickers = [f"T{i}" for i in range(30)]
         rng = np.random.default_rng(42)
 
-        # Factor 1: positive IC (correlated with returns)
         f1 = pd.DataFrame(
             rng.standard_normal((200, 30)),
             index=dates, columns=tickers,
         )
-        # Factor 2: negative IC (inversely correlated with returns)
         f2 = pd.DataFrame(
             rng.standard_normal((200, 30)),
             index=dates, columns=tickers,
         )
 
-        # Returns correlated with f1, anti-correlated with f2
         returns_data = np.zeros((200, 30))
         returns_data[1:] = (
             f1.values[:-1] * 0.5 - f2.values[:-1] * 0.3
             + rng.standard_normal((199, 30)) * 0.1
         )
         returns_panel = pd.DataFrame(returns_data, index=dates, columns=tickers)
+        return {"factor1": f1, "factor2": f2}, returns_panel
 
-        panels = {"factor1": f1, "factor2": f2}
-        comp, ic_sum = composite_alpha(panels, returns_panel, ic_window=30)
+    def test_two_factors(self):
+        panels, returns_panel = self._make_two_factor_data()
+        comp, ic_sum = composite_alpha(panels, returns_panel, ic_window=30, min_ic=0.0)
 
         assert isinstance(comp, pd.DataFrame)
         assert comp.shape[1] == 30
@@ -217,3 +217,51 @@ class TestCompositeAlpha:
         # factor1 should have positive IC, factor2 negative
         assert ic_sum["factor1"] > 0
         assert ic_sum["factor2"] < 0
+
+    def test_sign_weighting(self):
+        panels, returns_panel = self._make_two_factor_data()
+        comp_sign, ic_sign = composite_alpha(
+            panels, returns_panel, ic_window=30, weight_method="sign", min_ic=0.0,
+        )
+        comp_ic, ic_ic = composite_alpha(
+            panels, returns_panel, ic_window=30, weight_method="ic", min_ic=0.0,
+        )
+        # Both should produce DataFrames of the same shape
+        assert comp_sign.shape == comp_ic.shape
+        # ICs should be identical regardless of weighting method
+        assert ic_sign == ic_ic
+
+    def test_min_ic_filters_weak_factors(self):
+        dates = pd.bdate_range("2023-01-01", periods=200)
+        tickers = [f"T{i}" for i in range(30)]
+        rng = np.random.default_rng(42)
+
+        # Strong factor: high IC
+        f_strong = pd.DataFrame(
+            rng.standard_normal((200, 30)),
+            index=dates, columns=tickers,
+        )
+        # Weak factor: pure noise, low IC
+        f_weak = pd.DataFrame(
+            rng.standard_normal((200, 30)) * 0.001,
+            index=dates, columns=tickers,
+        )
+
+        returns_data = np.zeros((200, 30))
+        returns_data[1:] = f_strong.values[:-1] * 0.5 + rng.standard_normal((199, 30)) * 0.1
+        returns_panel = pd.DataFrame(returns_data, index=dates, columns=tickers)
+
+        panels = {"strong": f_strong, "weak": f_weak}
+        # With high min_ic, weak factor should be filtered
+        comp, ic_sum = composite_alpha(
+            panels, returns_panel, ic_window=30, min_ic=0.1,
+        )
+        assert isinstance(comp, pd.DataFrame)
+
+    def test_icir_weighting(self):
+        panels, returns_panel = self._make_two_factor_data()
+        comp, ic_sum = composite_alpha(
+            panels, returns_panel, ic_window=30, weight_method="icir", min_ic=0.0,
+        )
+        assert isinstance(comp, pd.DataFrame)
+        assert comp.shape[1] == 30

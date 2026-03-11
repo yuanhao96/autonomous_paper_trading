@@ -18,6 +18,8 @@ def run_score(
     min_verdict: str = "MARGINAL",
     ic_window: int = 60,
     top_n: int | None = None,
+    weight_method: str = "sign",
+    min_ic: float = 0.005,
 ) -> None:
     """Load screened tickers + optimized factors, compute composite alpha, save results."""
     # 1. Load screened tickers
@@ -84,8 +86,11 @@ def run_score(
     })
 
     # 6. Compute composite alpha
-    print("Computing IC-weighted composite alpha...")
-    composite, ic_summary = composite_alpha(factor_panels, returns_panel, ic_window=ic_window)
+    print(f"Computing composite alpha (weight={weight_method}, min_ic={min_ic})...")
+    composite, ic_summary = composite_alpha(
+        factor_panels, returns_panel,
+        ic_window=ic_window, min_ic=min_ic, weight_method=weight_method,
+    )
 
     # 7. Rank stocks by latest composite score
     latest_date = composite.index[-1]

@@ -1,0 +1,78 @@
+[
+  {
+    "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_115.md",
+    "name": "WQ-115: Product of two ranked correlations",
+    "category": "cross_sectional",
+    "formula": "rank(correlation(high * 0.9 + close * 0.1, sma(volume, 30), 10)) * rank(correlation(ts_rank(high + low / 2, 3), ts_rank(volume, 10), 7))",
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    vol_sma = params.get(\"vol_sma\", 30)\n    corr1_lookback = params.get(\"corr1_lookback\", 10)\n    ts_rank1 = params.get(\"ts_rank1\", 3)\n    ts_rank2 = params.get(\"ts_rank2\", 10)\n    corr2_lookback = params.get(\"corr2_lookback\", 7)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    low = pd.DataFrame({t: d[\"Low\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(high.index).intersection(low.index).intersection(volume.index)\n    close = close.loc[idx]\n    high = high.loc[idx]\n    low = low.loc[idx]\n    volume = volume.loc[idx]\n\n    def ts_rank(x: pd.DataFrame, d: int) -> pd.DataFrame:\n        return x.rolling(d).apply(lambda s: s.rank().iloc[-1] / len(s), raw=False)\n\n    # First term: rank(correlation(high * 0.9 + close * 0.1, sma(volume, 30), 10))\n    x1 = high * 0.9 + close * 0.1\n    y1 = volume.rolling(vol_sma).mean()\n    corr1 = x1.rolling(corr1_lookback).corr(y1)\n    r1 = corr1.rank(axis=1, pct=True)\n\n    # Second term: rank(correlation(ts_rank(high + low / 2, 3), ts_rank(volume, 10), 7))\n    x2 = ts_rank(high + low / 2.0, ts_rank1)\n    y2 = ts_rank(volume, ts_rank2)\n    corr2 = x2.rolling(corr2_lookback).corr(y2)\n    r2 = corr2.rank(axis=1, pct=True)\n\n    alpha = r1 * r2\n    return alpha.dropna(how=\"all\")",
+    "original_params": {
+      "vol_sma": 30,
+      "corr1_lookback": 10,
+      "ts_rank1": 3,
+      "ts_rank2": 10,
+      "corr2_lookback": 7
+    },
+    "param_ranges": {
+      "vol_sma": [
+        15,
+        45
+      ],
+      "corr1_lookback": [
+        5,
+        20
+      ],
+      "ts_rank1": [
+        2,
+        5
+      ],
+      "ts_rank2": [
+        5,
+        15
+      ],
+      "corr2_lookback": [
+        5,
+        15
+      ]
+    },
+    "optimized_params": {
+      "vol_sma": 31,
+      "corr1_lookback": 13,
+      "ts_rank1": 2,
+      "ts_rank2": 5,
+      "corr2_lookback": 9
+    },
+    "train_metrics": {
+      "mean_ic": -0.01175207107684223,
+      "ic_t_stat": -2.3926480220457296,
+      "monotonicity": 1.0,
+      "long_short_spread": 0.0022797402378055584,
+      "group_mean_returns": {
+        "1": -0.0005113279641813404,
+        "2": 0.00021247718900376788,
+        "3": 0.0005331286910436862,
+        "4": 0.0011086330076909181,
+        "5": 0.0017684122736242181
+      },
+      "n_groups": 5
+    },
+    "test_metrics": {
+      "mean_ic": -0.012107906299081789,
+      "ic_t_stat": -2.126016759261623,
+      "monotonicity": 1.0,
+      "long_short_spread": 0.0027781023388696252,
+      "group_mean_returns": {
+        "1": -0.000761233469906723,
+        "2": 0.0001207460806806571,
+        "3": 0.0007869415082988756,
+        "4": 0.0012607632533008818,
+        "5": 0.0020168688689629023
+      },
+      "n_groups": 5
+    },
+    "test_verdict": "MARGINAL",
+    "test_reasons": [
+      "MARGINAL: |IC| 0.0121 < 0.03"
+    ],
+    "error": null
+  }
+]

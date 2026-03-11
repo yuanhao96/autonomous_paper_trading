@@ -204,20 +204,29 @@ def composite_alpha(
     factor_panels: dict[str, pd.DataFrame],
     returns_panel: pd.DataFrame,
     ic_window: int = 60,
+    min_ic: float = 0.005,
+    weight_method: str = "sign",
 ) -> tuple[pd.DataFrame, dict[str, float]]:
-    """IC-weighted z-score combination of all factors.
+    """Weighted z-score combination of all factors.
 
     For each factor:
       1. Z-score cross-sectionally
       2. Compute rolling IC (trailing window)
-      3. Weight = rolling_ic (sign-adjusted, so positive IC factors get positive weight)
-    Composite = sum(z_score_i * ic_weight_i) across factors.
+      3. Apply weight based on weight_method:
+         - "ic": weight = lagged rolling IC (raw magnitude + sign)
+         - "sign": weight = sign(lagged rolling IC) — equal contribution, IC direction only
+         - "icir": weight = lagged rolling IC / rolling IC std — signal-to-noise ratio
+         - "global_sign": weight = sign(overall mean IC) — stable direction, no rolling noise
+      4. Skip factors where trailing |IC| < min_ic (noise filter)
+
+    Composite = sum(z_score_i * weight_i) / sum(|weight_i|) across factors.
 
     Returns (composite DataFrame, dict of factor name -> mean IC).
     """
     weighted_sum: pd.DataFrame | None = None
     weight_sum: pd.DataFrame | None = None
     ic_summary: dict[str, float] = {}
+    n_skipped = 0
 
     for name, panel in factor_panels.items():
         # 1. Z-score cross-sectionally
@@ -234,29 +243,60 @@ def composite_alpha(
         # Shift IC by 1 so weight at date t uses IC computed through t-1
         lagged_ic = rolling_ic.shift(1)
 
-        # Broadcast IC (per-date scalar) across tickers
-        common_idx = z.index.intersection(lagged_ic.index)
-        z_aligned = z.loc[common_idx]
-        ic_aligned = lagged_ic.loc[common_idx]
+        # 4. Apply min_ic filter: zero out dates where |lagged_ic| < min_ic
+        if min_ic > 0:
+            lagged_ic = lagged_ic.where(lagged_ic.abs() >= min_ic, 0.0)
 
-        # Weighted z-score: z * IC_weight
-        weighted_z = z_aligned.mul(ic_aligned, axis=0)
+        # Skip factor entirely if mean |IC| below threshold
+        if abs(mean_ic) < min_ic:
+            n_skipped += 1
+            continue
+
+        # 5. Compute weight based on method
+        if weight_method == "global_ic":
+            # Use overall mean IC as weight — stable, magnitude-weighted
+            weight = pd.Series(mean_ic, index=lagged_ic.index)
+        elif weight_method == "global_sign":
+            # Use sign of overall mean IC — stable direction, no rolling noise
+            weight = pd.Series(
+                np.sign(mean_ic) if mean_ic != 0 else 0.0,
+                index=lagged_ic.index,
+            )
+        elif weight_method == "sign":
+            weight = np.sign(lagged_ic)
+        elif weight_method == "icir":
+            ic_std = rolling_ic.rolling(ic_window, min_periods=20).std().shift(1)
+            ic_std = ic_std.replace(0, np.nan)
+            weight = lagged_ic / ic_std
+        else:  # "ic" — original behavior
+            weight = lagged_ic
+
+        # Broadcast weight (per-date scalar) across tickers
+        common_idx = z.index.intersection(weight.index)
+        z_aligned = z.loc[common_idx]
+        w_aligned = weight.loc[common_idx]
+
+        # Weighted z-score: z * weight
+        weighted_z = z_aligned.mul(w_aligned, axis=0)
 
         # Accumulate
         if weighted_sum is None:
             weighted_sum = weighted_z.copy()
-            weight_sum = ic_aligned.abs().to_frame()
+            weight_sum = w_aligned.abs().to_frame()
             weight_sum.columns = [name]
         else:
             # Align and add
             weighted_sum, weighted_z = weighted_sum.align(weighted_z, join="inner")
             weighted_sum = weighted_sum.add(weighted_z, fill_value=0)
-            ws_col = ic_aligned.abs().reindex(weighted_sum.index)
+            ws_col = w_aligned.abs().reindex(weighted_sum.index)
             weight_sum = weight_sum.reindex(weighted_sum.index)  # type: ignore[union-attr]
             weight_sum[name] = ws_col  # type: ignore[index]
 
     if weighted_sum is None:
         raise RuntimeError("No factors produced valid panels")
+
+    if n_skipped > 0:
+        print(f"    Skipped {n_skipped} factors with |mean IC| < {min_ic}")
 
     # Normalize by sum of absolute weights per date
     total_weight = weight_sum.sum(axis=1)  # type: ignore[union-attr]

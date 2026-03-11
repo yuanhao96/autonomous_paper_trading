@@ -1,0 +1,112 @@
+{
+  "universe": "sp500",
+  "n_tickers": 478,
+  "n_factors_used": 48,
+  "ic_window": 60,
+  "min_verdict": "MARGINAL",
+  "composite_ic": {
+    "mean_ic": 0.016146,
+    "ic_std": 0.203255,
+    "ic_t_stat": 3.3221,
+    "ic_ir": 0.079436,
+    "pct_positive": 0.5283,
+    "n_days": 1749
+  },
+  "quintile_stats": {
+    "mean_return_q1": 0.119402,
+    "mean_return_q2": 0.153672,
+    "mean_return_q3": 0.164374,
+    "mean_return_q4": 0.211624,
+    "mean_return_q5": 0.272919,
+    "long_short_spread_ann": 0.153516,
+    "monotonicity": 1.0
+  },
+  "multi_horizon_ic": {
+    "1": {
+      "mean_ic": 0.016146,
+      "ic_std": 0.203255,
+      "ic_t_stat": 3.3221,
+      "ic_ir": 0.079436,
+      "pct_positive": 0.5283,
+      "n_days": 1749
+    },
+    "5": {
+      "mean_ic": 0.015783,
+      "ic_std": 0.18622,
+      "ic_t_stat": 3.5406,
+      "ic_ir": 0.084757,
+      "pct_positive": 0.5186,
+      "n_days": 1745
+    },
+    "10": {
+      "mean_ic": 0.01243,
+      "ic_std": 0.182216,
+      "ic_t_stat": 2.8455,
+      "ic_ir": 0.068216,
+      "pct_positive": 0.5086,
+      "n_days": 1740
+    },
+    "20": {
+      "mean_ic": 0.013914,
+      "ic_std": 0.170613,
+      "ic_t_stat": 3.3919,
+      "ic_ir": 0.08155,
+      "pct_positive": 0.5237,
+      "n_days": 1730
+    }
+  },
+  "per_factor_ic": {
+    "WQ-034: Ratio of short-term to medium-term average -- captures ac...": -0.016208,
+    "WQ-066: Price deviation from 6-day mean as percentage": -0.015312,
+    "WQ-081: 2-day return inversely scaled by relative volume": -0.015272,
+    "WQ-047: Distance from channel high, normalized by channel width, ...": 0.013991,
+    "WQ-175: Average directional gap tendency": -0.011815,
+    "WQ-086: Classic z-score: deviation from 10-day mean divided by st...": -0.009563,
+    "WQ-169: Difference between 10-day and 5-day average daily change": 0.009251,
+    "WQ-028: Price position within the 12-day Donchian channel": -0.009113,
+    "WQ-059: 10-day percentage return": -0.008718,
+    "WQ-106: 20-day simple return": -0.008718,
+    "WQ-055: Three-factor composite": -0.008717,
+    "WQ-147: Information ratio / Sharpe-like measure over 20 days": -0.007775,
+    "WQ-116: Time-series rank of 10-day average return over 20 days": -0.007609,
+    "WQ-093: Ratio of total up-moves to total down-moves over 15 days,...": -0.007424,
+    "WQ-088: Average daily return divided by average absolute daily re...": -0.007412,
+    "WQ-167: RSI-like ratio of up-moves to total moves over 14 days, c...": -0.007406,
+    "WQ-134: 12-day return scaled by relative volume": -0.007171,
+    "WQ-103: Distance from 20-day low as a percentage of current price": -0.00659,
+    "WQ-089: SMA crossover (5 vs 20) combined with linearly-decayed 2-...": -0.00651,
+    "WQ-153: 3-day vs 12-day SMA difference": -0.005271,
+    "TRAD: Same-Calendar-Month Seasonality": 0.005191,
+    "WQ-071: 24-day price deviation plus linearly-decayed time-series ...": -0.004946,
+    "TRAD: Volatility-Normalized Momentum": 0.004934,
+    "WQ-118: ADX-like directional indicator: ratio of positive directi...": -0.004732,
+    "WQ-173: Linearly-decayed 5-day returns over 10 days": -0.004656,
+    "WQ-050: Running average of up/down day indicators": -0.004651,
+    "TRAD: Channel Breakout": -0.004213,
+    "WQ-078: 20-day Donchian channel position, centered at zero": -0.004213,
+    "WQ-177: Distance from the 20-day channel top, normalized by chann...": 0.004037,
+    "WQ-151: Price minus 20-day SMA": -0.004037,
+    "TRAD: 12-Month Time-Series Momentum": 0.003672,
+    "WQ-160: Average volatility on up-days over 10 days": 0.003628,
+    "TRAD: Trend Following (Price vs 200-Day SMA)": 0.00338,
+    "WQ-049: Sum of absolute up and down moves (always positive)": 0.003335,
+    "WQ-063: Smoothed deviation from 20-day mean, normalized by volati...": -0.003187,
+    "WQ-098: 5-day rate of change of the 10-day SMA": -0.003122,
+    "WQ-069: 5-day rate of change of the 5-day SMA": -0.003122,
+    "WQ-126: Typical price (pivot point) minus its 20-day SMA": -0.003084,
+    "WQ-067: Stochastic oscillator variant over 24 days, centered at zero": -0.002984,
+    "WQ-152: 5-day average of yesterday's 12-day average return": -0.002142,
+    "WQ-109: Short-term average range relative to longer-term": 0.002121,
+    "TRAD: Moving Average Crossover": 0.001687,
+    "WQ-174: Ratio of long-term to short-term return volatility": -0.001571,
+    "WQ-003: Negative correlation between opening price and volume ove...": -0.001369,
+    "WQ-102: Ratio of avg(volume x |return|) to avg(volume) x avg(|ret...": 0.001137,
+    "WQ-094: Signed volume times daily return, normalized by price": -0.000971,
+    "WQ-097: Ratio of return volatility to average absolute return, mi...": 0.000437,
+    "WQ-187: Win rate (fraction of up days) over 20 days, centered at 0": 0.000239
+  },
+  "verdict": "WEAK",
+  "reasons": [
+    "|IC| 0.0161 < 0.03"
+  ]
+}

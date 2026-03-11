@@ -174,8 +174,10 @@ class FactorSpec:
 | `--reset` | discover, optimize, analyze, optimize-xs | Ignore previous results, start fresh |
 | `--max-tries N` | optimize, optimize-xs | Grid search budget per factor (default: 200) |
 | `--top-n N` | signals, score | Number of top factors to use (default: 5 / all) |
-| `--ic-window N` | score | Rolling IC window in trading days (default: 60) |
+| `--ic-window N` | score, validate | Rolling IC window in trading days (default: 60) |
 | `--min-verdict {PASS,MARGINAL}` | score, validate | Minimum factor verdict to include (default: MARGINAL) |
+| `--weight-method` | score, validate | Factor weighting: global_sign, global_ic, sign, icir, ic (default: global_sign) |
+| `--min-ic FLOAT` | score, validate | Min \|mean IC\| to include factor (default: 0.01) |
 | `--n-groups N` | analyze, optimize-xs, validate | Number of portfolio groups (default: 5 = quintiles) |
 | `--horizons` | validate | Forward return horizons, comma-separated (default: 1,5,10,20) |
 | `--universe {sp100,sector-etfs}` | analyze, optimize-xs | Stock universe (default: sp100) |

@@ -26,6 +26,8 @@ def run_validate(
     top_n: int | None = None,
     n_groups: int = 5,
     horizons: str = "1,5,10,20",
+    weight_method: str = "sign",
+    min_ic: float = 0.005,
 ) -> None:
     """Compute composite alpha and validate with quintile analysis + multi-horizon IC."""
     # 1. Load screened tickers
@@ -87,8 +89,11 @@ def run_validate(
     })
 
     # 6. Composite alpha
-    print("Computing IC-weighted composite alpha...")
-    composite, ic_summary = composite_alpha(factor_panels, returns_panel, ic_window=ic_window)
+    print(f"Computing composite alpha (weight={weight_method}, min_ic={min_ic})...")
+    composite, ic_summary = composite_alpha(
+        factor_panels, returns_panel,
+        ic_window=ic_window, min_ic=min_ic, weight_method=weight_method,
+    )
     print(f"Composite: {composite.shape[0]} dates x {composite.shape[1]} tickers\n")
 
     # 7. Quintile analysis (1-day horizon)

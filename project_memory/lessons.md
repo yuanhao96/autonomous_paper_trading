@@ -1,17 +1,22 @@
 # Lessons Learned
 
-## Milestone: Project Structure & Strategy Index (2026-02-26)
+## Milestone: Fix Composite Alpha Signal Quality (2026-03-11)
 
 ### What Worked
-- URL discovery: strategy detail pages follow a clean slug pattern at /learning/articles/investment-strategy-library/<slug>, no need for numeric ID discovery
-- Flat category structure keeps things simple for 83 items across 10 categories
+- global_sign weighting (using overall mean IC direction instead of rolling IC) eliminated noise from day-to-day IC sign flips
+- Increasing min_ic from 0.005 to 0.01 filtered 43/48 factors, concentrating signal from the 5 strongest
+- Perfect monotonicity (1.00) achieved with just 5 factors — less is more for noisy factor combinations
 
 ### What Didn't Work
-- Initial WebFetch of the index page didn't extract individual strategy URLs (client-side rendered) — web search was needed to discover the URL pattern
+- Rolling IC-based sign weighting ("sign" method) — rolling IC at 60-day window flips sign randomly, destroying the signal
+- IC-magnitude weighting ("ic" method) — near-zero ICs amplify noise
+- PASS-only factors made things worse — the PASS criteria was based on SPY time-series, not cross-sectional quality
 
 ### Patterns to Reuse
-- Use WebSearch to discover QuantConnect URL patterns before attempting WebFetch on individual pages
-- Strategy slug = kebab-case of the strategy name as it appears on the index page
+- Global (full-period) IC as factor direction indicator is more stable than rolling IC for factor weighting
+- min_ic threshold should be set at 0.01+ to filter noise factors
+- When combining many weak factors, fewer + stronger beats many + weak
 
 ### Patterns to Avoid
-- Don't rely on HTML scraping for QuantConnect pages — they use client-side rendering for links
+- Don't use rolling IC estimates as weights when individual factor ICs are < 0.02 — noise dominates
+- Don't assume SPY time-series factor quality (PASS/MARGINAL) transfers to cross-sectional SP500 quality

@@ -6,20 +6,22 @@
     "formula": "rank(ts_argmax(SignedPower(where(returns < 0, stddev(returns, 20), close), 2), 5)) - 0.5",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0088 < 0.01"
+      "FAIL: |IC| 0.0038 < 0.01"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.008786190574717995,
-      "ic_t_stat": -0.9783775921901916,
+      "mean_ic": -0.0038231761627535396,
+      "ic_t_stat": -0.823452312548982,
       "monotonicity": 0.5,
-      "long_short_spread": 0.0060799525635877325,
+      "long_short_spread": 0.011148252728151741,
       "group_mean_returns": {
-        "1": -0.0024185145335055575,
-        "2": -0.0026890696204193002,
-        "3": 0.003661438030082175
+        "1": -0.0029741094781588783,
+        "2": -0.005158111026781097,
+        "3": -0.007789325000325725,
+        "4": 0.002416254280759888,
+        "5": 0.008174143249992863
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "vol_lookback": 20,
@@ -35,31 +37,32 @@
         10
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    vol_lookback = params.get(\"vol_lookback\", 20)\n    argmax_lookback = params.get(\"argmax_lookback\", 5)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    close, volume = close.align(volume, join=\"inner\", axis=0)\n\n    returns = close.pct_change(1)\n\n    vol = returns.rolling(vol_lookback).std()\n\n    cond = returns < 0\n    base = pd.DataFrame(np.where(cond.values, vol.values, close.values), index=close.index, columns=close.columns)\n\n    signed_power = np.sign(base) * (np.abs(base) ** 2)\n\n    argmax_ts = signed_power.rolling(argmax_lookback).apply(lambda s: s.argmax(), raw=True)\n\n    alpha = argmax_ts.rank(axis=1, pct=True) - 0.5\n\n    alpha = alpha.reindex_like(close)\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    vol_lookback = int(params.get(\"vol_lookback\", 20))\n    argmax_lookback = int(params.get(\"argmax_lookback\", 5))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    returns = close.pct_change(1)\n\n    idx = close.index.intersection(returns.index)\n    close = close.loc[idx]\n    returns = returns.loc[idx]\n\n    vol = returns.rolling(vol_lookback).std()\n\n    cond = returns < 0\n    base = pd.DataFrame(np.where(cond.values, vol.values, close.values), index=idx, columns=close.columns)\n\n    signed_power = np.sign(base) * (np.abs(base) ** 2)\n\n    argmax_ts = signed_power.rolling(argmax_lookback).apply(lambda s: s.argmax(), raw=True)\n\n    alpha = argmax_ts.rank(axis=1, pct=True) - 0.5\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_006.md",
     "name": "WQ-006: Open-volume rank correlation",
     "category": "cross_sectional",
     "formula": "-1 * correlation(rank(open), rank(volume), 10)",
-    "verdict": "MARGINAL",
+    "verdict": "FAIL",
     "reasons": [
-      "MARGINAL: |IC| 0.0214 < 0.03",
-      "MARGINAL: |t-stat| 1.81 < 2.0",
-      "MARGINAL: L/S spread -0.0001 <= 0"
+      "FAIL: |IC| 0.0019 < 0.01",
+      "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.021419891876979753,
-      "ic_t_stat": -1.8121780576477962,
-      "monotonicity": 0.5,
-      "long_short_spread": -8.243944981911535e-05,
+      "mean_ic": 0.001891740225092113,
+      "ic_t_stat": 0.6867345011987301,
+      "monotonicity": 0.0,
+      "long_short_spread": -0.002856473904177514,
       "group_mean_returns": {
-        "1": 0.0006459105766951514,
-        "2": 0.0008443346251172505,
-        "3": 0.000563471126876036
+        "1": 0.002108086463325784,
+        "2": 0.0011310466797541442,
+        "3": 0.0006920566600487372,
+        "4": 0.00014053603852419867,
+        "5": -0.0007483874408517302
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "lookback": 10
@@ -70,7 +73,7 @@
         20
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 10))\n\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    open_, volume = open_.align(volume, join=\"inner\", axis=0)\n\n    rank_open = open_.rank(axis=1, pct=True)\n    rank_volume = volume.rank(axis=1, pct=True)\n\n    alpha = -1.0 * rank_open.rolling(lookback).corr(rank_volume)\n\n    alpha = alpha.reindex_like(open_)\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 10))\n\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = open_.index.intersection(volume.index)\n    open_ = open_.loc[idx]\n    volume = volume.loc[idx]\n\n    rank_open = open_.rank(axis=1, pct=True)\n    rank_volume = volume.rank(axis=1, pct=True)\n\n    alpha = -1.0 * rank_open.rolling(lookback).corr(rank_volume)\n\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_008.md",
@@ -79,21 +82,23 @@
     "formula": "-1 * rank(delta(close * 0.5 + open * 0.5, 4) - delta(close * 0.5 + open * 0.5, 8))",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0035 < 0.01",
-      "FAIL: monotonicity 0.00 < 0.50"
+      "FAIL: |IC| 0.0008 < 0.01",
+      "FAIL: monotonicity 0.25 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.003538715736751947,
-      "ic_t_stat": -0.3813507250276905,
-      "monotonicity": 0.0,
-      "long_short_spread": -9.165478554376473e-05,
+      "mean_ic": -0.0007677309718785091,
+      "ic_t_stat": -0.15555212324923218,
+      "monotonicity": 0.25,
+      "long_short_spread": -0.00023614018039872062,
       "group_mean_returns": {
-        "1": 0.0006381136641045788,
-        "2": 0.0005989098458689183,
-        "3": 0.000546458878560814
+        "1": 0.0008145321671278927,
+        "2": 0.0006133567539711912,
+        "3": 0.0007441524520229476,
+        "4": 0.0006599744734918683,
+        "5": 0.000578391986729172
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "short_delta": 4,
@@ -109,7 +114,7 @@
         12
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    short_delta = params.get(\"short_delta\", 4)\n    long_delta = params.get(\"long_delta\", 8)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n\n    close, open_ = close.align(open_, join=\"inner\", axis=0)\n\n    midpoint = 0.5 * close + 0.5 * open_\n    accel = midpoint.diff(short_delta) - midpoint.diff(long_delta)\n    alpha = -1.0 * accel.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    short_delta = int(params.get(\"short_delta\", 4))\n    long_delta = int(params.get(\"long_delta\", 8))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n\n    idx = close.index.intersection(open_.index)\n    close = close.loc[idx]\n    open_ = open_.loc[idx]\n\n    midpoint = 0.5 * close + 0.5 * open_\n    accel = midpoint.diff(short_delta) - midpoint.diff(long_delta)\n    alpha = -1.0 * accel.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_010.md",
@@ -118,21 +123,23 @@
     "formula": "rank(where(ts_min(delta(close, 1), 4) > 0, delta(close, 1), where(ts_max(delta(close, 1), 4) < 0, delta(close, 1), -1 * delta(close, 1))))",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0003 < 0.01",
+      "FAIL: |IC| 0.0008 < 0.01",
       "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.0002607163421984112,
-      "ic_t_stat": -0.02953027054945995,
+      "mean_ic": -0.0007934694564608672,
+      "ic_t_stat": -0.1777262165496768,
       "monotonicity": 0.0,
-      "long_short_spread": -0.011039526456158836,
+      "long_short_spread": -0.02381347944794196,
       "group_mean_returns": {
-        "1": 0.006640618995949528,
-        "2": 0.0010931074742655937,
-        "3": -0.004398907460209308
+        "1": 0.013031241430506118,
+        "2": 0.006238381017961316,
+        "3": 0.0004323504024933324,
+        "4": -0.00492449833229048,
+        "5": -0.010782238017435842
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "lookback": 4
@@ -143,7 +150,7 @@
         8
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = params.get(\"lookback\", 4)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n\n    d1 = close.diff(1)\n\n    tsmin = d1.rolling(lookback).min()\n    tsmax = d1.rolling(lookback).max()\n\n    inner = pd.DataFrame(\n        np.where(tsmax < 0, d1, -1.0 * d1),\n        index=close.index,\n        columns=close.columns,\n    )\n    cond = pd.DataFrame(\n        np.where(tsmin > 0, d1, inner),\n        index=close.index,\n        columns=close.columns,\n    )\n\n    alpha = cond.rank(axis=1, pct=True)\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 4))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n\n    # delta(close, 1)\n    d1 = close.diff(1)\n\n    # ts_min(delta(close, 1), lookback) and ts_max(...)\n    tsmin = d1.rolling(lookback).min()\n    tsmax = d1.rolling(lookback).max()\n\n    cond_pos = tsmin > 0\n    cond_neg = tsmax < 0\n\n    inner = pd.DataFrame(np.where(cond_neg, d1, -1.0 * d1), index=close.index, columns=close.columns)\n    signal = pd.DataFrame(np.where(cond_pos, d1, inner), index=close.index, columns=close.columns)\n\n    alpha = signal.rank(axis=1, pct=True)\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_013.md",
@@ -152,20 +159,23 @@
     "formula": "-1 * rank(covariance(rank(close), rank(volume), 5))",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0048 < 0.01"
+      "FAIL: |IC| 0.0009 < 0.01",
+      "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.00477649586738988,
-      "ic_t_stat": -0.6120876854906199,
-      "monotonicity": 0.5,
-      "long_short_spread": -0.0003190071269010391,
+      "mean_ic": 0.0008973182578885129,
+      "ic_t_stat": 0.333950481024713,
+      "monotonicity": 0.0,
+      "long_short_spread": -0.006337241226678036,
       "group_mean_returns": {
-        "1": 0.0008430257871570411,
-        "2": 0.0004983771740416869,
-        "3": 0.000524018660256002
+        "1": 0.0038141477625680082,
+        "2": 0.0010872848428337381,
+        "3": 0.0008732532700679555,
+        "4": 0.00031955164161788345,
+        "5": -0.0025230934641100274
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "lookback": 5
@@ -176,7 +186,7 @@
         10
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 5))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    close, volume = close.align(volume, join=\"inner\", axis=0)\n\n    rank_close = close.rank(axis=1, pct=True)\n    rank_volume = volume.rank(axis=1, pct=True)\n\n    cov = rank_close.rolling(lookback).cov(rank_volume)\n    alpha = -1.0 * cov.rank(axis=1, pct=True)\n\n    alpha = alpha.reindex_like(close)\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 5))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(volume.index)\n    close = close.loc[idx]\n    volume = volume.loc[idx]\n\n    r_close = close.rank(axis=1, pct=True)\n    r_volume = volume.rank(axis=1, pct=True)\n\n    cov = r_close.rolling(lookback).cov(r_volume)\n    alpha = -1.0 * cov.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_016.md",
@@ -185,20 +195,23 @@
     "formula": "-1 * rank(covariance(rank(high), rank(volume), 5))",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0085 < 0.01"
+      "FAIL: |IC| 0.0028 < 0.01",
+      "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.008548459175016144,
-      "ic_t_stat": -1.1087491077179987,
-      "monotonicity": 0.5,
-      "long_short_spread": -0.00033070772622641794,
+      "mean_ic": 0.0027913560233350757,
+      "ic_t_stat": 1.0190977102803476,
+      "monotonicity": 0.0,
+      "long_short_spread": -0.005392744627310387,
       "group_mean_returns": {
-        "1": 0.0008509262314710081,
-        "2": 0.0004526445039590411,
-        "3": 0.0005202185052445901
+        "1": 0.0034562284345521503,
+        "2": 0.001151213287081995,
+        "3": 0.0006449124330895621,
+        "4": 0.0002102283670041644,
+        "5": -0.0019365161927582366
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "lookback": 5
@@ -209,7 +222,7 @@
         10
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 5))\n\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    high, volume = high.align(volume, join=\"inner\", axis=0)\n\n    rank_high = high.rank(axis=1, pct=True)\n    rank_vol = volume.rank(axis=1, pct=True)\n\n    cov = rank_high.rolling(lookback).cov(rank_vol)\n\n    alpha = -1.0 * cov.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 5))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    low = pd.DataFrame({t: d[\"Low\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = high.index.intersection(volume.index)\n    high = high.loc[idx]\n    volume = volume.loc[idx]\n\n    rank_high = high.rank(axis=1, pct=True)\n    rank_vol = volume.rank(axis=1, pct=True)\n\n    cov_hv = rank_high.rolling(lookback).cov(rank_vol)\n    alpha = -1.0 * cov_hv.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_022.md",
@@ -218,21 +231,23 @@
     "formula": "-1 * delta(correlation(high, volume, 5), 5) * rank(stddev(close, 20))",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0029 < 0.01",
+      "FAIL: |IC| 0.0019 < 0.01",
       "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": 0.002880430941453734,
-      "ic_t_stat": 0.3515976546904819,
+      "mean_ic": -0.0019246570565851079,
+      "ic_t_stat": -0.56586470956546,
       "monotonicity": 0.0,
-      "long_short_spread": -0.0011274144894983277,
+      "long_short_spread": -0.005192188633615017,
       "group_mean_returns": {
-        "1": 0.0011989691171187904,
-        "2": 0.0006331847735370329,
-        "3": 7.155462762046272e-05
+        "1": 0.003266422230968625,
+        "2": 0.0019168140223641962,
+        "3": 0.0008322229373154799,
+        "4": -0.0005614339657238544,
+        "5": -0.0019257664026463917
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "corr_lookback": 5,
@@ -253,7 +268,7 @@
         30
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    corr_lookback = params.get(\"corr_lookback\", 5)\n    delta_lookback = params.get(\"delta_lookback\", 5)\n    vol_lookback = params.get(\"vol_lookback\", 20)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    corr_hv = high.rolling(corr_lookback).corr(volume)\n    delta_corr = corr_hv.diff(delta_lookback)\n\n    vol = close.rolling(vol_lookback).std()\n    ranked_vol = vol.rank(axis=1, pct=True)\n\n    alpha = -1.0 * delta_corr * ranked_vol\n\n    alpha = alpha.reindex_like(close)\n    alpha = alpha.dropna(how=\"all\")\n    return alpha"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    corr_lookback = int(params.get(\"corr_lookback\", 5))\n    delta_lookback = int(params.get(\"delta_lookback\", 5))\n    vol_lookback = int(params.get(\"vol_lookback\", 20))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(high.index).intersection(volume.index)\n    close = close.loc[idx]\n    high = high.loc[idx]\n    volume = volume.loc[idx]\n\n    corr_hv = high.rolling(corr_lookback).corr(volume)\n    corr_change = corr_hv.diff(delta_lookback)\n\n    vol = close.rolling(vol_lookback).std()\n    vol_rank = vol.rank(axis=1, pct=True)\n\n    alpha = -1.0 * corr_change * vol_rank\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_030.md",
@@ -262,20 +277,22 @@
     "formula": "rank(sign(close - delay(close, 1)) + sign(delay(close, 1) - delay(close, 2)) + sign(delay(close, 2) - delay(close, 3))) * sum(volume, 5) / sum(volume, 20)",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0090 < 0.01"
+      "FAIL: |IC| 0.0059 < 0.01"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.008988718865065654,
-      "ic_t_stat": -1.0495715840377058,
+      "mean_ic": -0.005901235339694252,
+      "ic_t_stat": -1.3299981389591498,
       "monotonicity": 1.0,
-      "long_short_spread": 0.005620369433397117,
+      "long_short_spread": 0.013928329989405939,
       "group_mean_returns": {
-        "1": -0.002397670433475931,
-        "2": 0.00017952006418235202,
-        "3": 0.0032226989999211853
+        "1": -0.006039124819172231,
+        "2": -0.0023050072318541027,
+        "3": 0.00028502926494725745,
+        "4": 0.003235124161464137,
+        "5": 0.007889205170233709
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "short_vol": 5,
@@ -291,7 +308,7 @@
         40
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    short_vol = params.get(\"short_vol\", 5)\n    long_vol = params.get(\"long_vol\", 20)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    close, volume = close.align(volume, join=\"inner\", axis=0)\n\n    d1 = close.shift(1)\n    d2 = close.shift(2)\n    d3 = close.shift(3)\n\n    persistence = np.sign(close - d1) + np.sign(d1 - d2) + np.sign(d2 - d3)\n    ranked_persistence = persistence.rank(axis=1, pct=True)\n\n    vol_short = volume.rolling(short_vol).sum()\n    vol_long = volume.rolling(long_vol).sum()\n\n    alpha = ranked_persistence * (vol_short / (vol_long + 1e-8))\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    short_vol = int(params.get(\"short_vol\", 5))\n    long_vol = int(params.get(\"long_vol\", 20))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(volume.index)\n    close = close.loc[idx]\n    volume = volume.loc[idx]\n\n    d1 = close.shift(1)\n    d2 = close.shift(2)\n    d3 = close.shift(3)\n\n    persistence = (\n        np.sign(close - d1) +\n        np.sign(d1 - d2) +\n        np.sign(d2 - d3)\n    )\n\n    ranked_persistence = persistence.rank(axis=1, pct=True)\n\n    vol_short = volume.rolling(short_vol).sum()\n    vol_long = volume.rolling(long_vol).sum()\n\n    alpha = ranked_persistence * (vol_short / (vol_long + 1e-8))\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_033.md",
@@ -300,24 +317,27 @@
     "formula": "rank(-1 * (1 - open / close))",
     "verdict": "FAIL",
     "reasons": [
+      "FAIL: |IC| 0.0076 < 0.01",
       "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": 0.012615686850287166,
-      "ic_t_stat": 1.3313729667683842,
+      "mean_ic": 0.0076454250350076166,
+      "ic_t_stat": 1.4186484495110163,
       "monotonicity": 0.0,
-      "long_short_spread": -0.014193433427772299,
+      "long_short_spread": -0.032560673343190065,
       "group_mean_returns": {
-        "1": 0.008273507994358408,
-        "2": 0.0013917905377419143,
-        "3": -0.005919925433413891
+        "1": 0.0172545983978216,
+        "2": 0.006149787421773571,
+        "3": 0.0007287636327468883,
+        "4": -0.00462079325609106,
+        "5": -0.015306074945368465
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {},
     "param_ranges": {},
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n\n    close, open_ = close.align(open_, join=\"inner\", axis=0)\n\n    x = -1.0 * (1.0 - open_ / (close + 1e-8))\n    alpha = x.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n\n    idx = close.index.intersection(open_.index)\n    close = close.loc[idx]\n    open_ = open_.loc[idx]\n\n    x = -1.0 * (1.0 - open_ / (close + 1e-8))\n    alpha = x.rank(axis=1, pct=True)\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_037.md",
@@ -326,21 +346,23 @@
     "formula": "rank(correlation(delay(open - close, 1), close, 200)) + rank(open - close)",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0093 < 0.01",
+      "FAIL: |IC| 0.0066 < 0.01",
       "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": 0.009322701798511633,
-      "ic_t_stat": 0.9796148036675216,
+      "mean_ic": 0.0066257705342308935,
+      "ic_t_stat": 1.3669815186419227,
       "monotonicity": 0.0,
-      "long_short_spread": -0.008125226310044337,
+      "long_short_spread": -0.01897082602778805,
       "group_mean_returns": {
-        "1": 0.004874262084113846,
-        "2": 0.0011919693914292583,
-        "3": -0.0032509642259304903
+        "1": 0.010104634131586618,
+        "2": 0.004801839459920708,
+        "3": 0.0009489470362986106,
+        "4": -0.003039195370601306,
+        "5": -0.008866191896201431
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "corr_lookback": 200
@@ -351,7 +373,7 @@
         250
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    corr_lookback = params.get(\"corr_lookback\", 200)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n\n    close, open_ = close.align(open_, join=\"inner\", axis=0)\n\n    oc = open_ - close\n    delayed_oc = oc.shift(1)\n\n    corr = delayed_oc.rolling(corr_lookback).corr(close)\n    alpha = corr.rank(axis=1, pct=True) + oc.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    corr_lookback = int(params.get(\"corr_lookback\", 200))\n\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n\n    idx = open_.index.intersection(close.index)\n    open_ = open_.loc[idx]\n    close = close.loc[idx]\n\n    oc = open_ - close\n    x = oc.shift(1)\n\n    corr = x.rolling(corr_lookback).corr(close)\n\n    alpha = corr.rank(axis=1, pct=True) + oc.rank(axis=1, pct=True)\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_044.md",
@@ -360,21 +382,23 @@
     "formula": "-1 * correlation(high, rank(volume), 5)",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0022 < 0.01",
+      "FAIL: |IC| 0.0050 < 0.01",
       "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": 0.002223774377356554,
-      "ic_t_stat": 0.283938102512356,
+      "mean_ic": 0.00498136289003842,
+      "ic_t_stat": 1.6472133255648014,
       "monotonicity": 0.0,
-      "long_short_spread": -0.001243869141786225,
+      "long_short_spread": -0.007417259492216079,
       "group_mean_returns": {
-        "1": 0.0012429427312638474,
-        "2": 0.0007538998087390429,
-        "3": -9.264105223776079e-07
+        "1": 0.004590645686625016,
+        "2": 0.0016397462284108506,
+        "3": 0.0007245609607891055,
+        "4": -0.0005868125329352283,
+        "5": -0.0028266138055910634
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "lookback": 5
@@ -385,7 +409,7 @@
         10
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 5))\n\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    high, volume = high.align(volume, join=\"inner\", axis=0)\n\n    ranked_volume = volume.rank(axis=1, pct=True)\n    corr = high.rolling(lookback).corr(ranked_volume)\n\n    alpha = -1.0 * corr\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 5))\n\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = high.index.intersection(volume.index)\n    high = high.loc[idx]\n    volume = volume.loc[idx]\n\n    ranked_volume = volume.rank(axis=1, pct=True)\n    alpha = -1.0 * high.rolling(lookback).corr(ranked_volume)\n\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_045.md",
@@ -394,21 +418,23 @@
     "formula": "-1 * rank(sma(delay(close, 5), 20)) * correlation(close, volume, 2) * rank(correlation(sum(close, 5), sum(close, 20), 2))",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0074 < 0.01",
+      "FAIL: |IC| 0.0004 < 0.01",
       "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": 0.007381152573929167,
-      "ic_t_stat": 0.9425364273797407,
+      "mean_ic": 0.0003504051843240642,
+      "ic_t_stat": 0.11926333228966228,
       "monotonicity": 0.0,
-      "long_short_spread": -0.001765907033817917,
+      "long_short_spread": -0.005292868014835832,
       "group_mean_returns": {
-        "1": 0.001541848441641646,
-        "2": 0.0006384319672499768,
-        "3": -0.00022405859217627095
+        "1": 0.003589422130753743,
+        "2": 0.00251132113926609,
+        "3": 0.0005106875237061533,
+        "4": -0.0013479725386614354,
+        "5": -0.0017034458840820893
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "delay_d": 5,
@@ -429,7 +455,7 @@
         5
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    delay_d = params.get(\"delay_d\", 5)\n    sma_d = params.get(\"sma_d\", 20)\n    corr_d = params.get(\"corr_d\", 2)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    # rank(sma(delay(close, 5), 20))\n    term1 = close.shift(delay_d).rolling(sma_d).mean()\n    term1_rank = term1.rank(axis=1, pct=True)\n\n    # correlation(close, volume, 2)\n    term2_corr = close.rolling(corr_d).corr(volume)\n\n    # rank(correlation(sum(close, 5), sum(close, 20), 2))\n    sum5 = close.rolling(5).sum()\n    sum20 = close.rolling(20).sum()\n    term3_corr = sum5.rolling(corr_d).corr(sum20)\n    term3_rank = term3_corr.rank(axis=1, pct=True)\n\n    alpha = -1.0 * term1_rank * term2_corr * term3_rank\n\n    alpha = alpha.replace([np.inf, -np.inf], np.nan).dropna(how=\"all\")\n    return alpha"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    delay_d = params.get(\"delay_d\", 5)\n    sma_d = params.get(\"sma_d\", 20)\n    corr_d = params.get(\"corr_d\", 2)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(volume.index)\n    close = close.loc[idx]\n    volume = volume.loc[idx]\n\n    # rank(sma(delay(close, 5), 20))\n    term1 = close.shift(delay_d).rolling(sma_d).mean()\n    term1_rank = term1.rank(axis=1, pct=True)\n\n    # correlation(close, volume, 2)\n    term2_corr = close.rolling(corr_d).corr(volume)\n\n    # rank(correlation(sum(close, 5), sum(close, 20), 2))\n    sum5 = close.rolling(5).sum()\n    sum20 = close.rolling(20).sum()\n    term3_corr = sum5.rolling(corr_d).corr(sum20)\n    term3_rank = term3_corr.rank(axis=1, pct=True)\n\n    alpha = -1.0 * term1_rank * term2_corr * term3_rank\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_090.md",
@@ -438,20 +464,23 @@
     "formula": "-1 * rank(correlation(delay(close, 1), close, 5)) * rank(close - sma(close, 20) / sma(close, 60))",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: monotonicity 0.00 < 0.50"
+      "FAIL: |IC| 0.0026 < 0.01",
+      "FAIL: monotonicity 0.25 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.016735655631103737,
-      "ic_t_stat": -1.9784511011138564,
-      "monotonicity": 0.0,
-      "long_short_spread": -0.0006478793423955926,
+      "mean_ic": -0.0026453803304121396,
+      "ic_t_stat": -0.6971341907521148,
+      "monotonicity": 0.25,
+      "long_short_spread": -0.000885227250860322,
       "group_mean_returns": {
-        "1": 0.0009151957249131292,
-        "2": 0.0005753606000752673,
-        "3": 0.00026731638251753666
+        "1": 0.0011603453937568148,
+        "2": 0.0008553358894027716,
+        "3": 0.0005447847837629362,
+        "4": 0.000621246399504967,
+        "5": 0.00027511814289649274
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "corr_lookback": 5,
@@ -472,7 +501,53 @@
         80
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    corr_lookback = params.get(\"corr_lookback\", 5)\n    short_sma = params.get(\"short_sma\", 20)\n    long_sma = params.get(\"long_sma\", 60)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()}).sort_index()\n\n    # rank(correlation(delay(close, 1), close, corr_lookback))\n    close_lag1 = close.shift(1)\n    corr_term = close_lag1.rolling(corr_lookback).corr(close)\n    rank_corr = corr_term.rank(axis=1, pct=True)\n\n    # rank(close - sma(close, short_sma) / sma(close, long_sma))\n    sma_short = close.rolling(short_sma).mean()\n    sma_long = close.rolling(long_sma).mean()\n    dev_term = close - (sma_short / (sma_long + 1e-8))\n    rank_dev = dev_term.rank(axis=1, pct=True)\n\n    alpha = -1.0 * rank_corr * rank_dev\n    alpha = alpha.reindex_like(close)\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    corr_lookback = int(params.get(\"corr_lookback\", 5))\n    short_sma = int(params.get(\"short_sma\", 20))\n    long_sma = int(params.get(\"long_sma\", 60))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n\n    # Core components\n    close_delay_1 = close.shift(1)\n    serial_corr = close_delay_1.rolling(corr_lookback).corr(close)\n\n    sma_short = close.rolling(short_sma).mean()\n    sma_long = close.rolling(long_sma).mean()\n    sma_dev = close - (sma_short / (sma_long + 1e-8))\n\n    # Cross-sectional ranks\n    r1 = serial_corr.rank(axis=1, pct=True)\n    r2 = sma_dev.rank(axis=1, pct=True)\n\n    alpha = -1.0 * r1 * r2\n    return alpha.dropna(how=\"all\")"
+  },
+  {
+    "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_091.md",
+    "name": "WQ-091: Distance from 5-day max times ranked volume-low correlation",
+    "category": "cross_sectional",
+    "formula": "-1 * rank(close - max(close, 5)) * rank(correlation(sma(volume, 40), low, 5))",
+    "verdict": "FAIL",
+    "reasons": [
+      "FAIL: |IC| 0.0057 < 0.01",
+      "FAIL: monotonicity 0.00 < 0.50"
+    ],
+    "error": null,
+    "metrics": {
+      "mean_ic": 0.005665916088330857,
+      "ic_t_stat": 1.3225661616479134,
+      "monotonicity": 0.0,
+      "long_short_spread": -0.01645916823811805,
+      "group_mean_returns": {
+        "1": 0.009738975349367556,
+        "2": 0.0033177218121784938,
+        "3": 0.0001222277717192573,
+        "4": -0.0026560134019519596,
+        "5": -0.006720192888750495
+      },
+      "n_groups": 5
+    },
+    "params": {
+      "max_lookback": 5,
+      "vol_sma": 40,
+      "corr_lookback": 5
+    },
+    "param_ranges": {
+      "max_lookback": [
+        3,
+        10
+      ],
+      "vol_sma": [
+        20,
+        60
+      ],
+      "corr_lookback": [
+        3,
+        10
+      ]
+    },
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    max_lookback = int(params.get(\"max_lookback\", 5))\n    vol_sma = int(params.get(\"vol_sma\", 40))\n    corr_lookback = int(params.get(\"corr_lookback\", 5))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    low = pd.DataFrame({t: d[\"Low\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(low.index).intersection(volume.index)\n    close = close.loc[idx]\n    low = low.loc[idx]\n    volume = volume.loc[idx]\n\n    dist_from_max = close - close.rolling(max_lookback).max()\n    r1 = dist_from_max.rank(axis=1, pct=True)\n\n    vol_sma_series = volume.rolling(vol_sma).mean()\n    corr_vlow = vol_sma_series.rolling(corr_lookback).corr(low)\n    r2 = corr_vlow.rank(axis=1, pct=True)\n\n    alpha = -1.0 * r1 * r2\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_099.md",
@@ -481,20 +556,23 @@
     "formula": "-1 * rank(covariance(rank(close), rank(volume), 5))",
     "verdict": "FAIL",
     "reasons": [
-      "FAIL: |IC| 0.0048 < 0.01"
+      "FAIL: |IC| 0.0009 < 0.01",
+      "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.00477649586738988,
-      "ic_t_stat": -0.6120876854906199,
-      "monotonicity": 0.5,
-      "long_short_spread": -0.0003190071269010391,
+      "mean_ic": 0.0008973182578885129,
+      "ic_t_stat": 0.333950481024713,
+      "monotonicity": 0.0,
+      "long_short_spread": -0.006337241226678036,
       "group_mean_returns": {
-        "1": 0.0008430257871570411,
-        "2": 0.0004983771740416869,
-        "3": 0.000524018660256002
+        "1": 0.0038141477625680082,
+        "2": 0.0010872848428337381,
+        "3": 0.0008732532700679555,
+        "4": 0.00031955164161788345,
+        "5": -0.0025230934641100274
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "lookback": 5
@@ -505,7 +583,7 @@
         10
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 5))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    close, volume = close.align(volume, join=\"inner\", axis=0)\n\n    r_close = close.rank(axis=1, pct=True)\n    r_vol = volume.rank(axis=1, pct=True)\n\n    cov = r_close.rolling(lookback).cov(r_vol)\n    alpha = -1.0 * cov.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    lookback = int(params.get(\"lookback\", 5))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(volume.index)\n    close = close.loc[idx]\n    volume = volume.loc[idx]\n\n    r_close = close.rank(axis=1, pct=True)\n    r_vol = volume.rank(axis=1, pct=True)\n\n    cov = r_close.rolling(lookback).cov(r_vol)\n    alpha = -1.0 * cov.rank(axis=1, pct=True)\n\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_115.md",
@@ -514,20 +592,22 @@
     "formula": "rank(correlation(high * 0.9 + close * 0.1, sma(volume, 30), 10)) * rank(correlation(ts_rank(high + low / 2, 3), ts_rank(volume, 10), 7))",
     "verdict": "MARGINAL",
     "reasons": [
-      "MARGINAL: |IC| 0.0204 < 0.03"
+      "MARGINAL: |IC| 0.0115 < 0.03"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": -0.020448048030756612,
-      "ic_t_stat": -2.391312243002703,
+      "mean_ic": -0.011503901602531477,
+      "ic_t_stat": -3.116464907637935,
       "monotonicity": 1.0,
-      "long_short_spread": 0.000797091823576117,
+      "long_short_spread": 0.0036318348894574686,
       "group_mean_returns": {
-        "1": 8.369425978889412e-05,
-        "2": 0.0005812213214825647,
-        "3": 0.0008807860833650111
+        "1": -0.0011329575045377792,
+        "2": -0.0001131131525651664,
+        "3": 0.0006093686477185934,
+        "4": 0.0013411063314328875,
+        "5": 0.0024988773849196895
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "vol_sma": 30,
@@ -558,7 +638,47 @@
         15
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    vol_sma = params.get(\"vol_sma\", 30)\n    corr1_lookback = params.get(\"corr1_lookback\", 10)\n    ts_rank1 = params.get(\"ts_rank1\", 3)\n    ts_rank2 = params.get(\"ts_rank2\", 10)\n    corr2_lookback = params.get(\"corr2_lookback\", 7)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    low = pd.DataFrame({t: d[\"Low\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    # Align on shared index\n    idx = close.index\n    for df in (high, low, volume):\n        idx = idx.intersection(df.index)\n    close = close.loc[idx].sort_index()\n    high = high.loc[idx].sort_index()\n    low = low.loc[idx].sort_index()\n    volume = volume.loc[idx].sort_index()\n\n    def ts_rank(x: pd.DataFrame, d: int) -> pd.DataFrame:\n        return x.rolling(d).apply(lambda s: s.rank().iloc[-1] / len(s), raw=False)\n\n    # First term: rank(correlation(high * 0.9 + close * 0.1, sma(volume, 30), 10))\n    x1 = high * 0.9 + close * 0.1\n    y1 = volume.rolling(vol_sma).mean()\n    corr1 = x1.rolling(corr1_lookback).corr(y1)\n    term1 = corr1.rank(axis=1, pct=True)\n\n    # Second term: rank(correlation(ts_rank(high + low / 2, 3), ts_rank(volume, 10), 7))\n    x2 = ts_rank(high + low / 2.0, ts_rank1)\n    y2 = ts_rank(volume, ts_rank2)\n    corr2 = x2.rolling(corr2_lookback).corr(y2)\n    term2 = corr2.rank(axis=1, pct=True)\n\n    alpha = term1 * term2\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    vol_sma = params.get(\"vol_sma\", 30)\n    corr1_lookback = params.get(\"corr1_lookback\", 10)\n    ts_rank1 = params.get(\"ts_rank1\", 3)\n    ts_rank2 = params.get(\"ts_rank2\", 10)\n    corr2_lookback = params.get(\"corr2_lookback\", 7)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    low = pd.DataFrame({t: d[\"Low\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(high.index).intersection(low.index).intersection(volume.index)\n    close = close.loc[idx]\n    high = high.loc[idx]\n    low = low.loc[idx]\n    volume = volume.loc[idx]\n\n    def ts_rank(x: pd.DataFrame, d: int) -> pd.DataFrame:\n        return x.rolling(d).apply(lambda s: s.rank().iloc[-1] / len(s), raw=False)\n\n    # First term: rank(correlation(high * 0.9 + close * 0.1, sma(volume, 30), 10))\n    x1 = high * 0.9 + close * 0.1\n    y1 = volume.rolling(vol_sma).mean()\n    corr1 = x1.rolling(corr1_lookback).corr(y1)\n    r1 = corr1.rank(axis=1, pct=True)\n\n    # Second term: rank(correlation(ts_rank(high + low / 2, 3), ts_rank(volume, 10), 7))\n    x2 = ts_rank(high + low / 2.0, ts_rank1)\n    y2 = ts_rank(volume, ts_rank2)\n    corr2 = x2.rolling(corr2_lookback).corr(y2)\n    r2 = corr2.rank(axis=1, pct=True)\n\n    alpha = r1 * r2\n    return alpha.dropna(how=\"all\")"
+  },
+  {
+    "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_136.md",
+    "name": "WQ-136: Ranked return acceleration times open-volume correlation",
+    "category": "cross_sectional",
+    "formula": "rank(delta(returns, 3)) * correlation(open, volume, 10) * -1",
+    "verdict": "FAIL",
+    "reasons": [
+      "FAIL: |IC| 0.0017 < 0.01"
+    ],
+    "error": null,
+    "metrics": {
+      "mean_ic": 0.0017068679374313658,
+      "ic_t_stat": 0.44346019456277486,
+      "monotonicity": 0.5,
+      "long_short_spread": -0.0018109628899635136,
+      "group_mean_returns": {
+        "1": 0.007412052465723846,
+        "2": -0.0024668482878739046,
+        "3": -0.00579556813420077,
+        "4": -0.0012663914910603722,
+        "5": 0.005601089575760333
+      },
+      "n_groups": 5
+    },
+    "params": {
+      "delta_d": 3,
+      "corr_lookback": 10
+    },
+    "param_ranges": {
+      "delta_d": [
+        2,
+        5
+      ],
+      "corr_lookback": [
+        5,
+        20
+      ]
+    },
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    delta_d = int(params.get(\"delta_d\", 3))\n    corr_lookback = int(params.get(\"corr_lookback\", 10))\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    idx = close.index.intersection(open_.index).intersection(volume.index)\n    close = close.loc[idx]\n    open_ = open_.loc[idx]\n    volume = volume.loc[idx]\n\n    returns = close.pct_change(1)\n    ret_accel = returns.diff(delta_d)\n    ranked_ret_accel = ret_accel.rank(axis=1, pct=True)\n\n    ov_corr = open_.rolling(corr_lookback).corr(volume)\n\n    alpha = ranked_ret_accel * ov_corr * -1.0\n    return alpha.dropna(how=\"all\")"
   },
   {
     "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_157.md",
@@ -567,20 +687,23 @@
     "formula": "min(product(rank(rank(log(sum(ts_min(rank(-1 * rank(delta(close - 1, 5))), 2), 1)))), 1), 5) + ts_rank(delay(-1 * returns, 6), 5)",
     "verdict": "FAIL",
     "reasons": [
+      "FAIL: |IC| 0.0042 < 0.01",
       "FAIL: monotonicity 0.00 < 0.50"
     ],
     "error": null,
     "metrics": {
-      "mean_ic": 0.016660688032790964,
-      "ic_t_stat": 1.8973175167409335,
+      "mean_ic": 0.004155089786088249,
+      "ic_t_stat": 0.8910975637854671,
       "monotonicity": 0.0,
-      "long_short_spread": -0.0009167458896637295,
+      "long_short_spread": -0.002653196207041469,
       "group_mean_returns": {
-        "1": 0.001024939998577895,
-        "2": 0.0007146615714866305,
-        "3": 0.0001081941089141655
+        "1": 0.0016527649069641348,
+        "2": 0.0012850633467348979,
+        "3": 0.0010540376341631491,
+        "4": 0.00048315032107973914,
+        "5": -0.001000431300077334
       },
-      "n_groups": 3
+      "n_groups": 5
     },
     "params": {
       "delta_d": 5,
@@ -606,88 +729,6 @@
         8
       ]
     },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    delta_d = params.get(\"delta_d\", 5)\n    ts_min_d = params.get(\"ts_min_d\", 2)\n    ts_rank_d = params.get(\"ts_rank_d\", 5)\n    delay_d = params.get(\"delay_d\", 6)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n    high = pd.DataFrame({t: d[\"High\"] for t, d in universe_data.items()})\n    low = pd.DataFrame({t: d[\"Low\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    # Align on shared index\n    idx = close.index\n    for df in (open_, high, low, volume):\n        idx = idx.intersection(df.index)\n    close = close.loc[idx].sort_index()\n    open_ = open_.loc[idx].sort_index()\n    high = high.loc[idx].sort_index()\n    low = low.loc[idx].sort_index()\n    volume = volume.loc[idx].sort_index()\n\n    returns = close.pct_change(1)\n\n    # Inner nested expression:\n    # rank(-1 * rank(delta(close - 1, 5)))\n    x0 = close - 1.0\n    x1 = x0.diff(delta_d)\n    x2 = x1.rank(axis=1, pct=True)\n    x3 = (-1.0 * x2).rank(axis=1, pct=True)\n\n    # ts_min(..., 2)\n    x4 = x3.rolling(ts_min_d).min()\n\n    # sum(..., 1)\n    x5 = x4.rolling(1).sum()\n\n    # log(...)\n    x6 = np.log(x5 + 1e-8)\n\n    # rank(rank(log(...)))\n    x7 = x6.rank(axis=1, pct=True)\n    x8 = x7.rank(axis=1, pct=True)\n\n    # product(..., 1)\n    x9 = x8.rolling(1).apply(np.prod, raw=True)\n\n    # rank(product(...,1))\n    x10 = x9.rank(axis=1, pct=True)\n\n    # product(rank(...), 1)\n    x11 = x10.rolling(1).apply(np.prod, raw=True)\n\n    # min(product(...,1), 5)  (ts_min over 5)\n    part1 = x11.rolling(5).min()\n\n    # ts_rank(delay(-1 * returns, 6), 5)\n    y0 = (-1.0 * returns).shift(delay_d)\n    part2 = y0.rolling(ts_rank_d).apply(lambda s: s.rank().iloc[-1] / len(s), raw=False)\n\n    alpha = part1 + part2\n    alpha = alpha.dropna(how=\"all\")\n    return alpha"
-  },
-  {
-    "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_091.md",
-    "name": "WQ-091: Distance from 5-day max times ranked volume-low correlation",
-    "category": "cross_sectional",
-    "formula": "-1 * rank(close - max(close, 5)) * rank(correlation(sma(volume, 40), low, 5))",
-    "verdict": "FAIL",
-    "reasons": [
-      "FAIL: |IC| 0.0041 < 0.01",
-      "FAIL: monotonicity 0.00 < 0.50"
-    ],
-    "error": null,
-    "metrics": {
-      "mean_ic": 0.004144812109916547,
-      "ic_t_stat": 0.48622843001002597,
-      "monotonicity": 0.0,
-      "long_short_spread": -0.006659545324158831,
-      "group_mean_returns": {
-        "1": 0.004253524030744337,
-        "2": 0.0007623198250354596,
-        "3": -0.0024060212934144945
-      },
-      "n_groups": 3
-    },
-    "params": {
-      "max_lookback": 5,
-      "vol_sma": 40,
-      "corr_lookback": 5
-    },
-    "param_ranges": {
-      "max_lookback": [
-        3,
-        10
-      ],
-      "vol_sma": [
-        20,
-        60
-      ],
-      "corr_lookback": [
-        3,
-        10
-      ]
-    },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    max_lookback = params.get(\"max_lookback\", 5)\n    vol_sma = params.get(\"vol_sma\", 40)\n    corr_lookback = params.get(\"corr_lookback\", 5)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    low = pd.DataFrame({t: d[\"Low\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    close, low = close.align(low, join=\"inner\", axis=0)\n    close, volume = close.align(volume, join=\"inner\", axis=0)\n    low = low.reindex(close.index)\n\n    ts_max_close = close.rolling(max_lookback).max()\n    dist_from_max = close - ts_max_close\n    r1 = dist_from_max.rank(axis=1, pct=True)\n\n    vol_sma_ = volume.rolling(vol_sma).mean()\n    corr_vlow = vol_sma_.rolling(corr_lookback).corr(low)\n    r2 = corr_vlow.rank(axis=1, pct=True)\n\n    alpha = -1.0 * r1 * r2\n    return alpha.dropna(how=\"all\")"
-  },
-  {
-    "factor_ref": "/Users/huangyuanhao/projects/autonomous_trading/factors/cross_sectional/wq_136.md",
-    "name": "WQ-136: Ranked return acceleration times open-volume correlation",
-    "category": "cross_sectional",
-    "formula": "rank(delta(returns, 3)) * correlation(open, volume, 10) * -1",
-    "verdict": "MARGINAL",
-    "reasons": [
-      "MARGINAL: |IC| 0.0177 < 0.03"
-    ],
-    "error": null,
-    "metrics": {
-      "mean_ic": -0.017726711097340208,
-      "ic_t_stat": -2.073603911684804,
-      "monotonicity": 0.5,
-      "long_short_spread": 0.0008138049929470479,
-      "group_mean_returns": {
-        "1": 0.0012437227239554807,
-        "2": -0.0013563123593397356,
-        "3": 0.0020575277169025286
-      },
-      "n_groups": 3
-    },
-    "params": {
-      "delta_d": 3,
-      "corr_lookback": 10
-    },
-    "param_ranges": {
-      "delta_d": [
-        2,
-        5
-      ],
-      "corr_lookback": [
-        5,
-        20
-      ]
-    },
-    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    delta_d = params.get(\"delta_d\", 3)\n    corr_lookback = params.get(\"corr_lookback\", 10)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    open_ = pd.DataFrame({t: d[\"Open\"] for t, d in universe_data.items()})\n    volume = pd.DataFrame({t: d[\"Volume\"] for t, d in universe_data.items()}).astype(float)\n\n    close, open_ = close.align(open_, join=\"inner\", axis=0)\n    close, volume = close.align(volume, join=\"inner\", axis=0)\n    open_ = open_.reindex(close.index)\n\n    returns = close.pct_change(1)\n    ret_accel = returns.diff(delta_d)\n    ranked_ret_accel = ret_accel.rank(axis=1, pct=True)\n\n    ov_corr = open_.rolling(corr_lookback).corr(volume)\n\n    alpha = ranked_ret_accel * ov_corr * -1.0\n    return alpha.dropna(how=\"all\")"
+    "code": "import numpy as np\nimport pandas as pd\n\ndef compute_alpha(universe_data: dict[str, pd.DataFrame], **params) -> pd.DataFrame:\n    \"\"\"Returns DataFrame(index=dates, columns=tickers, values=alpha).\"\"\"\n    delta_d = params.get(\"delta_d\", 5)\n    ts_min_d = params.get(\"ts_min_d\", 2)\n    ts_rank_d = params.get(\"ts_rank_d\", 5)\n    delay_d = params.get(\"delay_d\", 6)\n\n    close = pd.DataFrame({t: d[\"Close\"] for t, d in universe_data.items()})\n    idx = close.index\n    close = close.loc[idx].sort_index()\n\n    returns = close.pct_change(1)\n\n    # Inner term: rank(-1 * rank(delta(close - 1, delta_d)))\n    x0 = close - 1.0\n    x1 = x0.diff(delta_d)\n    x2 = x1.rank(axis=1, pct=True)\n    x3 = (-1.0 * x2).rank(axis=1, pct=True)\n\n    # ts_min(..., ts_min_d)\n    x4 = x3.rolling(ts_min_d).min()\n\n    # sum(..., 1)\n    x5 = x4.rolling(1).sum()\n\n    # log(sum(...))\n    x6 = np.log(x5 + 1e-8)\n\n    # rank(rank(log(...)))\n    x7 = x6.rank(axis=1, pct=True)\n    x8 = x7.rank(axis=1, pct=True)\n\n    # product(..., 1)\n    x9 = x8.rolling(1).apply(np.prod, raw=True)\n\n    # min(product(...,1), 5)  (time-series min over 5)\n    x10 = x9.rolling(5).min()\n\n    # Second term: ts_rank(delay(-1 * returns, delay_d), ts_rank_d)\n    y0 = (-1.0 * returns).shift(delay_d)\n    y1 = y0.rolling(ts_rank_d).apply(lambda s: s.rank().iloc[-1] / len(s), raw=False)\n\n    alpha = x10 + y1\n    alpha = alpha.reindex_like(close)\n    return alpha.dropna(how=\"all\")"
   }
 ]

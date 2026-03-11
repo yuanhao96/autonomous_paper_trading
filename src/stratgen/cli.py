@@ -96,6 +96,14 @@ def main() -> None:
         "--min-verdict", choices=["PASS", "MARGINAL"], default="MARGINAL",
         help="Minimum factor verdict to include (default: MARGINAL)",
     )
+    p_score.add_argument(
+        "--weight-method", choices=["ic", "sign", "icir", "global_sign", "global_ic"], default="global_sign",
+        help="Factor weighting method (default: global_sign)",
+    )
+    p_score.add_argument(
+        "--min-ic", type=float, default=0.01,
+        help="Min |mean IC| to include factor (default: 0.01)",
+    )
 
     # --- validate ---
     p_val = sub.add_parser(
@@ -124,6 +132,14 @@ def main() -> None:
     p_val.add_argument(
         "--horizons", type=str, default="1,5,10,20",
         help="Forward return horizons, comma-separated (default: 1,5,10,20)",
+    )
+    p_val.add_argument(
+        "--weight-method", choices=["ic", "sign", "icir", "global_sign", "global_ic"], default="global_sign",
+        help="Factor weighting method (default: global_sign)",
+    )
+    p_val.add_argument(
+        "--min-ic", type=float, default=0.01,
+        help="Min |mean IC| to include factor (default: 0.01)",
     )
 
     # --- analyze ---
@@ -192,6 +208,8 @@ def main() -> None:
             top_n=args.top_n,
             n_groups=args.n_groups,
             horizons=args.horizons,
+            weight_method=args.weight_method,
+            min_ic=args.min_ic,
         )
 
     elif args.command == "score":
@@ -201,6 +219,8 @@ def main() -> None:
             min_verdict=args.min_verdict,
             ic_window=args.ic_window,
             top_n=args.top_n,
+            weight_method=args.weight_method,
+            min_ic=args.min_ic,
         )
 
     elif args.command == "screen":

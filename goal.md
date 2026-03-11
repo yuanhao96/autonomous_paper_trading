@@ -1,4 +1,9 @@
-1. build a comprehensive documentaion / guideline knowledge base for trading strategies listed in https://www.quantconnect.com/learning/articles/investment-strategy-library. this page contains links to details of different strategies (e.g., https://www.quantconnect.com/research/15268/gaussian-naive-bayes-model/p1). these documents should be markdown files organized in hierarchical folders, and should contain as many details as possible.
-2. similarly, build another knowledge base for financial python introduced here: https://www.quantconnect.com/learning/articles/introduction-to-financial-python/
-3. similarly, build another knowledge base for key trading concepts introduce here: https://www.quantconnect.com/docs/v2/writing-algorithms/key-concepts/getting-started, but remove the context of LEAN platform so that it can be used for general trading research
-4. additional concepts i want to include that can help better modeling a trading agent: https://www.quantconnect.com/docs/v2/writing-algorithms/algorithm-framework/overview, https://www.quantconnect.com/docs/v2/writing-algorithms/indicators/supported-indicators, https://www.quantconnect.com/docs/v2/writing-algorithms/reality-modeling/key-concepts, https://www.quantconnect.com/docs/v2/writing-algorithms/trading-and-orders/order-types, https://www.quantconnect.com/docs/v2/writing-algorithms/historical-data/getting-started, https://www.quantconnect.com/docs/v2/writing-algorithms/portfolio/key-concepts, https://www.quantconnect.com/docs/v2/writing-algorithms/securities/key-concepts
+build a paper trading system that autonomously learns alpha factors.
+the system should have the following features:
+1. write alpha factor strategies from a knowledge base ```knowledge/```
+2. backtesting in different periods
+3. stock screening
+4. autonomous learning parameters for individual alpha factors, combination of alpha factors, and stock screening parameters
+5. supports paper trading with alpaca
+
+**Complete and extend the framework the listed features**, make its srtucture as simple as possible, do not overengineering
