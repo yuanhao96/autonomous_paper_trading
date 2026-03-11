@@ -96,6 +96,8 @@ src/
     factor_screen.py        # Screen command runner
     factor_score.py         # Score command runner
     factor_validate.py      # Validate command runner
+    allocator.py            # Portfolio allocation: alpha-proportional with caps
+    factor_allocate.py      # Allocate command runner
     trade.py                # Alpaca paper trading: status
 archive/                    # Historical files (v0–v6)
 docs/                       # Version documentation
@@ -107,6 +109,7 @@ results_factors_xs_opt.json # XS optimization results (runtime artifact)
 results_screen.json         # Screen results (runtime artifact)
 results_score.json          # Score results (runtime artifact)
 results_validate.json       # Validation results (runtime artifact)
+results_allocate.json       # Allocation results (runtime artifact)
 tests/                      # All tests
 ```
 
@@ -145,7 +148,7 @@ S&P 500 → Screen (liquidity/price/data) → ~300 stocks
 | **Screen** | `stratgen screen` | No | Filter S&P 500 by ADV, price, data completeness → ~300 stocks |
 | **Score** | `stratgen score` | No | Compute all TS factors per stock, IC-weighted z-score combination |
 | **Validate** | `stratgen validate` | No | Quintile analysis, composite IC, multi-horizon IC, verdict |
-| **Allocate** | `stratgen allocate` | No | *(planned)* Portfolio weights with sector/position limits, turnover penalty |
+| **Allocate** | `stratgen allocate` | No | Alpha-proportional portfolio weights with position caps (default 5%) |
 | **Status** | `stratgen status` | No | Alpaca account balance and positions |
 
 The v2.x pipeline is LLM-free at runtime — it reuses cached factor code from v1.x discovery.
@@ -180,6 +183,8 @@ class FactorSpec:
 | `--min-ic FLOAT` | score, validate | Min \|mean IC\| to include factor (default: 0.01) |
 | `--n-groups N` | analyze, optimize-xs, validate | Number of portfolio groups (default: 5 = quintiles) |
 | `--horizons` | validate | Forward return horizons, comma-separated (default: 1,5,10,20) |
+| `--top-n N` | allocate | Number of top stocks to include (default: 20) |
+| `--max-position FLOAT` | allocate | Max weight per position (default: 0.05) |
 | `--universe {sp100,sector-etfs}` | analyze, optimize-xs | Stock universe (default: sp100) |
 | `--train-end` / `--test-start` | optimize-xs | Train/test split dates (default: 2022-12-31 / 2023-01-01) |
 

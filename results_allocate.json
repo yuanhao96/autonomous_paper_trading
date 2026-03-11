@@ -1,0 +1,113 @@
+{
+  "universe": "sp500",
+  "latest_date": "2025-12-30",
+  "n_factors_used": 48,
+  "weight_method": "global_sign",
+  "min_ic": 0.01,
+  "top_n": 20,
+  "max_position": 0.05,
+  "n_positions": 20,
+  "total_weight": 1.0,
+  "portfolio": [
+    {
+      "ticker": "LW",
+      "weight": 0.05,
+      "alpha_score": 4.019367
+    },
+    {
+      "ticker": "TSLA",
+      "weight": 0.05,
+      "alpha_score": 2.601671
+    },
+    {
+      "ticker": "NXPI",
+      "weight": 0.05,
+      "alpha_score": 1.140492
+    },
+    {
+      "ticker": "STLD",
+      "weight": 0.05,
+      "alpha_score": 1.210578
+    },
+    {
+      "ticker": "MPC",
+      "weight": 0.05,
+      "alpha_score": 1.332946
+    },
+    {
+      "ticker": "FAST",
+      "weight": 0.05,
+      "alpha_score": 1.353371
+    },
+    {
+      "ticker": "LEN",
+      "weight": 0.05,
+      "alpha_score": 1.433714
+    },
+    {
+      "ticker": "GNRC",
+      "weight": 0.05,
+      "alpha_score": 1.457698
+    },
+    {
+      "ticker": "GPN",
+      "weight": 0.05,
+      "alpha_score": 1.460247
+    },
+    {
+      "ticker": "TSCO",
+      "weight": 0.05,
+      "alpha_score": 1.489433
+    },
+    {
+      "ticker": "CVNA",
+      "weight": 0.05,
+      "alpha_score": 1.612959
+    },
+    {
+      "ticker": "WYNN",
+      "weight": 0.05,
+      "alpha_score": 1.67016
+    },
+    {
+      "ticker": "BBY",
+      "weight": 0.05,
+      "alpha_score": 1.673441
+    },
+    {
+      "ticker": "SMCI",
+      "weight": 0.05,
+      "alpha_score": 1.742328
+    },
+    {
+      "ticker": "WSM",
+      "weight": 0.05,
+      "alpha_score": 1.760981
+    },
+    {
+      "ticker": "BF-B",
+      "weight": 0.05,
+      "alpha_score": 1.884091
+    },
+    {
+      "ticker": "MRNA",
+      "weight": 0.05,
+      "alpha_score": 2.072166
+    },
+    {
+      "ticker": "ARES",
+      "weight": 0.05,
+      "alpha_score": 2.11222
+    },
+    {
+      "ticker": "NVR",
+      "weight": 0.05,
+      "alpha_score": 2.393503
+    },
+    {
+      "ticker": "DRI",
+      "weight": 0.05,
+      "alpha_score": 1.096973
+    }
+  ]
+}

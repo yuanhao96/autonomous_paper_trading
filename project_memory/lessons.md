@@ -20,3 +20,18 @@
 ### Patterns to Avoid
 - Don't use rolling IC estimates as weights when individual factor ICs are < 0.02 — noise dominates
 - Don't assume SPY time-series factor quality (PASS/MARGINAL) transfers to cross-sectional SP500 quality
+
+## Milestone: Implement Portfolio Allocation (2026-03-11)
+
+### What Worked
+- Simple alpha-proportional weighting with position caps — straightforward, no external dependencies
+- Iterative capping algorithm converges quickly (< 5 iterations)
+
+### What Didn't Work
+- Initial capping algorithm had bug where redistribution pushed positions above cap — needed tolerance checks
+
+### Patterns to Reuse
+- Keep allocation simple until signal quality justifies complexity (no MVO needed for IC=0.016)
+
+### Patterns to Avoid
+- Don't compare uncapped weights with strict equality — use tolerance (1e-10)

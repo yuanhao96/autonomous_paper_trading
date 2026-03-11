@@ -142,6 +142,40 @@ def main() -> None:
         help="Min |mean IC| to include factor (default: 0.01)",
     )
 
+    # --- allocate ---
+    p_alloc = sub.add_parser(
+        "allocate", help="Generate portfolio weights from composite alpha scores",
+    )
+    p_alloc.add_argument(
+        "--universe", choices=["sp100", "sp500", "sector-etfs"], default="sp500",
+        help="Stock universe (default: sp500)",
+    )
+    p_alloc.add_argument(
+        "--ic-window", type=int, default=60,
+        help="Rolling IC window in trading days (default: 60)",
+    )
+    p_alloc.add_argument(
+        "--min-verdict", choices=["PASS", "MARGINAL"], default="MARGINAL",
+        help="Minimum factor verdict to include (default: MARGINAL)",
+    )
+    p_alloc.add_argument(
+        "--weight-method", choices=["ic", "sign", "icir", "global_sign", "global_ic"],
+        default="global_sign",
+        help="Factor weighting method (default: global_sign)",
+    )
+    p_alloc.add_argument(
+        "--min-ic", type=float, default=0.01,
+        help="Min |mean IC| to include factor (default: 0.01)",
+    )
+    p_alloc.add_argument(
+        "--top-n", type=int, default=20,
+        help="Number of top stocks to include (default: 20)",
+    )
+    p_alloc.add_argument(
+        "--max-position", type=float, default=0.05,
+        help="Max weight per position (default: 0.05 = 5%%)",
+    )
+
     # --- analyze ---
     p_analyze = sub.add_parser(
         "analyze", help="Cross-sectional factor analysis on a stock universe",
@@ -221,6 +255,18 @@ def main() -> None:
             top_n=args.top_n,
             weight_method=args.weight_method,
             min_ic=args.min_ic,
+        )
+
+    elif args.command == "allocate":
+        from stratgen.factor_allocate import run_allocate
+        run_allocate(
+            universe=args.universe,
+            min_verdict=args.min_verdict,
+            ic_window=args.ic_window,
+            weight_method=args.weight_method,
+            min_ic=args.min_ic,
+            top_n=args.top_n,
+            max_position=args.max_position,
         )
 
     elif args.command == "screen":
