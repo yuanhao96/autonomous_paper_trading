@@ -52,3 +52,21 @@
 
 ### Patterns to Avoid
 - Don't require live API credentials for unit testing — mock the client or test pure logic only
+
+## Milestone: Autonomous Learning Loop (2026-03-11)
+
+### What Worked
+- Reusing existing pipeline modules (run_screen, run_score, run_allocate) as building blocks — no refactoring needed
+- IC-weighted combination in composite_alpha() already provides "learning" for factor weights — just need to re-run it
+- Simple grid search over min_adv for screen tuning — 3 values is enough
+
+### What Didn't Work
+- N/A — straightforward orchestration of existing components
+
+### Patterns to Reuse
+- When building orchestrator commands, call existing functions directly rather than shelling out
+- Timestamped run directories for comparison across runs
+- Keep expensive operations (optimize) optional via flags
+
+### Patterns to Avoid
+- Don't re-implement scoring logic in the learner — just call the existing scorer

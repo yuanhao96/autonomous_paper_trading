@@ -49,9 +49,14 @@ python -m stratgen optimize-xs          # Grid search XS factor params (score by
 python -m stratgen screen               # Filter S&P 500 by liquidity/price/data quality
 python -m stratgen score                # Compute IC-weighted composite alpha per stock
 python -m stratgen validate             # Quintile analysis + multi-horizon IC validation
-python -m stratgen allocate             # Generate portfolio weights with risk constraints (planned)
+python -m stratgen allocate             # Generate portfolio weights with risk constraints
+python -m stratgen learn                # Full learning loop: screen → score → allocate + log
+python -m stratgen learn --tune-screen  # Auto-tune screening params by composite |IC|
+python -m stratgen learn --trade        # Also rebalance Alpaca after allocate
 
-# Utilities
+# Trading
+python -m stratgen trade                # Rebalance Alpaca paper account to allocation weights
+python -m stratgen trade --dry-run      # Print orders without executing
 python -m stratgen status               # Show Alpaca account + positions
 ruff check src/stratgen/                # Lint
 mypy src/stratgen/                      # Type check
@@ -98,7 +103,8 @@ src/
     factor_validate.py      # Validate command runner
     allocator.py            # Portfolio allocation: alpha-proportional with caps
     factor_allocate.py      # Allocate command runner
-    trade.py                # Alpaca paper trading: status
+    trade.py                # Alpaca paper trading: rebalance, orders, status
+    learner.py              # Autonomous learning loop: chain pipeline, log runs, tune screen
 archive/                    # Historical files (v0–v6)
 docs/                       # Version documentation
 data/                       # Cached universe data (Parquet, gitignored)
@@ -110,6 +116,7 @@ results_screen.json         # Screen results (runtime artifact)
 results_score.json          # Score results (runtime artifact)
 results_validate.json       # Validation results (runtime artifact)
 results_allocate.json       # Allocation results (runtime artifact)
+runs/                       # Timestamped learning loop run logs (gitignored)
 tests/                      # All tests
 ```
 
@@ -149,6 +156,8 @@ S&P 500 → Screen (liquidity/price/data) → ~300 stocks
 | **Score** | `stratgen score` | No | Compute all TS factors per stock, IC-weighted z-score combination |
 | **Validate** | `stratgen validate` | No | Quintile analysis, composite IC, multi-horizon IC, verdict |
 | **Allocate** | `stratgen allocate` | No | Alpha-proportional portfolio weights with position caps (default 5%) |
+| **Learn** | `stratgen learn` | No | Full pipeline loop: screen → score → allocate, logs runs, optional --tune-screen |
+| **Trade** | `stratgen trade` | No | Rebalance Alpaca paper account to allocation weights |
 | **Status** | `stratgen status` | No | Alpaca account balance and positions |
 
 The v2.x pipeline is LLM-free at runtime — it reuses cached factor code from v1.x discovery.

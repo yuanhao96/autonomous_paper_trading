@@ -224,6 +224,52 @@ def main() -> None:
         help="First date of test period (default: 2023-01-01)",
     )
 
+    # --- learn ---
+    p_learn = sub.add_parser(
+        "learn", help="Run full learning loop: screen → score → allocate (+ optional trade)",
+    )
+    p_learn.add_argument(
+        "--universe", choices=["sp100", "sp500", "sector-etfs"], default="sp500",
+        help="Stock universe (default: sp500)",
+    )
+    p_learn.add_argument(
+        "--weight-method", choices=["ic", "sign", "icir", "global_sign", "global_ic"],
+        default="global_sign",
+        help="Factor weighting method (default: global_sign)",
+    )
+    p_learn.add_argument(
+        "--min-ic", type=float, default=0.01,
+        help="Min |mean IC| to include factor (default: 0.01)",
+    )
+    p_learn.add_argument(
+        "--ic-window", type=int, default=60,
+        help="Rolling IC window in trading days (default: 60)",
+    )
+    p_learn.add_argument(
+        "--min-verdict", choices=["PASS", "MARGINAL"], default="MARGINAL",
+        help="Minimum factor verdict to include (default: MARGINAL)",
+    )
+    p_learn.add_argument(
+        "--top-n", type=int, default=20,
+        help="Number of top stocks to include (default: 20)",
+    )
+    p_learn.add_argument(
+        "--max-position", type=float, default=0.05,
+        help="Max weight per position (default: 0.05 = 5%%)",
+    )
+    p_learn.add_argument(
+        "--tune-screen", action="store_true",
+        help="Auto-tune screening min_adv by composite |IC|",
+    )
+    p_learn.add_argument(
+        "--trade", action="store_true",
+        help="Also execute trade after allocate",
+    )
+    p_learn.add_argument(
+        "--dry-run", action="store_true",
+        help="Print trade orders without executing",
+    )
+
     # --- trade ---
     p_trade = sub.add_parser(
         "trade", help="Rebalance Alpaca paper account to match allocation weights",
@@ -315,6 +361,21 @@ def main() -> None:
             reset=args.reset, max_tries=args.max_tries,
             n_groups=args.n_groups, universe=args.universe,
             train_end=args.train_end, test_start=args.test_start,
+        )
+
+    elif args.command == "learn":
+        from stratgen.learner import run_learn
+        run_learn(
+            universe=args.universe,
+            weight_method=args.weight_method,
+            min_ic=args.min_ic,
+            ic_window=args.ic_window,
+            min_verdict=args.min_verdict,
+            top_n=args.top_n,
+            max_position=args.max_position,
+            tune_screen_flag=args.tune_screen,
+            do_trade=args.trade,
+            dry_run=args.dry_run,
         )
 
     elif args.command == "trade":

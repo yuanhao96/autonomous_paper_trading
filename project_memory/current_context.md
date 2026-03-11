@@ -2,8 +2,8 @@
 
 ## Active Milestone
 
-**Name**: Paper Trading Execution via Alpaca
-**Goal**: Extend trade.py to submit orders to Alpaca paper trading based on allocation weights.
+**Name**: Autonomous Learning Loop
+**Goal**: Build a single command that re-runs the full pipeline, logs results, and supports auto-tuning.
 
 ## Current Phase
 
@@ -12,27 +12,23 @@
 
 ## Key Decisions
 
-- [AUTO] Implement order submission as `stratgen trade` command (rebalance to target weights)
-- [AUTO] Use market orders for simplicity — limit orders add complexity without clear benefit for paper trading
-- [AUTO] Compute target shares from allocation weights * account equity / current price
-- [AUTO] No Alpaca credentials available — implement and test with mocks, flag for user to add credentials
+- [AUTO] `stratgen learn` chains screen → score → allocate end-to-end
+- [AUTO] Factor combination weights already learned via IC-weighting in composite_alpha()
+- [AUTO] Screen auto-tune: grid of min_adv values, pick best by composite |IC|
+- [AUTO] Factor param re-optimization gated behind --reoptimize flag (not default)
+- [AUTO] Each run logged to runs/YYYY-MM-DD-HHMMSS/ with summary JSON
 
 ## Blockers
 
-- [ ] ALPACA_API_KEY and ALPACA_SECRET_KEY not set in .env — needed for live testing
+(none)
 
 ## Plan Reference
 
 ### Steps
 
-1. [x] Add `compute_rebalance_orders()` and `execute_orders()` to trade.py
-2. [x] Add `cmd_trade()` to trade.py — load allocation, call rebalance
-3. [x] Add `trade` subcommand to cli.py (parser + dispatch)
-4. [x] Create tests/test_trade.py with 9 tests for rebalance logic
-5. [x] All 48 tests pass, lint clean
-
-## Notes
-
-- Existing: get_alpaca_client(), show_status(), cmd_status()
-- alpaca-py SDK: TradingClient, MarketOrderRequest, OrderSide, TimeInForce
-- Live testing blocked on Alpaca credentials — all pure logic fully tested
+1. [x] Create src/stratgen/learner.py — run_learn(), tune_screen(), log_run()
+2. [x] Add run logging: timestamped results to runs/ directory
+3. [x] Add --tune-screen mode: grid search over min_adv
+4. [x] Add learn subcommand to cli.py (parser + dispatch)
+5. [x] Create tests/test_learner.py with 5 tests
+6. [x] All 53 tests pass, lint clean
