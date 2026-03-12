@@ -200,9 +200,29 @@ def _apply_filters(features: pd.DataFrame, filters: list[dict],
     return sorted(passing)
 
 
+def _rank_and_select(passing: list[str], features: pd.DataFrame,
+                     date: pd.Timestamp, screen_def: dict) -> list[str]:
+    """Rank passing tickers by rank_by feature, return top_n."""
+    top_n = screen_def.get("top_n", 20)
+    rank_by = screen_def.get("rank_by")
+
+    if not rank_by or rank_by not in features.columns.get_level_values(0):
+        return passing[:top_n]  # Alphabetical fallback
+
+    rank_order = screen_def.get("rank_order", "desc")
+    vals = features.loc[date, rank_by] if date in features.index else pd.Series()
+    vals = vals.reindex(passing).dropna()
+    if vals.empty:
+        return passing[:top_n]
+
+    ascending = rank_order != "desc"
+    ranked = vals.sort_values(ascending=ascending).index.tolist()
+    return ranked[:top_n]
+
+
 def apply_screen(screen_def: dict, features: pd.DataFrame,
                  start: str = "2020-01-01", end: str = "2025-12-31") -> dict:
-    """Backtest a screen: monthly rebalance, equal-weight top_n, measure vs SPY.
+    """Backtest a screen: rebalance every holding_days, equal-weight top_n, measure vs SPY.
 
     Returns dict with backtest results.
     """
@@ -210,29 +230,29 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
     close = prices["Close"]
     spy = close["SPY"] if "SPY" in close.columns else None
 
-    top_n = screen_def.get("top_n", 20)
     filters = screen_def["filters"]
+    holding_days = screen_def.get("holding_days", 21)
 
-    # Monthly rebalance dates
+    # Rebalance dates: every holding_days trading days
     date_range = close.loc[start:end].index
-    monthly = date_range.to_series().groupby(pd.Grouper(freq="MS")).first().dropna()
+    rebal_indices = list(range(0, len(date_range), holding_days))
 
     portfolio_returns = []
     spy_returns = []
     n_stocks_list = []
-    monthly_details = []  # Per-stock granular data
+    monthly_details = []  # Per-period granular data
 
-    for i in range(len(monthly) - 1):
-        rebal_date = monthly.iloc[i]
-        next_date = monthly.iloc[i + 1]
+    for i in range(len(rebal_indices) - 1):
+        rebal_date = date_range[rebal_indices[i]]
+        next_date = date_range[rebal_indices[i + 1]]
 
         # Get tickers passing screen
         passing = _apply_filters(features, filters, rebal_date)
         if len(passing) == 0:
             continue
 
-        # If more pass than top_n, take alphabetically (deterministic).
-        tickers = passing[:top_n]
+        # Rank and select top_n
+        tickers = _rank_and_select(passing, features, rebal_date, screen_def)
 
         # Per-stock 1-month returns
         stock_rets = {}
@@ -287,14 +307,18 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
 
     alpha_mean = float(np.mean(alpha))
     alpha_std = float(np.std(alpha)) if len(alpha) > 1 else 1.0
-    sharpe = alpha_mean / alpha_std * np.sqrt(12) if alpha_std > 0 else 0.0
+    periods_per_year = 252 / holding_days
+    sharpe = alpha_mean / alpha_std * np.sqrt(periods_per_year) if alpha_std > 0 else 0.0
 
     return {
         "name": screen_def.get("name", ""),
         "hypothesis": screen_def.get("hypothesis", ""),
         "filters": filters,
+        "holding_days": holding_days,
+        "rank_by": screen_def.get("rank_by"),
+        "rank_order": screen_def.get("rank_order", "desc") if screen_def.get("rank_by") else None,
         "alpha_monthly_mean": round(alpha_mean, 5),
-        "alpha_annual": round(alpha_mean * 12, 4),
+        "alpha_annual": round(alpha_mean * periods_per_year, 4),
         "sharpe": round(sharpe, 3),
         "win_rate": round(float(np.mean(alpha > 0)), 3),
         "n_months": len(port),

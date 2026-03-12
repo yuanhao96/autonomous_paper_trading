@@ -50,6 +50,8 @@ def build_df(results):
             "n_avg_stocks": r.get("n_avg_stocks", 0),
             "port_total_return": r.get("port_total_return", 0),
             "spy_total_return": r.get("spy_total_return", 0),
+            "holding_days": r.get("holding_days", 21),
+            "rank_by": r.get("rank_by") or "alpha",
             "filters_json": json.dumps(r.get("filters", []), sort_keys=True),
             "status": "KEEP" if r["sharpe"] >= SHARPE_THRESHOLD else "DISCARD",
         })
@@ -75,12 +77,34 @@ def section_summary(df, results):
     print(f"  Best annual α:  {df['alpha_annual'].max():.2%}")
     print(f"  Best win rate:  {df['win_rate'].max():.1%}")
 
+    # Breakdown by holding period
+    hd_counts = df.groupby("holding_days").agg(
+        n=("sharpe", "size"), keep=("status", lambda s: (s == "KEEP").sum()),
+        avg_sharpe=("sharpe", "mean"),
+    )
+    if len(hd_counts) > 1 or (len(hd_counts) == 1 and hd_counts.index[0] != 21):
+        print("\n  By holding period:")
+        print(f"    {'Days':>5} {'Total':>5} {'KEEP':>5} {'Avg Sharpe':>11}")
+        for hd, row in hd_counts.iterrows():
+            print(f"    {hd:>5} {int(row['n']):>5} {int(row['keep']):>5} {row['avg_sharpe']:>11.3f}")
+
+    # Breakdown by rank_by
+    rb_counts = df.groupby("rank_by").agg(
+        n=("sharpe", "size"), keep=("status", lambda s: (s == "KEEP").sum()),
+        avg_sharpe=("sharpe", "mean"),
+    )
+    if len(rb_counts) > 1 or (len(rb_counts) == 1 and rb_counts.index[0] != "alpha"):
+        print("\n  By rank_by:")
+        print(f"    {'Feature':<20} {'Total':>5} {'KEEP':>5} {'Avg Sharpe':>11}")
+        for rb, row in rb_counts.iterrows():
+            print(f"    {rb:<20} {int(row['n']):>5} {int(row['keep']):>5} {row['avg_sharpe']:>11.3f}")
+
 
 def section_top(df, results, n=10):
     print("=" * 60)
     print(f"TOP {n} SCREENS BY SHARPE")
     print("=" * 60)
-    cols = ["name", "sharpe", "alpha_annual", "win_rate", "n_months", "n_avg_stocks", "status"]
+    cols = ["name", "sharpe", "alpha_annual", "win_rate", "n_months", "n_avg_stocks", "holding_days", "rank_by", "status"]
     top = df.nlargest(n, "sharpe")[cols]
     print(top.to_string(index=False))
 
@@ -220,37 +244,51 @@ def section_overlap(df, results):
 
 def section_correlation(df, results):
     print("=" * 60)
-    print("ALPHA CORRELATION (unique KEEP screens)")
+    print("ALPHA CORRELATION (unique KEEP screens, grouped by holding period)")
     print("=" * 60)
     seen, unique = set(), []
     for r in results:
         if r["sharpe"] < SHARPE_THRESHOLD:
             continue
         key = json.dumps(sorted(json.dumps(f, sort_keys=True) for f in r.get("filters", [])))
-        if key not in seen:
-            seen.add(key)
+        hd = r.get("holding_days", 21)
+        rb = r.get("rank_by") or "alpha"
+        dedup_key = f"{key}|{hd}|{rb}"
+        if dedup_key not in seen:
+            seen.add(dedup_key)
             unique.append(r)
 
     print(f"\n  Unique KEEP screens: {len(unique)}")
     if len(unique) < 2:
         return
 
-    series = {}
+    # Group by holding_days — only correlate screens with same period
+    by_hd = defaultdict(list)
     for r in unique:
-        s = {md["month"]: md["alpha"] for md in r.get("monthly_details", [])}
-        series[r["name"][:35]] = s
+        by_hd[r.get("holding_days", 21)].append(r)
 
-    names = list(series)
-    print(f"\n  {'Screen A':>35}  {'Screen B':>35}  {'Corr':>6}")
-    for i in range(len(names)):
-        for j in range(i + 1, len(names)):
-            common = sorted(set(series[names[i]]) & set(series[names[j]]))
-            if len(common) < 10:
-                continue
-            a = [series[names[i]][m] for m in common]
-            b = [series[names[j]][m] for m in common]
-            corr = np.corrcoef(a, b)[0, 1]
-            print(f"  {names[i]:>35}  {names[j]:>35}  {corr:>6.3f}")
+    for hd in sorted(by_hd):
+        group = by_hd[hd]
+        if len(group) < 2:
+            continue
+        print(f"\n  --- holding_days={hd} ({len(group)} screens) ---")
+
+        series = {}
+        for r in group:
+            s = {md["month"]: md["alpha"] for md in r.get("monthly_details", [])}
+            series[r["name"][:35]] = s
+
+        names = list(series)
+        print(f"  {'Screen A':>35}  {'Screen B':>35}  {'Corr':>6}")
+        for i in range(len(names)):
+            for j in range(i + 1, len(names)):
+                common = sorted(set(series[names[i]]) & set(series[names[j]]))
+                if len(common) < 10:
+                    continue
+                a = [series[names[i]][m] for m in common]
+                b = [series[names[j]][m] for m in common]
+                corr = np.corrcoef(a, b)[0, 1]
+                print(f"  {names[i]:>35}  {names[j]:>35}  {corr:>6.3f}")
 
 
 def section_discard(df, results):

@@ -76,11 +76,19 @@ The LLM proposes screens as JSON:
     {"feature": "revenue_growth_yoy", "op": ">", "value": 0.10},
     {"feature": "close_vs_sma200", "op": ">", "value": 1.0}
   ],
-  "top_n": 20
+  "top_n": 20,
+  "rank_by": "return_6m",
+  "rank_order": "desc",
+  "holding_days": 21
 }
 ```
 
 Operators: `>`, `<`, `>=`, `<=`, `==`, `!=`, `between` (value = [lo, hi])
+
+Optional fields:
+- **rank_by**: Feature to rank passing stocks by (default: none → alphabetical). Picks the *best* stocks from the qualified universe.
+- **rank_order**: `"desc"` (highest first, default) or `"asc"` (lowest first).
+- **holding_days**: Rebalance every N trading days (default: 21 ≈ monthly). Examples: 10 (biweekly), 21 (monthly), 42 (bimonthly).
 
 ## Available Features
 

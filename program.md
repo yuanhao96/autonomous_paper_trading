@@ -65,6 +65,14 @@ next month.
   "filters": [
     {"feature": "feature_name", "op": ">", "value": 0.1}
   ],
-  "top_n": 20
+  "top_n": 20,
+  "rank_by": "return_6m",
+  "rank_order": "desc",
+  "holding_days": 21
 }
 ```
+
+### Optional fields
+- **rank_by**: Feature to rank passing stocks by (default: none → alphabetical). Use this to pick the *best* stocks from the qualified universe rather than an arbitrary alphabetical cutoff.
+- **rank_order**: `"desc"` (highest first, default) or `"asc"` (lowest first). Only used when rank_by is set.
+- **holding_days**: Rebalance every N trading days (default: 21 ≈ monthly). Try 10 (biweekly), 21 (monthly), or 42 (bimonthly) to find the optimal holding period for your signal.
