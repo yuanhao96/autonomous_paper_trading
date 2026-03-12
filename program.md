@@ -6,25 +6,28 @@ next month.
 
 ## How it works
 
-1. You read this file (past results + available features)
-2. You propose ONE new screen as a JSON object
-3. The system backtests it (monthly rebalance, 2020-2025, equal-weight)
-4. Results get appended below
-5. Repeat
+1. An analysis agent reads results.jsonl, computes stats with pandas, writes analysis.md
+2. You read this file (available features) and analysis.md (research insights)
+3. You propose ONE new screen as a JSON object
+4. The system backtests it (monthly rebalance, 2020-2025, equal-weight)
+5. Result appended to results.jsonl
+6. Repeat
 
 ## Rules
 
 - Each screen is a set of filters on the features listed below
 - A screen PASSES a stock if ALL filters are satisfied (AND logic)
 - The system buys equal-weight top_n stocks passing the screen, holds 1 month
-- Your goal: find screens with positive alpha (excess return vs SPY)
+- Your goal: find screens with Sharpe >= 0.3 on monthly alpha vs SPY (annualized)
 - Learn from past results — don't repeat screens that failed
 - Try variations on screens that worked
 - Think about WHY a screen might predict returns, not just what looks good in-sample
+- Read analysis.md for research insights — it contains computed stats from all past results
+- IMPORTANT: fundamental features only cover the most recent ~1.5 years (yfinance limitation). Screens using fundamental features will have fewer backtest months. Price features cover the full 2020-2025 period.
 
 ## Available features
 
-### Price-derived
+### Price-derived (full 2020-2025 coverage)
 - return_1m: 1-month return
 - return_3m: 3-month return
 - return_6m: 6-month return
@@ -40,16 +43,10 @@ next month.
 - volume_ratio: 5d avg volume / 20d avg volume
 - drawdown: current drawdown from 52-week high (0 = at high, -0.2 = 20% down)
 
-### Fundamental (quarterly, forward-filled)
-- revenue_growth_yoy: year-over-year quarterly revenue growth
-- revenue_growth_qoq: quarter-over-quarter revenue growth
-- revenue_acceleration: revenue growth YoY minus prior quarter's YoY growth
-- earnings_growth_yoy: YoY net income growth
+### Fundamental (recent ~1.5 years only, quarterly forward-filled)
 - gross_margin: gross profit / revenue
 - operating_margin: operating income / revenue
 - net_margin: net income / revenue
-- gross_margin_change: QoQ change in gross margin
-- operating_margin_change: QoQ change in operating margin
 - roa: return on assets (annualized)
 - roe: return on equity (annualized)
 - debt_to_equity: total debt / equity
@@ -71,7 +68,3 @@ next month.
   "top_n": 20
 }
 ```
-
-## Past results
-
-(Results will be appended here by the system)

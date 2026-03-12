@@ -102,18 +102,14 @@ Operators: `>`, `<`, `>=`, `<=`, `==`, `!=`, `between` (value = [lo, hi])
 | `volume_ratio` | Recent 5d avg volume / 20d avg volume |
 | `drawdown` | Current drawdown from rolling 52w high |
 
-### Fundamental (quarterly, forward-filled daily)
+### Fundamental (recent ~1.5 years, quarterly forward-filled)
+Note: yfinance only provides ~6 quarters of history. These features have limited backtest coverage.
+
 | Feature | Description |
 |---------|-------------|
-| `revenue_growth_yoy` | YoY quarterly revenue growth |
-| `revenue_growth_qoq` | QoQ quarterly revenue growth |
-| `revenue_acceleration` | Revenue growth YoY minus prior quarter's YoY growth |
-| `earnings_growth_yoy` | YoY quarterly net income growth |
 | `gross_margin` | Gross profit / revenue |
 | `operating_margin` | Operating income / revenue |
 | `net_margin` | Net income / revenue |
-| `gross_margin_change` | QoQ change in gross margin |
-| `operating_margin_change` | QoQ change in operating margin |
 | `roa` | Return on assets (annualized) |
 | `roe` | Return on equity (annualized) |
 | `debt_to_equity` | Total debt / stockholders equity |
@@ -122,16 +118,21 @@ Operators: `>`, `<`, `>=`, `<=`, `==`, `!=`, `between` (value = [lo, hi])
 ## The Loop
 
 ```
-Claude Code reads program.md + results.jsonl + knowledge/
+Claude Code analyzes results.jsonl using Python/pandas
+(multi-turn: writes & runs scripts freely)
+           ↓
+Writes analysis.md with computed insights
+           ↓
+Claude Code reads program.md + analysis.md
            ↓
 Proposes ONE screen as structured JSON
            ↓
 screen.py backtests: apply monthly over 2020-2025,
-equal-weight top_n, measure alpha vs SPY
+equal-weight top_n, per-stock returns tracked
            ↓
 Result appended to program.md + results.jsonl
            ↓
-alpha > 0.2%/month → KEEP, else DISCARD
+Sharpe >= 0.3 → KEEP, else DISCARD
            ↓
 Repeat
 ```

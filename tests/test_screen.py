@@ -28,7 +28,6 @@ def test_fundamental_features_shape():
     financials = pd.read_parquet(fin_path)
     features = compute_fundamental_features(financials, prices)
     assert isinstance(features, pd.DataFrame)
-    assert "revenue_growth_yoy" in features.columns.get_level_values(0)
     assert "gross_margin" in features.columns.get_level_values(0)
 
 
@@ -49,4 +48,14 @@ def test_apply_screen():
     assert "alpha_monthly_mean" in result
     assert "sharpe" in result
     assert "n_avg_stocks" in result
+    assert "monthly_details" in result
     assert isinstance(result["alpha_monthly_mean"], float)
+    # Check monthly_details structure
+    if result["n_months"] > 0:
+        detail = result["monthly_details"][0]
+        assert "month" in detail
+        assert "stocks" in detail
+        assert isinstance(detail["stocks"], dict)
+        assert "port_return" in detail
+        assert "spy_return" in detail
+        assert "alpha" in detail

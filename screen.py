@@ -101,32 +101,17 @@ def compute_fundamental_features(financials: pd.DataFrame,
 
     features = {}
 
-    # Growth metrics — computed at quarterly level BEFORE forward-filling
-    # shift(4) = 4 quarters ago (YoY), shift(1) = 1 quarter ago (QoQ)
-    if revenue_q is not None:
-        rev_yoy_q = (revenue_q - revenue_q.shift(4)) / revenue_q.shift(4).abs().clip(lower=1)
-        rev_qoq_q = (revenue_q - revenue_q.shift(1)) / revenue_q.shift(1).abs().clip(lower=1)
-        rev_accel_q = rev_yoy_q - rev_yoy_q.shift(1)
-        features["revenue_growth_yoy"] = ffill_to_daily(rev_yoy_q)
-        features["revenue_growth_qoq"] = ffill_to_daily(rev_qoq_q)
-        features["revenue_acceleration"] = ffill_to_daily(rev_accel_q)
-
-    if net_income_q is not None:
-        ni_yoy_q = (
-            (net_income_q - net_income_q.shift(4)) / net_income_q.shift(4).abs().clip(lower=1)
-        )
-        features["earnings_growth_yoy"] = ffill_to_daily(ni_yoy_q)
+    # NOTE: yfinance only gives ~6 quarters. Growth metrics (shift(1) for QoQ,
+    # shift(4) for YoY) produce almost all NaN. Only level features work.
 
     # Margins — computed at quarterly level, then forward-filled
     if gross_profit_q is not None and revenue_q is not None:
         gm_q = gross_profit_q / revenue_q.abs().clip(lower=1)
         features["gross_margin"] = ffill_to_daily(gm_q)
-        features["gross_margin_change"] = ffill_to_daily(gm_q - gm_q.shift(1))
 
     if operating_income_q is not None and revenue_q is not None:
         om_q = operating_income_q / revenue_q.abs().clip(lower=1)
         features["operating_margin"] = ffill_to_daily(om_q)
-        features["operating_margin_change"] = ffill_to_daily(om_q - om_q.shift(1))
 
     if net_income_q is not None and revenue_q is not None:
         features["net_margin"] = ffill_to_daily(net_income_q / revenue_q.abs().clip(lower=1))
@@ -235,6 +220,7 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
     portfolio_returns = []
     spy_returns = []
     n_stocks_list = []
+    monthly_details = []  # Per-stock granular data
 
     for i in range(len(monthly) - 1):
         rebal_date = monthly.iloc[i]
@@ -248,30 +234,38 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
         # If more pass than top_n, take alphabetically (deterministic).
         tickers = passing[:top_n]
 
-        # Equal-weight 1-month return
-        rets = []
+        # Per-stock 1-month returns
+        stock_rets = {}
         for t in tickers:
             if t in close.columns:
                 p0 = close.loc[rebal_date, t] if rebal_date in close.index else np.nan
                 p1 = close.loc[next_date, t] if next_date in close.index else np.nan
                 if pd.notna(p0) and pd.notna(p1) and p0 > 0:
-                    rets.append(p1 / p0 - 1)
+                    stock_rets[t] = round(p1 / p0 - 1, 5)
 
-        if len(rets) == 0:
+        if len(stock_rets) == 0:
             continue
 
-        port_ret = np.mean(rets)
+        port_ret = np.mean(list(stock_rets.values()))
         portfolio_returns.append(port_ret)
-        n_stocks_list.append(len(rets))
+        n_stocks_list.append(len(stock_rets))
 
         # SPY return for same period
+        spy_ret = 0.0
         if spy is not None:
             s0 = spy.loc[rebal_date] if rebal_date in spy.index else np.nan
             s1 = spy.loc[next_date] if next_date in spy.index else np.nan
             if pd.notna(s0) and pd.notna(s1) and s0 > 0:
-                spy_returns.append(s1 / s0 - 1)
-            else:
-                spy_returns.append(0.0)
+                spy_ret = s1 / s0 - 1
+        spy_returns.append(spy_ret)
+
+        monthly_details.append({
+            "month": str(rebal_date.date()),
+            "stocks": stock_rets,
+            "port_return": round(float(port_ret), 5),
+            "spy_return": round(float(spy_ret), 5),
+            "alpha": round(float(port_ret - spy_ret), 5),
+        })
 
     if len(portfolio_returns) == 0:
         return {
@@ -283,6 +277,7 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
             "win_rate": 0.0,
             "n_months": 0,
             "n_avg_stocks": 0,
+            "monthly_details": [],
             "verdict": "NO DATA",
         }
 
@@ -306,5 +301,6 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
         "n_avg_stocks": round(float(np.mean(n_stocks_list)), 1),
         "port_total_return": round(float(np.prod(1 + port) - 1), 4),
         "spy_total_return": round(float(np.prod(1 + spy_r) - 1), 4),
-        "verdict": "KEEP" if alpha_mean > 0.002 else "DISCARD",
+        "monthly_details": monthly_details,
+        "verdict": "KEEP" if sharpe >= 0.3 else "DISCARD",
     }
