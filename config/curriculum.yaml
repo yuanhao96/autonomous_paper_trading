@@ -483,6 +483,34 @@ stages:
     description: Discovered during study of 'Point-and-Figure Charts'.
     mastery_criteria: Can explain and apply Bar charts (high, low, close, volume)
       in a concrete trading scenario
+  - id: treasury_stock
+    name: Treasury Stock
+    description: Discovered during study of 'Weighted Average Shares Outstanding'.
+    mastery_criteria: Can explain and apply Treasury Stock in a concrete trading scenario
+  - id: dilution
+    name: Dilution
+    description: Discovered during study of 'Weighted Average Shares Outstanding'.
+    mastery_criteria: Can explain and apply Dilution in a concrete trading scenario
+  - id: conversion_ratio
+    name: Conversion Ratio
+    description: Discovered during study of 'Convertible Securities'.
+    mastery_criteria: Can explain and apply Conversion Ratio in a concrete trading
+      scenario
+  - id: conversion_price
+    name: Conversion Price
+    description: Discovered during study of 'Convertible Securities'.
+    mastery_criteria: Can explain and apply Conversion Price in a concrete trading
+      scenario
+  - id: technical_analysis
+    name: Technical Analysis
+    description: Discovered during study of 'Relative P/E'.
+    mastery_criteria: Can explain and apply Technical Analysis in a concrete trading
+      scenario
+  - id: contrary_opinion
+    name: Contrary Opinion
+    description: Discovered during study of 'Relative P/E'.
+    mastery_criteria: Can explain and apply Contrary Opinion in a concrete trading
+      scenario
 - name: Strategy Families
   stage_number: 2
   description: Core trading strategy archetypes
