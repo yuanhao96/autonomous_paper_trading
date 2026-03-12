@@ -1,5 +1,4 @@
 """Evaluate stock screens against cached S&P 500 data."""
-import json
 from pathlib import Path
 
 import numpy as np
