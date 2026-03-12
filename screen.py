@@ -83,7 +83,10 @@ def compute_fundamental_features(financials: pd.DataFrame,
 
     # Try both naming conventions (yfinance varies)
     def get_field(name1, name2):
-        return pivot_quarterly(financials, name1) or pivot_quarterly(financials, name2)
+        result = pivot_quarterly(financials, name1)
+        if result is not None:
+            return result
+        return pivot_quarterly(financials, name2)
 
     # Raw quarterly data (NOT forward-filled yet)
     revenue_q = get_field("Total Revenue", "TotalRevenue")

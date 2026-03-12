@@ -41,11 +41,16 @@ def propose_screen() -> dict:
         "Output ONLY the JSON object in a ```json code block. No other text."
     )
 
+    # Unset CLAUDECODE env var to allow nested invocation
+    env = dict(__import__("os").environ)
+    env.pop("CLAUDECODE", None)
+
     result = subprocess.run(
         ["claude", "-p", prompt, "--output-format", "text"],
         capture_output=True,
         text=True,
         timeout=120,
+        env=env,
     )
 
     if result.returncode != 0:
