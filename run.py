@@ -64,39 +64,55 @@ def parse_screen_json(text: str) -> dict:
     raise ValueError(f"Could not parse screen JSON from LLM response:\n{text[:500]}")
 
 
+def _run_analyze_script() -> str:
+    """Run analyze.py and return its stdout."""
+    result = subprocess.run(
+        ["conda", "run", "-n", "data_science", "python", "analyze.py", "--section", "all"],
+        capture_output=True, text=True, timeout=120,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"analyze.py failed: {result.stderr[:500]}")
+    return result.stdout
+
+
 def analyze_results() -> str:
-    """Dedicated analysis pass: read all results, write analysis.md."""
+    """Analysis pass: run analyze.py for stats, then LLM interprets and writes analysis.md."""
     if not RESULTS_PATH.exists():
         return ""
 
+    # Step 1: Run the deterministic analysis script
+    print("Running analyze.py...")
+    try:
+        stats_output = _run_analyze_script()
+    except Exception as e:
+        print(f"analyze.py error: {e}")
+        stats_output = ""
+
+    if not stats_output:
+        return ""
+
+    # Step 2: LLM interprets the computed stats and writes analysis.md
     prompt = (
-        "You are a quantitative research analyst. Your job is to analyze stock screen "
-        "backtest results in results.jsonl and write a research memo to analysis.md.\n\n"
-        "results.jsonl contains one JSON object per line. Each has:\n"
-        "- name, hypothesis, filters, sharpe, alpha_monthly_mean, alpha_annual, win_rate\n"
-        "- monthly_details: array of {month, stocks: {ticker: return}, port_return, spy_return, alpha}\n\n"
-        "USE PYTHON AND PANDAS to compute statistics — do NOT eyeball raw JSON. "
-        "Write and run Python scripts to answer questions like:\n"
-        "- Which features/thresholds appear in KEEP (Sharpe >= 0.3) vs DISCARD screens?\n"
-        "- Stock-level analysis: most frequent picks, best/worst alpha contributors, overlap between screens\n"
-        "- Regime analysis: alpha by year, which market conditions help/hurt\n"
-        "- Per-screen monthly alpha time series — is alpha decaying or stable?\n"
-        "- Any other patterns you find interesting\n\n"
-        "Explore freely — run as many scripts as you need to understand the data deeply. "
-        "Then write a concise research memo to analysis.md covering:\n"
+        "You are a quantitative research analyst. Below are pre-computed statistics "
+        "from analyze.py covering all screen backtest results.\n\n"
+        f"```\n{stats_output}\n```\n\n"
+        "Write a concise research memo to analysis.md covering:\n"
         "1. What works and what fails (with computed evidence)\n"
         "2. Stock concentration and overlap analysis\n"
         "3. Regime/temporal patterns\n"
         "4. Strategies to avoid (already tried and failed)\n"
         "5. Specific promising directions with feature/threshold suggestions\n"
         "6. Current best Sharpe to beat\n\n"
-        "Write analysis.md when done. Be specific with numbers — every claim should be backed by computed stats."
+        "Every claim must cite numbers from the stats above.\n\n"
+        "If you need deeper analysis not covered by the stats, edit analyze.py to add "
+        "a new section function, run it with `conda run -n data_science python analyze.py "
+        "--section <name>`, and incorporate the results. Do NOT write throwaway scripts — "
+        "add reusable sections to analyze.py instead."
     )
 
-    print("Running analysis pass...")
+    print("LLM interpreting stats → analysis.md...")
     _claude_call(prompt, timeout=300)
 
-    # Read back what the agent wrote
     if ANALYSIS_PATH.exists():
         return ANALYSIS_PATH.read_text()
     return ""
