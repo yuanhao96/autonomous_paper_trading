@@ -291,6 +291,24 @@ def compute_stability_features(financials: pd.DataFrame,
     return pd.concat(features, axis=1)
 
 
+def compute_pctrank_features(features: pd.DataFrame) -> pd.DataFrame:
+    """Compute cross-sectional percentile ranks for all numeric features.
+
+    For each feature, ranks stocks from 0 (lowest) to 1 (highest) at each
+    date independently. NaN values remain NaN.
+
+    Returns MultiIndex (feature_pctrank, ticker) DataFrame.
+    """
+    feature_names = features.columns.get_level_values(0).unique()
+    result = {}
+    for feat in feature_names:
+        feat_data = features[feat]
+        # rank across tickers (axis=1) at each date — cross-sectional
+        ranked = feat_data.rank(axis=1, pct=True, na_option="keep")
+        result[f"{feat}_pctrank"] = ranked
+    return pd.concat(result, axis=1)
+
+
 def compute_all_features() -> pd.DataFrame:
     """Load cached data and compute all features. Returns combined DataFrame."""
     prices = pd.read_parquet(DATA_DIR / "prices.parquet")
@@ -313,6 +331,10 @@ def compute_all_features() -> pd.DataFrame:
     # Stability features
     stability_feat = compute_stability_features(financials, prices)
     combined = pd.concat([combined, stability_feat], axis=1)
+
+    # Percentile rank features (cross-sectional per date)
+    pctrank_feat = compute_pctrank_features(combined)
+    combined = pd.concat([combined, pctrank_feat], axis=1)
 
     return combined
 
