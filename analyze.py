@@ -19,6 +19,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 JSONL = Path(__file__).parent / "results.jsonl"
+DETAILS_DIR = Path(__file__).parent / "data" / "details"
 SHARPE_THRESHOLD = 0.3
 
 
@@ -32,6 +33,31 @@ def load_results(path=JSONL):
             if line:
                 results.append(json.loads(line))
     return results
+
+
+def load_stock_details(idx):
+    """Load archived per-stock details for a result by index.
+
+    Returns list of {"month": ..., "stocks": {...}} dicts.
+    Falls back to monthly_details["stocks"] for old-format results.
+    """
+    archive = DETAILS_DIR / f"{idx}.json"
+    if archive.exists():
+        with open(archive) as f:
+            return json.load(f)
+    return None
+
+
+def get_stock_details(idx, result):
+    """Get per-stock details from archive or inline (old format)."""
+    details = load_stock_details(idx)
+    if details is not None:
+        return details
+    # Old format: stocks embedded in monthly_details
+    md = result.get("monthly_details", [])
+    if md and "stocks" in md[0]:
+        return [{"month": m["month"], "stocks": m["stocks"]} for m in md]
+    return []
 
 
 def build_df(results):
@@ -189,9 +215,9 @@ def section_stocks(df, results):
     print("=" * 60)
     stock_rets = defaultdict(list)
     stock_counts = Counter()
-    for r in results:
+    for i, r in enumerate(results):
         if r["sharpe"] >= SHARPE_THRESHOLD:
-            for md in r.get("monthly_details", []):
+            for md in get_stock_details(i, r):
                 for ticker, ret in md.get("stocks", {}).items():
                     stock_rets[ticker].append(ret)
                     stock_counts[ticker] += 1
@@ -228,8 +254,10 @@ def section_overlap(df, results):
         return
 
     month_tickers = defaultdict(lambda: defaultdict(int))
-    for r in keep:
-        for md in r.get("monthly_details", []):
+    for i, r in enumerate(results):
+        if r["sharpe"] < SHARPE_THRESHOLD:
+            continue
+        for md in get_stock_details(i, r):
             for t in md.get("stocks", {}):
                 month_tickers[md["month"]][t] += 1
 
@@ -242,7 +270,7 @@ def section_overlap(df, results):
     print(f"  Min: {min(overlaps):.1%}  Max: {max(overlaps):.1%}")
 
 
-def section_correlation(df, results):
+def section_correlation(df, results, max_screens=10):
     print("=" * 60)
     print("ALPHA CORRELATION (unique KEEP screens, grouped by holding period)")
     print("=" * 60)
@@ -258,7 +286,11 @@ def section_correlation(df, results):
             seen.add(dedup_key)
             unique.append(r)
 
-    print(f"\n  Unique KEEP screens: {len(unique)}")
+    # Cap to top screens by Sharpe to avoid O(n²) blowup
+    if len(unique) > max_screens:
+        unique = sorted(unique, key=lambda r: r["sharpe"], reverse=True)[:max_screens]
+
+    print(f"\n  Unique KEEP screens: {len(unique)} (capped to top {max_screens})")
     if len(unique) < 2:
         return
 
@@ -291,13 +323,12 @@ def section_correlation(df, results):
                 print(f"  {names[i]:>35}  {names[j]:>35}  {corr:>6.3f}")
 
 
-def section_discard(df, results):
+def section_discard(df, results, max_show=10):
+    discards = [r for r in results if r["sharpe"] < SHARPE_THRESHOLD]
     print("=" * 60)
-    print("DISCARD SCREENS — WHAT FAILED")
+    print(f"DISCARD SCREENS — WHAT FAILED (showing last {max_show} of {len(discards)})")
     print("=" * 60)
-    for r in results:
-        if r["sharpe"] >= SHARPE_THRESHOLD:
-            continue
+    for r in discards[-max_show:]:
         print(f"\n  {r['name']} (Sharpe={r['sharpe']:.3f})")
         print(f"    Hypothesis: {r.get('hypothesis', 'n/a')}")
         for filt in r.get("filters", []):
@@ -306,11 +337,12 @@ def section_discard(df, results):
 
 def section_screen_detail(results, name_query):
     """Deep-dive into a single screen by name substring."""
-    matches = [r for r in results if name_query.lower() in r["name"].lower()]
+    matches = [(i, r) for i, r in enumerate(results)
+               if name_query.lower() in r["name"].lower()]
     if not matches:
         print(f"No screen matching '{name_query}'")
         return
-    r = matches[0]
+    idx, r = matches[0]
     print("=" * 60)
     print(f"SCREEN: {r['name']}")
     print("=" * 60)
@@ -337,13 +369,16 @@ def section_screen_detail(results, name_query):
 
     # Top/bottom months
     details = sorted(r.get("monthly_details", []), key=lambda m: m["alpha"])
+    # Build month→n_stocks lookup from stock_details archive or inline
+    stock_data = get_stock_details(idx, r)
+    month_n_stocks = {md["month"]: len(md.get("stocks", {})) for md in stock_data}
     print(f"\n  Best 5 months:")
     for md in details[-5:][::-1]:
-        n_stocks = len(md.get("stocks", {}))
+        n_stocks = md.get("n_stocks", month_n_stocks.get(md["month"], 0))
         print(f"    {md['month']}  α={md['alpha']:>+.4f}  port={md['port_return']:>+.4f}  spy={md['spy_return']:>+.4f}  stocks={n_stocks}")
     print(f"\n  Worst 5 months:")
     for md in details[:5]:
-        n_stocks = len(md.get("stocks", {}))
+        n_stocks = md.get("n_stocks", month_n_stocks.get(md["month"], 0))
         print(f"    {md['month']}  α={md['alpha']:>+.4f}  port={md['port_return']:>+.4f}  spy={md['spy_return']:>+.4f}  stocks={n_stocks}")
 
 

@@ -1,140 +1,109 @@
-# AutoScreen Research Analysis
+# AutoScreen Research Memo — 82 Screens Evaluated
 
-*Computed from 20 screen evaluations, 2020-2025 monthly backtest*
+## 1. What Works
 
-## 1. Summary
+**42-day holding period dominates.** 41/52 screens KEEP (78.8%), avg Sharpe 0.398 vs 21-day's 16/29 KEEP (55.2%), avg Sharpe 0.197. The single 10-day screen was discarded (Sharpe 0.225). Slower rebalancing consistently wins.
 
-- **20 screens tested**: 14 KEEP (Sharpe >= 0.3), 6 DISCARD
-- **Best Sharpe**: 0.818 ("Refined momentum + volume — tighter vol band, drawdown guard")
-- **Best annual alpha**: 13.3% | **Best win rate**: 61.5%
-- **Heavy duplication**: Only 8 unique filter sets among 14 KEEP screens (many are identical)
+**Core momentum template.** The highest-Sharpe screens all share: `return_6m > 0.12`, `close_vs_sma200 > 1.03`, `drawdown > -0.07`, `volume_ratio > 1.1`. These four features appear in 9 of the top 10 screens.
 
-## 2. What Works: The Winning Template
+**Feature keep rates (top performers):**
+- `volume_ratio`: 77.5% KEEP, avg Sharpe with 0.411 vs 0.236 without — single most predictive filter
+- `avg_volume_20d`: 83.9% KEEP, avg Sharpe 0.389 — liquidity gate works
+- `return_6m`: 75.0% KEEP, avg Sharpe 0.373 vs 0.089 without
+- `close_vs_sma50`: 73.1% KEEP, avg Sharpe 0.412
+- `return_1m_vs_sector`: 74.2% KEEP, avg Sharpe 0.435
 
-**Every single KEEP screen uses volatility_20d (14/14) and volume_ratio (14/14).** The top 7 screens all use the same 5-filter template:
+**Ranking matters.** `return_1m_vs_sector` as rank_by: 7/8 KEEP, avg Sharpe 0.590 — best rank feature. `return_6m` rank: 29/38 KEEP, avg Sharpe 0.370. `alpha` rank: 18/29 KEEP, avg Sharpe 0.233 — weakest viable rank.
 
-| Feature | Typical threshold | Effect |
-|---------|------------------|--------|
-| `return_6m` | > 0.12 to 0.15 | Medium-term momentum |
-| `volume_ratio` | > 1.15 to 1.20 | Rising volume (breakout signal) |
-| `close_vs_sma200` | > 1.03 to 1.05 | Confirmed uptrend |
-| `volatility_20d` | between [0.22, 0.38] | Not too calm, not too wild |
-| `drawdown` | > -0.05 to -0.07 | Near highs, limited pullback |
+**Sector-relative quality overlay lifts Sharpe dramatically.** The top 3 screens (Sharpe 1.855–1.995) all use `gross_margin_vs_sector > 1.0–1.05` and `roe_vs_sector > 1.0`, but only have 2–4 months of coverage — high signal, needs more data.
 
-**Key insight**: The core alpha comes from *momentum + volume confirmation + controlled volatility*. Stocks in an uptrend, with rising volume, and moderate (not low!) volatility.
+## 2. What Fails
 
-### Threshold sensitivity
-- `return_6m > 0.12` (Sharpe 0.818) slightly beats `> 0.15` (Sharpe 0.728-0.760) — looser threshold catches more stocks
-- `volatility_20d between [0.25, 0.38]` (best) slightly beats `[0.22, 0.38]` and `[0.22, 0.4]` — tighter band helps
-- `drawdown > -0.07` (best) slightly beats `> -0.05` — slightly more lenient drawdown tolerance helps
+**Volatility compression / mean-reversion strategies: 0% KEEP rate.** Six vol-compression screens tested (volatility_60d > X, volatility_20d < Y), all discarded. Sharpe range: -0.575 to +0.250. The "coiling spring" thesis is dead in this data.
 
-## 3. What Fails (Avoid These)
+**Short-term reversal (`return_1m < 0`):** Sharpe -0.508. Buying dips within uptrends does not work.
 
-| Strategy | Sharpe | Why it fails |
-|----------|--------|-------------|
-| Low volatility screens (`vol_20d < 0.22` or `< 0.30`) | -0.99 to -0.04 | Low-vol stocks are crowded / already priced in |
-| Short-term reversal (`return_1m < -0.03`) | -0.51 | Mean reversion doesn't work in this universe |
-| `sma50_vs_sma200` (golden cross) | -0.35 avg | Cross signals are lagging, no alpha |
-| `high_52w_pct` as primary filter | -0.13 avg | Near-highs alone doesn't distinguish |
-| `return_1m` as filter (any direction) | All DISCARD | 1-month momentum is noise |
-| Constraining `return_1m` to narrow band | -0.48 | "Coiled momentum" theory didn't work |
-| 6-filter screens | Only DISCARD | Over-fitting — too many constraints |
+**Low-volatility anomaly:** "Low-vol trend leaders" Sharpe -0.075. `volatility_60d` has 14.3% KEEP rate, avg Sharpe -0.032.
 
-**Critical pattern**: Screens that select for *low* volatility consistently lose money. The alpha is in the *moderate-to-high* volatility band (0.22-0.38).
+**`sma50_vs_sma200` (golden cross):** 0/3 KEEP, avg Sharpe -0.347. Completely useless as a filter.
 
-## 4. Stock Concentration & Overlap
+**`return_12m`:** 1/3 KEEP (33.3%), avg Sharpe -0.809. Long-lookback momentum hurts.
 
-- **446 unique stocks** appeared across KEEP screens
-- **57.8% of stocks per month appear in multiple KEEP screens** — very high overlap (screens are variants of the same idea)
-- Top picks by frequency: EME (123), ARES (109), META (99), DECK (97), MOH (97)
+**`high_52w_pct`:** 2/6 KEEP (33.3%), avg Sharpe -0.003. Proximity to 52w high is not predictive.
 
-### Best alpha contributors (min 5 appearances)
-| Ticker | Mean Return | Appearances |
-|--------|------------|-------------|
-| WSM | +26.3% | 17 |
-| NUE | +22.1% | 19 |
-| VST | +19.8% | 26 |
-| SMCI | +18.6% | 16 |
-| GEV | +17.1% | 28 |
-| STX | +11.2% | 73 |
-| TRGP | +10.8% | 46 |
-| EME | +5.2% | 123 |
+**ROE as absolute filter:** The one screen with `roe > 0.15` hit Sharpe -2.923 (worst in dataset). Quality as absolute threshold is toxic; sector-relative quality (`roe_vs_sector`) works.
 
-### Worst alpha contributors (frequent picks that hurt)
-| Ticker | Mean Return | Appearances |
-|--------|------------|-------------|
-| NCLH | -20.6% | 6 |
-| CVNA | -18.5% | 15 |
-| PLTR | -18.2% | 14 |
-| MGM | -13.1% | 14 |
-| MRK | -10.8% | 26 |
-| EPAM | -9.8% | 32 |
-| DXCM | -8.2% | 32 |
+**Tight consolidation filters (`return_1m between [0.0, 0.05]`):** "Coiled momentum" Sharpe -0.478. Constraining near-term returns kills the signal.
 
-## 5. Regime & Temporal Patterns
+## 3. Stock Concentration & Overlap
 
-### Alpha by year (KEEP screens only)
-| Year | Mean Alpha | Win% | Assessment |
-|------|-----------|------|-----------|
-| 2020 | +1.91% | 64.7% | Strong — post-COVID recovery favors momentum |
-| 2021 | +0.25% | 46.7% | Weak — low-vol bull market, momentum crowded |
-| 2022 | +2.50% | 66.2% | **Strongest** — volatile bear, screen picks survivors |
-| 2023 | +0.27% | 58.4% | Weak — narrow mega-cap rally, breadth limited |
-| 2024 | -0.53% | 50.0% | **Negative** — alpha decayed |
-| 2025 | +1.57% | 57.4% | Recovering |
+**High overlap:** 38.3% avg fraction of stocks appearing in >1 screen/month (max 80.8%). The 51 unique KEEP screens are not independent bets.
 
-**Concerning**: Alpha decay in 2023-2024. Best screen's first-half mean alpha is 1.80% vs 0.44% in second half. Could indicate crowding or regime shift.
+**Correlation clusters are extreme.** Within 21-day screens, most pairs correlate 0.65–0.97. Within 42-day screens, the core momentum cluster shows correlations 0.88–0.999 (effectively identical). The "Sector-relative momentum + SMA50 confirm" and "42d momentum + sector outperformance" screens correlate at 1.000.
 
-### Best screen per-year detail
+**Low-correlation outliers exist:**
+- "Vol compression breakout — was wild, now calm" correlates only 0.089–0.356 with the 21-day momentum cluster
+- "Momentum + sector alpha + far from 52w low" correlates 0.244–0.558 with the 42-day cluster — genuinely different signal (Sharpe 0.966, 35 months coverage)
+
+**Stock concentration:** 491 unique stocks, but STX (231 picks), GNRC (213), EME (211) dominate. Top alpha contributors are high-vol names: MRNA (+47.2%, n=13), TSLA (+37.0%, n=69, std 0.51), SMCI (+36.3%, n=53). These are lottery tickets — high mean, huge variance.
+
+**Alpha destroyers to watch:** WBD (-36.9%, n=18), PSKY (-27.9%, n=41), J (-17.9%, n=8). These consistently destroy value when selected.
+
+## 4. Regime / Temporal Patterns
+
+**Alpha is regime-dependent and inconsistent:**
+
 | Year | Mean Alpha | Win% |
 |------|-----------|------|
-| 2020 | +2.22% | 72.7% |
-| 2021 | +0.28% | 58.3% |
-| 2022 | +2.26% | 72.7% |
-| 2023 | -0.28% | 45.5% |
-| 2024 | +0.14% | 54.5% |
-| 2025 | +2.32% | 66.7% |
+| 2020 | +3.7% | 60.8% |
+| 2021 | -1.0% | 38.4% |
+| 2022 | +3.2% | 64.7% |
+| 2023 | -1.7% | 42.5% |
+| 2024 | +0.1% | 50.1% |
+| 2025 | +3.7% | 58.3% |
 
-## 6. Alpha Correlation Between Screens
+**Odd/even year pattern:** 2020/2022/2024-25 positive, 2021/2023 negative. Momentum screens fail in narrow-leadership bull markets (2021 mega-cap, 2023 AI-only). This is the biggest risk — screens have ~40% win rate in bad regimes.
 
-All KEEP screens are **highly correlated** (0.61 to 1.00 pairwise alpha correlation). Several pairs are effectively identical (0.96-1.00). This means:
-- **No diversification** across current screens
-- All capture the same factor: *momentum + volume + moderate volatility*
-- To find genuinely new alpha, need **different factor families**
+**Best screen decay is minimal:** "Stacked sector-relative momentum" first half mean alpha 5.1%, second half 3.7% — but only 4 months total, too few to judge decay.
 
-## 7. Promising Directions to Explore
+## 5. Strategies Already Tried — Do Not Repeat
 
-### A. Differentiated strategies (low correlation to current winner)
-1. **Fundamental-only screens**: gross_margin, roe, debt_to_equity — completely untested in KEEP screens. Limited backtest (1.5yr) but could find orthogonal alpha.
-2. **Value + momentum combo**: Low `return_12m` + high `return_3m` — losers starting to recover.
-3. **Vol compression ratio**: `volatility_20d` much lower than `volatility_60d` as a breakout-pending signal.
+1. **Vol compression / coiling spring** (6 variants, all failed)
+2. **Golden cross / `sma50_vs_sma200`** (3 variants, all failed)
+3. **Short-term reversal / dip-buying** (failed)
+4. **Absolute ROE filter** (catastrophic)
+5. **Low-volatility anomaly** (failed)
+6. **`high_52w_pct` as rank_by** (failed)
+7. **`volatility_20d` as rank_by** (Sharpe -0.575)
+8. **Biweekly (10-day) holding** (insufficient — only 1 test, but underperformed)
+9. **`operating_margin_stability`** (Sharpe -0.151)
+10. **`sector_breadth > 0.6`** (too restrictive, Sharpe 0.214)
 
-### B. Refinements to current winner
-4. **Tighten the vol band**: Try `[0.25, 0.35]` — narrowing top end from 0.38.
-5. **Loosen momentum**: Try `return_6m > 0.08` or `> 0.10` — catches more stocks, may diversify.
-6. **Add `avg_volume_20d`**: Untested. Filtering for liquid stocks could remove noisy picks.
-7. **Replace `drawdown` with `high_52w_pct > 0.93`**: Different proximity-to-highs measure.
+## 6. Promising Directions
 
-### C. Anti-patterns to try
-8. **Cap recent runup**: `return_1m < 0.15` — avoid parabolic short-term moves that mean-revert. (Different from failed `return_1m < -0.03` which was buying dips.)
+### A. Exploit the decorrelated "far from lows" signal
+"Momentum + sector alpha + far from 52w low" has Sharpe 0.966 with 35 months coverage and low correlation (0.24–0.56) to the main cluster. Key filters: `low_52w_pct > 1.35`, `return_1m_vs_sector > 0.005`, `return_6m > 0.08`. Try variations:
+- Tighten `low_52w_pct > 1.4` with `close_vs_sma50 > 1.0`
+- Rank by `return_1m_vs_sector` instead of `return_6m` (rank avg Sharpe 0.590 vs 0.370)
 
-## 8. Current Benchmark to Beat
+### B. Sector-relative quality + momentum (more coverage needed)
+Top 3 Sharpe screens (1.855–1.995) use `gross_margin_vs_sector` and `roe_vs_sector` but only have 2–4 months of data. Need relaxed thresholds to get more months:
+- Try `gross_margin_vs_sector > 0.95` (lower bar) with `roe_vs_sector > 0.9`
+- Combine with `return_1m_vs_sector` rank_by for the 0.590 avg Sharpe boost
 
-| Metric | Value |
-|--------|-------|
-| Best Sharpe | **0.818** |
-| Best annual alpha | **13.3%** |
-| Best win rate | **61.5%** |
+### C. Rank_by `return_1m_vs_sector` is undertested
+Only 8 screens use it, but 7/8 KEEP with avg Sharpe 0.590. Apply to the core momentum template with 42-day hold. This is the single highest-impact change available.
 
-The best screen's filters:
-```json
-{
-  "return_6m": "> 0.12",
-  "volume_ratio": "> 1.15",
-  "close_vs_sma200": "> 1.03",
-  "volatility_20d": "between [0.25, 0.38]",
-  "drawdown": "> -0.07"
-}
-```
+### D. Liquidity-gated variants
+`avg_volume_20d > 50M` has 83.9% KEEP rate. Combine with the decorrelated "far from lows" template which currently lacks a liquidity gate.
 
-**Priority**: Find screens with alpha correlation < 0.5 to the current winner — even if lower Sharpe, uncorrelated alpha is more valuable than another variant of the same momentum screen.
+### E. Exclude known alpha destroyers
+Screens systematically pick WBD, PSKY, LYB, NEE — consider whether a sector or fundamental filter can exclude these. `gross_margin_vs_sector > 1.0` may naturally filter them.
+
+## 7. Current Best to Beat
+
+- **Sharpe 1.995** — "Stacked sector-relative momentum + margin quality, 42d" (4 months, 2.0 avg stocks — too few months and stocks to be reliable)
+- **Realistic target: Sharpe > 0.966** — "Momentum + sector alpha + far from 52w low" (35 months, 19.7 avg stocks — statistically meaningful)
+- **Robust floor: Sharpe > 0.818** — "Refined momentum + volume" (65 months, 11.2 avg stocks — longest-running high-Sharpe screen)
+
+Any new screen should aim for Sharpe > 0.5 with >20 months coverage and >5 avg stocks to be considered a genuine improvement over the existing portfolio.

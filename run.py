@@ -14,6 +14,7 @@ from pathlib import Path
 PROGRAM_PATH = Path("program.md")
 RESULTS_PATH = Path("results.jsonl")
 ANALYSIS_PATH = Path("analysis.md")
+DETAILS_DIR = Path("data/details")
 
 # Graceful shutdown flag
 _shutdown = False
@@ -31,13 +32,18 @@ def _handle_sigint(signum, frame):
 signal.signal(signal.SIGINT, _handle_sigint)
 
 
-def _claude_call(prompt: str, timeout: int = 120) -> str:
+def _claude_call(prompt: str, timeout: int = 120,
+                  allowed_tools: list[str] | None = None) -> str:
     """Call Claude Code CLI and return stdout."""
     env = dict(__import__("os").environ)
     env.pop("CLAUDECODE", None)
 
+    cmd = ["claude", "-p", prompt, "--output-format", "text"]
+    if allowed_tools is not None:
+        cmd.extend(["--allowedTools", ",".join(allowed_tools) if allowed_tools else ""])
+
     result = subprocess.run(
-        ["claude", "-p", prompt, "--output-format", "text"],
+        cmd,
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -96,24 +102,25 @@ def analyze_results() -> str:
         "You are a quantitative research analyst. Below are pre-computed statistics "
         "from analyze.py covering all screen backtest results.\n\n"
         f"```\n{stats_output}\n```\n\n"
-        "Write a concise research memo to analysis.md covering:\n"
+        "Write a concise research memo covering:\n"
         "1. What works and what fails (with computed evidence)\n"
         "2. Stock concentration and overlap analysis\n"
         "3. Regime/temporal patterns\n"
         "4. Strategies to avoid (already tried and failed)\n"
         "5. Specific promising directions with feature/threshold suggestions\n"
         "6. Current best Sharpe to beat\n\n"
-        "Every claim must cite numbers from the stats above.\n\n"
-        "If you need deeper analysis not covered by the stats, edit analyze.py to add "
-        "a new section function, run it with `conda run -n data_science python analyze.py "
-        "--section <name>`, and incorporate the results. Do NOT write throwaway scripts — "
-        "add reusable sections to analyze.py instead."
+        "Every claim must cite numbers from the stats above. "
+        "Output ONLY the memo content in markdown. No preamble. "
+        "Do NOT use any tools — just output the text directly."
     )
 
     print("LLM interpreting stats → analysis.md...")
-    _claude_call(prompt, timeout=300)
+    memo = _claude_call(prompt, timeout=300, allowed_tools=[])
 
-    if ANALYSIS_PATH.exists():
+    if memo.strip():
+        ANALYSIS_PATH.write_text(memo)
+        return memo
+    elif ANALYSIS_PATH.exists():
         return ANALYSIS_PATH.read_text()
     return ""
 
@@ -128,18 +135,35 @@ def propose_screen() -> dict:
     )
     if ANALYSIS_PATH.exists():
         prompt += "Read analysis.md for research insights from past screen results. "
+    if Path("feature_stats.md").exists():
+        prompt += "Read feature_stats.md for per-feature predictive power stats. "
     prompt += (
         "Based on the available features, the analysis insights, "
         "and your knowledge of what predicts stock returns, propose ONE new stock screen. "
         "The KEEP criterion is Sharpe >= 0.3 (on monthly alpha vs SPY, annualized). "
+        "IMPORTANT: You MUST include these optional fields in your JSON when appropriate:\n"
+        "- rank_by: feature to rank passing stocks by (picks best from qualified universe)\n"
+        "- rank_order: 'desc' (highest first) or 'asc' (lowest first)\n"
+        "- holding_days: rebalance frequency — 10 (biweekly), 21 (monthly), 42 (bimonthly). "
+        "Choose based on your hypothesis: fast mean-reversion signals → shorter holding, "
+        "slow fundamental trends → longer holding.\n"
         "Output ONLY the JSON object in a ```json code block. No other text."
     )
 
-    return parse_screen_json(_claude_call(prompt))
+    return parse_screen_json(_claude_call(prompt, allowed_tools=["Read", "Glob"]))
 
 
 def append_result(result: dict):
-    """Append result to results.jsonl."""
+    """Append result to results.jsonl, archiving stock_details separately."""
+    idx = count_results()
+
+    # Archive per-stock details to a separate file
+    stock_details = result.pop("stock_details", None)
+    if stock_details:
+        DETAILS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(DETAILS_DIR / f"{idx}.json", "w") as f:
+            json.dump(stock_details, f)
+
     with open(RESULTS_PATH, "a") as f:
         f.write(json.dumps(result) + "\n")
 
@@ -262,6 +286,10 @@ def run_loop(n_iterations: int = None, hours: float = None, patience: int = 20):
         print(f"Screen: {screen_def.get('name', '?')}")
         print(f"Hypothesis: {screen_def.get('hypothesis', '?')}")
         print(f"Filters: {json.dumps(screen_def.get('filters', []), indent=2)}")
+        if screen_def.get('rank_by'):
+            print(f"Rank by: {screen_def['rank_by']} ({screen_def.get('rank_order', 'desc')})")
+        if screen_def.get('holding_days') and screen_def['holding_days'] != 21:
+            print(f"Holding days: {screen_def['holding_days']}")
 
         # Step 3: Evaluate
         print("Backtesting...")

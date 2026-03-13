@@ -49,13 +49,19 @@ def test_apply_screen():
     assert "sharpe" in result
     assert "n_avg_stocks" in result
     assert "monthly_details" in result
+    assert "stock_details" in result
     assert isinstance(result["alpha_monthly_mean"], float)
-    # Check monthly_details structure
+    # Check monthly_details structure (slim — no stocks)
     if result["n_months"] > 0:
         detail = result["monthly_details"][0]
         assert "month" in detail
-        assert "stocks" in detail
-        assert isinstance(detail["stocks"], dict)
         assert "port_return" in detail
         assert "spy_return" in detail
         assert "alpha" in detail
+        assert "n_stocks" in detail
+        assert "stocks" not in detail
+        # Check stock_details structure (archived separately)
+        sd = result["stock_details"][0]
+        assert "month" in sd
+        assert "stocks" in sd
+        assert isinstance(sd["stocks"], dict)

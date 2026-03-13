@@ -23,6 +23,7 @@ next month.
 - Try variations on screens that worked
 - Think about WHY a screen might predict returns, not just what looks good in-sample
 - Read analysis.md for research insights — it contains computed stats from all past results
+- Read feature_stats.md for per-feature predictive power (rank IC, quintile Sharpe, conditional marginal IC) — use this to pick rank_by features and filters with real predictive signal
 - IMPORTANT: fundamental features only cover the most recent ~1.5 years (yfinance limitation). Screens using fundamental features will have fewer backtest months. Price features cover the full 2020-2025 period.
 
 ## Available features
@@ -43,6 +44,18 @@ next month.
 - volume_ratio: 5d avg volume / 20d avg volume
 - drawdown: current drawdown from 52-week high (0 = at high, -0.2 = 20% down)
 
+### Sector-relative (full 2020-2025 coverage, adapts to sector rotation)
+- sector_return_1m: median 1-month return of stocks in same GICS sector
+- sector_return_3m: median 3-month return of stocks in same GICS sector
+- return_1m_vs_sector: stock's 1m return minus sector median (positive = outperforming peers)
+- return_6m_vs_sector: stock's 6m return minus sector median
+- gross_margin_vs_sector: stock's gross margin / sector median (>1 = above average, recent ~1.5yr)
+- roe_vs_sector: stock's ROE / sector median (>1 = above average, recent ~1.5yr)
+- volatility_20d_vs_sector: stock's 20d vol / sector median (<1 = calmer than peers)
+- sector_breadth: fraction of stocks in same sector above SMA200 (0-1, higher = healthier sector)
+
+NOTE: sector-relative features do NOT hardcode any sector. They adapt to whichever sectors are currently performing — use them to ride sector rotation rather than bet on a single sector.
+
 ### Fundamental (recent ~1.5 years only, quarterly forward-filled)
 - gross_margin: gross profit / revenue
 - operating_margin: operating income / revenue
@@ -51,6 +64,11 @@ next month.
 - roe: return on equity (annualized)
 - debt_to_equity: total debt / equity
 - current_ratio: current assets / current liabilities
+
+### Stability (recent ~1.5 years only, moat proxies — lower = more stable)
+- gross_margin_stability: std of gross margin over recent quarters
+- operating_margin_stability: std of operating margin over recent quarters
+- roe_stability: std of ROE over recent quarters
 
 ## Filter operators
 - `>`, `<`, `>=`, `<=`, `==`, `!=`

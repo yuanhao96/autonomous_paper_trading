@@ -110,6 +110,18 @@ Optional fields:
 | `volume_ratio` | Recent 5d avg volume / 20d avg volume |
 | `drawdown` | Current drawdown from rolling 52w high |
 
+### Sector-relative (adapts to sector rotation — no hardcoded sector bets)
+| Feature | Description |
+|---------|-------------|
+| `sector_return_1m` | Median 1-month return of stocks in same GICS sector |
+| `sector_return_3m` | Median 3-month return of stocks in same GICS sector |
+| `return_1m_vs_sector` | Stock's 1m return minus sector median |
+| `return_6m_vs_sector` | Stock's 6m return minus sector median |
+| `gross_margin_vs_sector` | Stock's gross margin / sector median (recent ~1.5yr) |
+| `roe_vs_sector` | Stock's ROE / sector median (recent ~1.5yr) |
+| `volatility_20d_vs_sector` | Stock's 20d vol / sector median (<1 = calmer than peers) |
+| `sector_breadth` | Fraction of sector above SMA200 (0-1) |
+
 ### Fundamental (recent ~1.5 years, quarterly forward-filled)
 Note: yfinance only provides ~6 quarters of history. These features have limited backtest coverage.
 
@@ -122,6 +134,13 @@ Note: yfinance only provides ~6 quarters of history. These features have limited
 | `roe` | Return on equity (annualized) |
 | `debt_to_equity` | Total debt / stockholders equity |
 | `current_ratio` | Current assets / current liabilities |
+
+### Stability (recent ~1.5 years, moat proxies — lower = more stable)
+| Feature | Description |
+|---------|-------------|
+| `gross_margin_stability` | Std of gross margin over recent quarters |
+| `operating_margin_stability` | Std of operating margin over recent quarters |
+| `roe_stability` | Std of ROE over recent quarters |
 
 ## The Loop
 

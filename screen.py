@@ -144,6 +144,153 @@ def compute_fundamental_features(financials: pd.DataFrame,
     return pd.concat(features, axis=1)
 
 
+def compute_sector_features(features: pd.DataFrame,
+                             sector_map: dict[str, str]) -> pd.DataFrame:
+    """Compute sector-level and sector-relative features.
+
+    sector_map: {ticker: sector_name}
+    features: existing MultiIndex (feature, ticker) DataFrame
+
+    Returns new features with same MultiIndex structure.
+    """
+    tickers = features.columns.get_level_values(1).unique()
+    # Only include tickers that have a sector mapping
+    mapped = {t: sector_map[t] for t in tickers if t in sector_map}
+    sectors_series = pd.Series(mapped)  # ticker -> sector
+
+    result = {}
+
+    # --- Sector momentum: median return of the sector ---
+    for ret_feat in ["return_1m", "return_3m"]:
+        if ret_feat not in features.columns.get_level_values(0):
+            continue
+        ret_data = features[ret_feat]  # (dates x tickers)
+        sector_med = pd.DataFrame(index=ret_data.index, columns=ret_data.columns)
+        for sector, sector_tickers in sectors_series.groupby(sectors_series):
+            st = [t for t in sector_tickers.index if t in ret_data.columns]
+            if st:
+                med = ret_data[st].median(axis=1)
+                for t in st:
+                    sector_med[t] = med
+        result[f"sector_{ret_feat}"] = sector_med
+
+    # --- Relative strength vs sector (subtraction for returns) ---
+    for ret_feat in ["return_1m", "return_6m"]:
+        if ret_feat not in features.columns.get_level_values(0):
+            continue
+        ret_data = features[ret_feat]
+        vs_sector = pd.DataFrame(index=ret_data.index, columns=ret_data.columns, dtype=float)
+        for sector, sector_tickers in sectors_series.groupby(sectors_series):
+            st = [t for t in sector_tickers.index if t in ret_data.columns]
+            if st:
+                med = ret_data[st].median(axis=1)
+                for t in st:
+                    vs_sector[t] = ret_data[t] - med
+        result[f"{ret_feat}_vs_sector"] = vs_sector
+
+    # --- Relative quality vs sector (ratio for margins/ratios) ---
+    for qual_feat in ["gross_margin", "roe", "volatility_20d"]:
+        if qual_feat not in features.columns.get_level_values(0):
+            continue
+        feat_data = features[qual_feat]
+        vs_sector = pd.DataFrame(index=feat_data.index, columns=feat_data.columns, dtype=float)
+        for sector, sector_tickers in sectors_series.groupby(sectors_series):
+            st = [t for t in sector_tickers.index if t in feat_data.columns]
+            if st:
+                med = feat_data[st].median(axis=1)
+                # Avoid division by zero
+                safe_med = med.replace(0, np.nan)
+                for t in st:
+                    vs_sector[t] = feat_data[t] / safe_med
+        result[f"{qual_feat}_vs_sector"] = vs_sector
+
+    # --- Sector breadth: fraction of sector above SMA200 ---
+    if "close_vs_sma200" in features.columns.get_level_values(0):
+        sma_data = features["close_vs_sma200"]
+        breadth = pd.DataFrame(index=sma_data.index, columns=sma_data.columns, dtype=float)
+        for sector, sector_tickers in sectors_series.groupby(sectors_series):
+            st = [t for t in sector_tickers.index if t in sma_data.columns]
+            if st:
+                above = (sma_data[st] > 1.0).sum(axis=1) / len(st)
+                for t in st:
+                    breadth[t] = above
+        result["sector_breadth"] = breadth
+
+    if not result:
+        return pd.DataFrame(index=features.index)
+
+    return pd.concat(result, axis=1)
+
+
+def compute_stability_features(financials: pd.DataFrame,
+                                prices: pd.DataFrame) -> pd.DataFrame:
+    """Compute margin/return stability from quarterly data.
+
+    Lower values = more stable = potential moat signal.
+    """
+    close = prices["Close"]
+    date_index = close.index
+
+    def pivot_quarterly(df, field):
+        if field not in df.columns:
+            return None
+        sub = df[df[field].notna()][["ticker", "date", field]].copy()
+        sub = sub.drop_duplicates(subset=["ticker", "date"], keep="last")
+        piv = sub.pivot(index="date", columns="ticker", values=field)
+        return piv.sort_index()
+
+    def get_field(name1, name2):
+        result = pivot_quarterly(financials, name1)
+        if result is not None:
+            return result
+        return pivot_quarterly(financials, name2)
+
+    revenue_q = get_field("Total Revenue", "TotalRevenue")
+    gross_profit_q = get_field("Gross Profit", "GrossProfit")
+    operating_income_q = get_field("Operating Income", "OperatingIncome")
+    net_income_q = get_field("Net Income", "NetIncome")
+    equity_q = get_field("Stockholders Equity", "StockholdersEquity")
+
+    def per_ticker_expanding_std(quarterly_df):
+        """Compute expanding std per ticker over their own quarterly values.
+
+        Handles tickers reporting on different fiscal dates by computing
+        per-column (ticker) expanding std, ignoring NaN rows for each ticker.
+        """
+        result = pd.DataFrame(index=quarterly_df.index, columns=quarterly_df.columns,
+                              dtype=float)
+        for ticker in quarterly_df.columns:
+            vals = quarterly_df[ticker].dropna()
+            if len(vals) >= 3:
+                # Expanding std over this ticker's actual quarterly values
+                exp_std = vals.expanding(min_periods=3).std()
+                result[ticker] = exp_std.reindex(quarterly_df.index)
+        return result
+
+    features = {}
+
+    # Stability = expanding std over available quarters (lower = more stable)
+    if gross_profit_q is not None and revenue_q is not None:
+        gm_q = gross_profit_q / revenue_q.abs().clip(lower=1)
+        gm_std = per_ticker_expanding_std(gm_q)
+        features["gross_margin_stability"] = gm_std.reindex(date_index, method="ffill")
+
+    if operating_income_q is not None and revenue_q is not None:
+        om_q = operating_income_q / revenue_q.abs().clip(lower=1)
+        om_std = per_ticker_expanding_std(om_q)
+        features["operating_margin_stability"] = om_std.reindex(date_index, method="ffill")
+
+    if net_income_q is not None and equity_q is not None:
+        roe_q = (net_income_q * 4) / equity_q.abs().clip(lower=1)
+        roe_std = per_ticker_expanding_std(roe_q)
+        features["roe_stability"] = roe_std.reindex(date_index, method="ffill")
+
+    if not features:
+        return pd.DataFrame(index=date_index)
+
+    return pd.concat(features, axis=1)
+
+
 def compute_all_features() -> pd.DataFrame:
     """Load cached data and compute all features. Returns combined DataFrame."""
     prices = pd.read_parquet(DATA_DIR / "prices.parquet")
@@ -152,8 +299,21 @@ def compute_all_features() -> pd.DataFrame:
     price_feat = compute_price_features(prices)
     fund_feat = compute_fundamental_features(financials, prices)
 
-    # Combine: both have MultiIndex columns (feature, ticker)
+    # Combine price + fundamental
     combined = pd.concat([price_feat, fund_feat], axis=1)
+
+    # Sector-relative features
+    sectors_path = DATA_DIR / "sectors.parquet"
+    if sectors_path.exists():
+        sectors_df = pd.read_parquet(sectors_path)
+        sector_map = dict(zip(sectors_df["ticker"], sectors_df["sector"]))
+        sector_feat = compute_sector_features(combined, sector_map)
+        combined = pd.concat([combined, sector_feat], axis=1)
+
+    # Stability features
+    stability_feat = compute_stability_features(financials, prices)
+    combined = pd.concat([combined, stability_feat], axis=1)
+
     return combined
 
 
@@ -325,6 +485,19 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
         "n_avg_stocks": round(float(np.mean(n_stocks_list)), 1),
         "port_total_return": round(float(np.prod(1 + port) - 1), 4),
         "spy_total_return": round(float(np.prod(1 + spy_r) - 1), 4),
-        "monthly_details": monthly_details,
+        "monthly_details": [
+            {
+                "month": md["month"],
+                "port_return": md["port_return"],
+                "spy_return": md["spy_return"],
+                "alpha": md["alpha"],
+                "n_stocks": len(md["stocks"]),
+            }
+            for md in monthly_details
+        ],
+        "stock_details": [
+            {"month": md["month"], "stocks": md["stocks"]}
+            for md in monthly_details
+        ],
         "verdict": "KEEP" if sharpe >= 0.3 else "DISCARD",
     }

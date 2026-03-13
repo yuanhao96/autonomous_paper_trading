@@ -3,11 +3,14 @@ from data import get_sp500_tickers, download_prices, download_financials
 
 
 def test_sp500_tickers():
-    tickers = get_sp500_tickers()
+    tickers, sectors = get_sp500_tickers()
     assert isinstance(tickers, list)
     assert len(tickers) > 400
     assert "AAPL" in tickers
     assert "MSFT" in tickers
+    assert "ticker" in sectors.columns
+    assert "sector" in sectors.columns
+    assert len(sectors) > 400
 
 
 def test_download_prices_small():
