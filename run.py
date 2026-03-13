@@ -73,7 +73,7 @@ def parse_screen_json(text: str) -> dict:
 def _run_analyze_script() -> str:
     """Run analyze.py and return its stdout."""
     result = subprocess.run(
-        ["conda", "run", "-n", "data_science", "python", "analyze.py", "--section", "all"],
+        [sys.executable, "analyze.py", "--section", "all"],
         capture_output=True, text=True, timeout=120,
     )
     if result.returncode != 0:
