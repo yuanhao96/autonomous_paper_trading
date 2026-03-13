@@ -18,21 +18,30 @@ Upgrade the AutoScreen DSL from absolute-threshold filtering to relative factor 
   - [x] Tests cover percentile rank computation and filtering (3 new tests)
 - **Final score**: 8.6 / 10
 
+### Milestone: Composite scoring DSL
+- **Status**: completed
+- **Date completed**: 2026-03-13
+- **Summary**: Added `score` DSL field for weighted composite ranking with `rank_by: "_score"` support. 4 new tests.
+- **Acceptance criteria met**:
+  - [x] `score` field computes weighted sum of features per stock
+  - [x] Negative weights invert the feature
+  - [x] `rank_by: "_score"` ranks stocks by composite score
+  - [x] Screens without `score` work identically (backward compat)
+  - [x] Tests cover composite scoring computation and ranking (4 new tests)
+- **Final score**: 8.9 / 10
+
 ## Current Milestone
 
-### Milestone: Composite scoring DSL
+### Milestone: Documentation and integration
 - **Status**: in-progress
 - **Acceptance criteria**:
-  - [ ] `score` field in screen DSL computes weighted sum of features per stock
-  - [ ] Negative weights invert the feature (lower = better)
-  - [ ] `rank_by: "_score"` ranks stocks by composite score
-  - [ ] Screens without `score` work identically (backward compat)
-  - [ ] Tests cover composite scoring computation and ranking
+  - [ ] `program.md` documents `_pctrank` features and `score` DSL field
+  - [ ] `analyze.py` handles screens with composite scoring
+  - [ ] `run.py` LLM prompt mentions new features
+  - [ ] `conda run -n data_science python run.py -n 3` completes 3 iterations
+  - [ ] All tests pass, ruff clean
 - **Phase**: brainstorm
 
 ## Upcoming Milestones
 
-### Milestone: Documentation and integration
-- **Priority**: medium
-- **Depends on**: Composite scoring DSL
-- **Rough scope**: Update `program.md` with new features/syntax, update `analyze.py` for composite screens, run 3 autonomous iterations to validate end-to-end
+<!-- None — this is the final milestone. -->

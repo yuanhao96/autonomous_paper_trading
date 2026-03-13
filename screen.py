@@ -382,12 +382,55 @@ def _apply_filters(features: pd.DataFrame, filters: list[dict],
     return sorted(passing)
 
 
+def _compute_composite_score(
+    score_def: list[dict], features: pd.DataFrame,
+    date: pd.Timestamp, tickers: list[str],
+) -> pd.Series:
+    """Compute weighted composite score for tickers at a date.
+
+    Args:
+        score_def: List of {"feature": str, "weight": float} dicts.
+        features: Full feature matrix (MultiIndex columns).
+        date: Rebalance date.
+        tickers: List of tickers to score.
+
+    Returns:
+        Series indexed by ticker with composite scores. Features not
+        in the matrix are skipped (contribute 0). NaN propagates from
+        individual feature values.
+    """
+    scores = pd.Series(0.0, index=tickers)
+    feat_names = features.columns.get_level_values(0).unique()
+    for term in score_def:
+        feat = term["feature"]
+        weight = term["weight"]
+        if feat not in feat_names:
+            continue
+        vals = features.loc[date, feat] if date in features.index else pd.Series()
+        vals = vals.reindex(tickers)
+        scores = scores + weight * vals
+    return scores
+
+
 def _rank_and_select(passing: list[str], features: pd.DataFrame,
                      date: pd.Timestamp, screen_def: dict) -> list[str]:
-    """Rank passing tickers by rank_by feature, return top_n."""
+    """Rank passing tickers by rank_by feature or composite score."""
     top_n = screen_def.get("top_n", 20)
     rank_by = screen_def.get("rank_by")
+    score_def = screen_def.get("score")
 
+    # Composite score ranking
+    if rank_by == "_score" and score_def:
+        scores = _compute_composite_score(score_def, features, date, passing)
+        scores = scores.dropna()
+        if scores.empty:
+            return passing[:top_n]
+        rank_order = screen_def.get("rank_order", "desc")
+        ascending = rank_order != "desc"
+        ranked = scores.sort_values(ascending=ascending).index.tolist()
+        return ranked[:top_n]
+
+    # Standard feature ranking
     if not rank_by or rank_by not in features.columns.get_level_values(0):
         return passing[:top_n]  # Alphabetical fallback
 
@@ -499,6 +542,7 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
         "holding_days": holding_days,
         "rank_by": screen_def.get("rank_by"),
         "rank_order": screen_def.get("rank_order", "desc") if screen_def.get("rank_by") else None,
+        "score": screen_def.get("score"),
         "alpha_monthly_mean": round(alpha_mean, 5),
         "alpha_annual": round(alpha_mean * periods_per_year, 4),
         "sharpe": round(sharpe, 3),

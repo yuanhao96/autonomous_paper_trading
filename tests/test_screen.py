@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
 from screen import compute_price_features, compute_fundamental_features
-from screen import apply_screen, compute_all_features, compute_pctrank_features
+from screen import (
+    apply_screen, compute_all_features, compute_pctrank_features,
+    _compute_composite_score,
+)
 from pathlib import Path
 import pytest
 
@@ -102,6 +105,99 @@ def test_apply_screen_with_pctrank():
     result = apply_screen(screen_def, features)
     assert result["n_months"] > 0
     assert isinstance(result["sharpe"], float)
+
+
+def test_composite_score_synthetic():
+    """Test composite scoring on synthetic data."""
+    dates = pd.date_range("2024-01-01", periods=3, freq="B")
+    tickers = ["AAPL", "GOOG", "MSFT", "AMZN"]
+    feat_a = pd.DataFrame(
+        [[0.8, 0.6, 0.4, 0.2],
+         [0.2, 0.4, 0.6, 0.8],
+         [0.5, 0.5, 0.5, 0.5]],
+        index=dates, columns=tickers,
+    )
+    feat_b = pd.DataFrame(
+        [[0.1, 0.3, 0.5, 0.7],
+         [0.7, 0.5, 0.3, 0.1],
+         [0.5, 0.5, 0.5, 0.5]],
+        index=dates, columns=tickers,
+    )
+    features = pd.concat({"momentum": feat_a, "quality": feat_b}, axis=1)
+
+    score_def = [
+        {"feature": "momentum", "weight": 0.6},
+        {"feature": "quality", "weight": 0.4},
+    ]
+    scores = _compute_composite_score(score_def, features, dates[0], tickers)
+    # AAPL: 0.6*0.8 + 0.4*0.1 = 0.52
+    # AMZN: 0.6*0.2 + 0.4*0.7 = 0.40
+    assert scores["AAPL"] == pytest.approx(0.52)
+    assert scores["AMZN"] == pytest.approx(0.40)
+    # AAPL should have highest score at date 0
+    assert scores["AAPL"] == scores.max()
+
+
+def test_composite_score_negative_weight():
+    """Negative weights invert the feature (lower = better)."""
+    dates = pd.date_range("2024-01-01", periods=1, freq="B")
+    tickers = ["A", "B", "C"]
+    momentum = pd.DataFrame([[0.9, 0.5, 0.1]], index=dates, columns=tickers)
+    volatility = pd.DataFrame([[0.8, 0.3, 0.1]], index=dates, columns=tickers)
+    features = pd.concat({"mom": momentum, "vol": volatility}, axis=1)
+
+    score_def = [
+        {"feature": "mom", "weight": 1.0},
+        {"feature": "vol", "weight": -1.0},  # lower vol = better
+    ]
+    scores = _compute_composite_score(score_def, features, dates[0], tickers)
+    # A: 0.9 - 0.8 = 0.1, B: 0.5 - 0.3 = 0.2, C: 0.1 - 0.1 = 0.0
+    assert scores["B"] == pytest.approx(0.2)
+    assert scores["A"] == pytest.approx(0.1)
+    assert scores["C"] == pytest.approx(0.0)
+    assert scores["B"] == scores.max()  # B wins: good mom, low vol
+
+
+def test_composite_score_missing_feature():
+    """Missing features are skipped (contribute 0)."""
+    dates = pd.date_range("2024-01-01", periods=1, freq="B")
+    tickers = ["A", "B"]
+    data = pd.DataFrame([[0.5, 0.8]], index=dates, columns=tickers)
+    features = pd.concat({"real_feat": data}, axis=1)
+
+    score_def = [
+        {"feature": "real_feat", "weight": 1.0},
+        {"feature": "nonexistent", "weight": 0.5},  # should be skipped
+    ]
+    scores = _compute_composite_score(score_def, features, dates[0], tickers)
+    assert scores["A"] == pytest.approx(0.5)
+    assert scores["B"] == pytest.approx(0.8)
+
+
+def test_apply_screen_with_composite_score():
+    """End-to-end: screen with composite scoring on real data."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    features = compute_all_features()
+    screen_def = {
+        "name": "composite momentum+quality-vol",
+        "hypothesis": "multi-factor composite",
+        "filters": [
+            {"feature": "close_vs_sma200", "op": ">", "value": 1.0},
+        ],
+        "score": [
+            {"feature": "return_6m_pctrank", "weight": 0.4},
+            {"feature": "roe_pctrank", "weight": 0.3},
+            {"feature": "volatility_20d_pctrank", "weight": -0.3},
+        ],
+        "top_n": 20,
+        "rank_by": "_score",
+        "rank_order": "desc",
+    }
+    result = apply_screen(screen_def, features)
+    assert result["n_months"] > 0
+    assert isinstance(result["sharpe"], float)
+    assert result.get("score") == screen_def["score"]
 
 
 def test_apply_screen():
