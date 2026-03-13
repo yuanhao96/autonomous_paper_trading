@@ -142,11 +142,13 @@ def propose_screen() -> dict:
         "and your knowledge of what predicts stock returns, propose ONE new stock screen. "
         "The KEEP criterion is Sharpe >= 0.3 (on monthly alpha vs SPY, annualized). "
         "IMPORTANT: You MUST include these optional fields in your JSON when appropriate:\n"
-        "- rank_by: feature to rank passing stocks by (picks best from qualified universe)\n"
+        "- rank_by: feature to rank passing stocks by, or '_score' for composite\n"
         "- rank_order: 'desc' (highest first) or 'asc' (lowest first)\n"
-        "- holding_days: rebalance frequency — 10 (biweekly), 21 (monthly), 42 (bimonthly). "
-        "Choose based on your hypothesis: fast mean-reversion signals → shorter holding, "
-        "slow fundamental trends → longer holding.\n"
+        "- holding_days: rebalance frequency — 10, 21, or 42 trading days\n"
+        "- score: weighted multi-factor composite for rank_by='_score' "
+        "(e.g., [{\"feature\": \"return_6m_pctrank\", \"weight\": 0.4}, ...])\n"
+        "TIP: Use _pctrank features (e.g., roe_pctrank, return_6m_pctrank) for "
+        "relative thresholds and in composite scores — they're all on 0-1 scale.\n"
         "Output ONLY the JSON object in a ```json code block. No other text."
     )
 

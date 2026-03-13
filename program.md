@@ -70,6 +70,13 @@ NOTE: sector-relative features do NOT hardcode any sector. They adapt to whichev
 - operating_margin_stability: std of operating margin over recent quarters
 - roe_stability: std of ROE over recent quarters
 
+### Percentile ranks (all features, full coverage matches underlying feature)
+Every feature above also has a `_pctrank` variant (e.g., `return_6m_pctrank`, `roe_pctrank`, `volatility_20d_pctrank`). These are cross-sectional percentile ranks from 0 (lowest) to 1 (highest) computed across all S&P 500 stocks at each date.
+
+**Why use them**: Absolute thresholds shift over time (ROE > 0.15 might filter out everything in a recession). Percentile ranks are relative: `roe_pctrank > 0.8` always means "top 20% of ROE" regardless of market conditions.
+
+**Best practice**: Use `_pctrank` features in composite scores (see below) since they're all on the same 0-1 scale.
+
 ## Filter operators
 - `>`, `<`, `>=`, `<=`, `==`, `!=`
 - `between` — value is [lo, hi]
@@ -90,7 +97,37 @@ NOTE: sector-relative features do NOT hardcode any sector. They adapt to whichev
 }
 ```
 
+### Composite scoring (multi-factor ranking)
+
+Use `score` + `rank_by: "_score"` to rank stocks by a weighted combination of features:
+
+```json
+{
+  "name": "momentum + quality - volatility",
+  "hypothesis": "Multi-factor composite: high momentum, high quality, low vol",
+  "filters": [
+    {"feature": "close_vs_sma200", "op": ">", "value": 1.0}
+  ],
+  "score": [
+    {"feature": "return_6m_pctrank", "weight": 0.4},
+    {"feature": "roe_pctrank", "weight": 0.3},
+    {"feature": "volatility_20d_pctrank", "weight": -0.3}
+  ],
+  "top_n": 20,
+  "rank_by": "_score",
+  "rank_order": "desc",
+  "holding_days": 21
+}
+```
+
+- **score**: List of `{"feature": str, "weight": float}` terms. Composite = weighted sum.
+- Negative weights invert the feature (e.g., `-0.3` on volatility means lower vol = better).
+- Use `_pctrank` features in scores — they're all on the 0-1 scale so weights are comparable.
+- Filters apply first (qualify the universe), then score ranks the survivors.
+- Set `rank_by: "_score"` to rank by the composite.
+
 ### Optional fields
-- **rank_by**: Feature to rank passing stocks by (default: none → alphabetical). Use this to pick the *best* stocks from the qualified universe rather than an arbitrary alphabetical cutoff.
-- **rank_order**: `"desc"` (highest first, default) or `"asc"` (lowest first). Only used when rank_by is set.
-- **holding_days**: Rebalance every N trading days (default: 21 ≈ monthly). Try 10 (biweekly), 21 (monthly), or 42 (bimonthly) to find the optimal holding period for your signal.
+- **rank_by**: Feature to rank passing stocks by, or `"_score"` for composite ranking (default: none → alphabetical).
+- **rank_order**: `"desc"` (highest first, default) or `"asc"` (lowest first).
+- **holding_days**: Rebalance every N trading days (default: 21 ≈ monthly). Try 10 (biweekly), 21 (monthly), or 42 (bimonthly).
+- **score**: Weighted feature combination for multi-factor ranking (see above).

@@ -30,18 +30,22 @@ Upgrade the AutoScreen DSL from absolute-threshold filtering to relative factor 
   - [x] Tests cover composite scoring computation and ranking (4 new tests)
 - **Final score**: 8.9 / 10
 
+### Milestone: Documentation and integration
+- **Status**: completed
+- **Date completed**: 2026-03-13
+- **Summary**: Updated program.md, analyze.py, run.py, CLAUDE.md with pctrank and composite scoring docs. 3 autonomous iterations completed successfully.
+- **Acceptance criteria met**:
+  - [x] `program.md` documents `_pctrank` features and `score` DSL field
+  - [x] `analyze.py` handles screens with composite scoring
+  - [x] `run.py` LLM prompt mentions new features
+  - [x] 3 iterations completed (89 total screens, 62 keepers)
+  - [x] 15/15 tests pass, ruff clean
+- **Final score**: 8.5 / 10
+
 ## Current Milestone
 
-### Milestone: Documentation and integration
-- **Status**: in-progress
-- **Acceptance criteria**:
-  - [ ] `program.md` documents `_pctrank` features and `score` DSL field
-  - [ ] `analyze.py` handles screens with composite scoring
-  - [ ] `run.py` LLM prompt mentions new features
-  - [ ] `conda run -n data_science python run.py -n 3` completes 3 iterations
-  - [ ] All tests pass, ruff clean
-- **Phase**: brainstorm
+<!-- All milestones complete. -->
 
 ## Upcoming Milestones
 
-<!-- None — this is the final milestone. -->
+<!-- None. -->

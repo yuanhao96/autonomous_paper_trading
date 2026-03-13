@@ -78,6 +78,7 @@ def build_df(results):
             "spy_total_return": r.get("spy_total_return", 0),
             "holding_days": r.get("holding_days", 21),
             "rank_by": r.get("rank_by") or "alpha",
+            "uses_score": bool(r.get("score")),
             "filters_json": json.dumps(r.get("filters", []), sort_keys=True),
             "status": "KEEP" if r["sharpe"] >= SHARPE_THRESHOLD else "DISCARD",
         })
@@ -124,6 +125,14 @@ def section_summary(df, results):
         print(f"    {'Feature':<20} {'Total':>5} {'KEEP':>5} {'Avg Sharpe':>11}")
         for rb, row in rb_counts.iterrows():
             print(f"    {rb:<20} {int(row['n']):>5} {int(row['keep']):>5} {row['avg_sharpe']:>11.3f}")
+
+    # Composite score screens
+    n_score = df["uses_score"].sum()
+    if n_score > 0:
+        score_df = df[df["uses_score"]]
+        score_keep = (score_df["status"] == "KEEP").sum()
+        print(f"\n  Composite score screens: {n_score} "
+              f"(KEEP: {score_keep}, Avg Sharpe: {score_df['sharpe'].mean():.3f})")
 
 
 def section_top(df, results, n=10):
@@ -223,7 +232,7 @@ def section_stocks(df, results):
                     stock_counts[ticker] += 1
 
     print(f"\n  Unique stocks: {len(stock_counts)}")
-    print(f"\n  Top 20 most frequent:")
+    print("\n  Top 20 most frequent:")
     print(f"    {'Ticker':<7} {'Count':>5} {'Mean Ret':>9} {'Std':>8}")
     for t, c in stock_counts.most_common(20):
         arr = np.array(stock_rets[t])
@@ -234,12 +243,12 @@ def section_stocks(df, results):
                  for t in stock_rets if len(stock_rets[t]) >= 5]
     qualified.sort(key=lambda x: -x[1])
 
-    print(f"\n  Top 15 alpha contributors (min 5 picks):")
+    print("\n  Top 15 alpha contributors (min 5 picks):")
     print(f"    {'Ticker':<7} {'Mean':>8} {'N':>5} {'Std':>8}")
     for t, m, n, s in qualified[:15]:
         print(f"    {t:<7} {m:>8.4f} {n:>5} {s:>8.4f}")
 
-    print(f"\n  Bottom 15 alpha destroyers:")
+    print("\n  Bottom 15 alpha destroyers:")
     for t, m, n, s in qualified[-15:]:
         print(f"    {t:<7} {m:>8.4f} {n:>5} {s:>8.4f}")
 
@@ -350,7 +359,7 @@ def section_screen_detail(results, name_query):
     print(f"  Sharpe: {r['sharpe']:.3f}  |  Annual α: {r['alpha_annual']:.2%}  |  Win rate: {r['win_rate']:.1%}")
     print(f"  Months: {r.get('n_months', '?')}  |  Avg stocks: {r.get('n_avg_stocks', '?')}")
     print(f"  Verdict: {r.get('verdict', 'KEEP' if r['sharpe'] >= SHARPE_THRESHOLD else 'DISCARD')}")
-    print(f"\n  Filters:")
+    print("\n  Filters:")
     for filt in r.get("filters", []):
         print(f"    {filt['feature']:>20} {filt['op']} {filt['value']}")
 
@@ -372,11 +381,11 @@ def section_screen_detail(results, name_query):
     # Build month→n_stocks lookup from stock_details archive or inline
     stock_data = get_stock_details(idx, r)
     month_n_stocks = {md["month"]: len(md.get("stocks", {})) for md in stock_data}
-    print(f"\n  Best 5 months:")
+    print("\n  Best 5 months:")
     for md in details[-5:][::-1]:
         n_stocks = md.get("n_stocks", month_n_stocks.get(md["month"], 0))
         print(f"    {md['month']}  α={md['alpha']:>+.4f}  port={md['port_return']:>+.4f}  spy={md['spy_return']:>+.4f}  stocks={n_stocks}")
-    print(f"\n  Worst 5 months:")
+    print("\n  Worst 5 months:")
     for md in details[:5]:
         n_stocks = md.get("n_stocks", month_n_stocks.get(md["month"], 0))
         print(f"    {md['month']}  α={md['alpha']:>+.4f}  port={md['port_return']:>+.4f}  spy={md['spy_return']:>+.4f}  stocks={n_stocks}")

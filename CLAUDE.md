@@ -109,9 +109,10 @@ The LLM proposes screens as JSON:
 Operators: `>`, `<`, `>=`, `<=`, `==`, `!=`, `between` (value = [lo, hi])
 
 Optional fields:
-- **rank_by**: Feature to rank passing stocks by (default: none → alphabetical). Picks the *best* stocks from the qualified universe.
+- **rank_by**: Feature to rank passing stocks by, or `"_score"` for composite ranking (default: none → alphabetical).
 - **rank_order**: `"desc"` (highest first, default) or `"asc"` (lowest first).
 - **holding_days**: Rebalance every N trading days (default: 21 ≈ monthly). Examples: 10 (biweekly), 21 (monthly), 42 (bimonthly).
+- **score**: Weighted multi-factor composite for `rank_by: "_score"`. List of `{"feature": str, "weight": float}`. Negative weights invert (lower = better). Use `_pctrank` features for comparable scales.
 
 ## Available Features
 
