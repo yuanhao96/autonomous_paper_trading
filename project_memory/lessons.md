@@ -33,3 +33,20 @@
 
 ### Patterns to Avoid
 - Don't write docstrings that describe intended behavior rather than actual behavior
+
+## Milestone: Documentation and integration (2026-03-13)
+
+### What Worked
+- Updating docs after solid implementation is straightforward — no design decisions needed
+- The autonomous loop (run.py -n 3) immediately used new _pctrank and composite features
+- analyze.py changes were minimal (uses_score column + summary line)
+
+### What Didn't Work
+- Nothing significant — this was the simplest milestone
+
+### Patterns to Reuse
+- Save documentation milestones for last — they go fast when implementation is stable
+- Include LLM prompt updates (run.py) alongside documentation — the LLM needs to know about new features to use them
+
+### Patterns to Avoid
+- Don't skip the integration test (run.py -n 3) — it validates the full pipeline end-to-end
