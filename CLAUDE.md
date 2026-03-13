@@ -55,11 +55,17 @@ conda run -n data_science python analyze.py --section all
 # Deep-dive a specific screen
 conda run -n data_science python analyze.py --screen "screen name"
 
+# Screen mode: run top screens on today's market
+conda run -n data_science python run.py --screen
+
+# Screen mode with options
+conda run -n data_science python run.py --screen --top-k 5 --skip-refresh
+
 # Run tests
 conda run -n data_science pytest tests/ -v
 
 # Lint
-conda run -n data_science ruff check data.py screen.py run.py analyze.py feature_stats.py
+conda run -n data_science ruff check data.py screen.py run.py analyze.py feature_stats.py screen_report.py
 ```
 
 ## Project Structure
@@ -73,6 +79,7 @@ analyze.py         # Multi-section analysis of results.jsonl (summary, features,
 feature_stats.py   # Per-feature predictive power: rank IC, quintile long-short Sharpe,
                    #   conditional marginal IC → writes feature_stats.md
 run.py             # Orchestration loop: analyze → propose → evaluate → log → repeat
+screen_report.py   # Screen mode: select top screens, run on today, generate reports
 program.md         # LLM instructions + available features (read by Claude Code at proposal time)
 feature_stats.md   # Generated per-feature stats (read by Claude Code at proposal time)
 analysis.md        # Generated research memo from analyze.py + LLM interpretation
@@ -82,6 +89,7 @@ knowledge/         # 145 curated docs — READ-ONLY reference
 factors/           # 133 alpha factor docs — READ-ONLY reference
 data/              # Cached parquet files (gitignored)
 data/details/      # Archived per-stock monthly details (one JSON per screen)
+reports/           # Date-organized markdown reports from screen mode (gitignored)
 tests/             # pytest tests
 docs/plans/        # Implementation plans
 ```

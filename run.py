@@ -8,6 +8,7 @@ import json
 import re
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -329,6 +330,16 @@ def run_loop(n_iterations: int = None, hours: float = None, patience: int = 20):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="AutoScreen research loop")
+
+    # Mode selection
+    parser.add_argument("--screen", action="store_true",
+                        help="Screen mode: run top screens on today's market")
+    parser.add_argument("--top-k", type=int, default=3,
+                        help="Number of screens to run in screen mode (default: 3)")
+    parser.add_argument("--skip-refresh", action="store_true",
+                        help="Skip data refresh in screen mode (use cached data)")
+
+    # Research mode options
     parser.add_argument("-n", type=int, default=None,
                         help="Max number of iterations (default: unlimited)")
     parser.add_argument("--hours", type=float, default=None,
@@ -337,8 +348,11 @@ if __name__ == "__main__":
                         help="Stop after N iterations with no new KEEP (default: 20)")
     args = parser.parse_args()
 
-    # Default to 10 iterations if no stopping condition specified
-    if args.n is None and args.hours is None:
-        args.n = 10
-
-    run_loop(n_iterations=args.n, hours=args.hours, patience=args.patience)
+    if args.screen:
+        from screen_report import run_screen_mode
+        run_screen_mode(k=args.top_k, skip_refresh=args.skip_refresh)
+    else:
+        # Default to 10 iterations if no stopping condition specified
+        if args.n is None and args.hours is None:
+            args.n = 10
+        run_loop(n_iterations=args.n, hours=args.hours, patience=args.patience)

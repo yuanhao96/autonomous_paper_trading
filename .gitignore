@@ -30,6 +30,9 @@ runs/
 .vscode/
 .idea/
 
+# Screen mode reports
+reports/
+
 # Generated outputs (regenerated from results.jsonl, local experimental versions)
 results.jsonl
 analysis.md

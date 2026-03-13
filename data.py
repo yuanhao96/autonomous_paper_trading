@@ -25,10 +25,58 @@ def get_sp500_tickers() -> tuple[list[str], pd.DataFrame]:
 
 
 def download_prices(tickers: list[str], start: str = "2019-01-01",
-                    end: str = "2025-12-31") -> pd.DataFrame:
-    """Download daily OHLCV for given tickers. Returns MultiIndex columns (field, ticker)."""
-    df = yf.download(tickers, start=start, end=end, group_by="column", threads=True)
-    return df
+                    end: str = "2025-12-31",
+                    batch_size: int = 20) -> pd.DataFrame:
+    """Download daily OHLCV in batches to avoid Yahoo rate limits.
+
+    Returns MultiIndex columns (field, ticker).
+    """
+    import time
+
+    n_batches = (len(tickers) + batch_size - 1) // batch_size
+    chunks = []
+    failed = []
+
+    for i in range(0, len(tickers), batch_size):
+        batch = tickers[i:i + batch_size]
+        batch_num = i // batch_size + 1
+        print(f"  Batch {batch_num}/{n_batches} ({len(batch)} tickers)...")
+        df = yf.download(
+            batch, start=start, end=end,
+            group_by="column", threads=True,
+        )
+        if not df.empty:
+            # Track which tickers actually came back
+            got = set(df.columns.get_level_values(-1).unique())
+            missed = [t for t in batch if t not in got]
+            failed.extend(missed)
+            chunks.append(df)
+        else:
+            failed.extend(batch)
+        if batch_num < n_batches:
+            time.sleep(2)  # rate-limit pause
+
+    # Retry failed tickers one-by-one
+    if failed:
+        print(f"  Retrying {len(failed)} failed tickers individually...")
+        for t in failed:
+            time.sleep(1)
+            try:
+                df = yf.download(
+                    t, start=start, end=end,
+                    group_by="column", threads=False,
+                    progress=False,
+                )
+                if not df.empty:
+                    chunks.append(df)
+            except Exception:
+                print(f"    {t}: still failed")
+
+    if not chunks:
+        return pd.DataFrame()
+    combined = pd.concat(chunks, axis=1)
+    combined = combined.loc[:, ~combined.columns.duplicated()]
+    return combined
 
 
 def download_financials(tickers: list[str]) -> pd.DataFrame:
@@ -59,8 +107,49 @@ def download_financials(tickers: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def cache_all(force: bool = False):
-    """Download everything and save to parquet. Skip if cache exists unless force=True."""
+def update_prices(tickers: list[str],
+                   prices_path: Path = DATA_DIR / "prices.parquet") -> None:
+    """Incrementally update cached prices with only missing recent days.
+
+    Uses a single yf.download call (no batching needed for short periods).
+    """
+    from datetime import datetime, timedelta
+
+    existing = pd.read_parquet(prices_path)
+    last_date = existing.index[-1]
+    start = (last_date + timedelta(days=1)).strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    if start >= today:
+        print(f"Prices already up to date ({last_date.date()})")
+        return
+
+    print(f"Updating prices: {last_date.date()} → {today}...")
+    # Single call is fine for short date ranges (days/weeks, not years)
+    new_data = yf.download(
+        tickers, start=start, end=today,
+        group_by="column", threads=True,
+    )
+
+    if new_data.empty:
+        print("No new trading days to add.")
+        return
+
+    combined = pd.concat([existing, new_data])
+    combined = combined[~combined.index.duplicated(keep="last")]
+    combined = combined.sort_index()
+    combined.to_parquet(prices_path)
+    print(f"Updated {prices_path}: {len(existing)} → {len(combined)} rows "
+          f"(+{len(combined) - len(existing)} days)")
+
+
+def cache_all(force: bool = False, update: bool = False):
+    """Download and save to parquet.
+
+    Args:
+        force: Full re-download of everything.
+        update: Incremental update — append recent days to existing cache.
+    """
     prices_path = DATA_DIR / "prices.parquet"
     financials_path = DATA_DIR / "financials.parquet"
 
@@ -75,7 +164,9 @@ def cache_all(force: bool = False):
     sectors.to_parquet(sectors_path, index=False)
     print(f"Saved {sectors_path} ({len(sectors)} rows)")
 
-    if force or not prices_path.exists():
+    if update and prices_path.exists():
+        update_prices(tickers, prices_path)
+    elif force or not prices_path.exists():
         print("Downloading prices...")
         prices = download_prices(tickers)
         prices.to_parquet(prices_path)
@@ -94,4 +185,7 @@ def cache_all(force: bool = False):
 
 if __name__ == "__main__":
     import sys
-    cache_all(force="--force" in sys.argv)
+    cache_all(
+        force="--force" in sys.argv,
+        update="--update" in sys.argv,
+    )
