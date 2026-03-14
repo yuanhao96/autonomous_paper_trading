@@ -26,6 +26,20 @@ next month.
 - Read feature_stats.md for per-feature predictive power (rank IC, quintile Sharpe, conditional marginal IC) — use this to pick rank_by features and filters with real predictive signal
 - IMPORTANT: fundamental features only cover the most recent ~1.5 years (yfinance limitation). Screens using fundamental features will have fewer backtest months. Price features cover the full 2020-2025 period.
 
+### Verdicts and recency
+
+Screens are classified with a three-way verdict:
+- **KEEP**: full-period Sharpe >= 0.3 AND trailing-12-month Sharpe >= 0 (works and still works)
+- **STALE**: full-period Sharpe >= 0.3 BUT trailing-12-month Sharpe < 0 (worked before, edge decayed)
+- **DISCARD**: full-period Sharpe < 0.3 (never worked)
+
+**Avoid proposing variations on STALE screens** — their edge has decayed. Instead, focus on screens with strong trailing-12m Sharpe (see the RECENCY ANALYSIS section in analysis.md).
+
+The analysis also reports:
+- **Alpha trend slope**: positive = improving, negative = decaying (annualized OLS slope)
+- **Regime robustness**: fraction of market regimes (BULL/BEAR/FLAT) where mean alpha > 0. Prefer screens that work across regimes, not just in bull markets.
+- **Feature recency**: which features have high recent hit rate (positive trailing alpha) vs. historically predictive but now stale.
+
 ## Available features
 
 ### Price-derived (full 2020-2025 coverage)

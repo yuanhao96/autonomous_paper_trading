@@ -211,6 +211,30 @@ The loop stops on whichever comes first:
 - `--patience` consecutive iterations with no new KEEP (default: 20)
 - Ctrl+C (graceful shutdown after current iteration)
 
+## Future Roadmap
+
+Long-term goal: low-frequency quant framework with LLM-driven learning. Gaps to address (roughly priority-ordered):
+
+1. **Out-of-sample discipline** — Current backtests run over full 2020–2025; LLM sees results and proposes new screens, creating an overfitting loop. Need walk-forward validation (train 2020–2023, validate 2024, test 2025). LLM should only see in-sample stats.
+
+2. **Alpha combination** — Screens are evaluated independently. Need an ensemble layer to combine top screens into a single portfolio with diversified alpha sources.
+
+3. **Portfolio construction** — Move from equal-weight to risk-aware weighting (min-variance, risk parity, max diversification). Add turnover constraints and transaction cost penalties.
+
+4. **Structured LLM memory** — No persistent memory of why hypotheses failed. Build a hypothesis graph (hypothesis → result → lesson) so the LLM avoids dead ends and compounds understanding across sessions.
+
+5. **Regime awareness** — One screen won't work in all markets. Add macro regime detection (bull/bear, high/low vol, risk-on/off) and regime-conditional screen selection.
+
+6. **Risk management** — Portfolio-level drawdown limits, correlation-aware position sizing, sector/factor exposure caps.
+
+7. **Execution bridge** — Paper trading → live trading via IB TWS (`ib_insync`). Transaction cost modeling, slippage estimation, order management.
+
+8. **Richer data** — Earnings revisions/surprise, insider transactions, short interest, macro indicators (yield curve, credit spreads, VIX). All freely available.
+
+9. **LLM-driven feature engineering** — Let the LLM propose new features (not just filter on existing ones), evaluate via rank IC, add survivors to the feature set.
+
+10. **Multi-universe** — Expand beyond S&P 500 to Russell 1000/2000, international developed, sector ETFs for more cross-sectional dispersion.
+
 ## Conventions
 
 - All code must pass `ruff check` before commit
