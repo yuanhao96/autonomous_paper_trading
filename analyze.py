@@ -8,7 +8,7 @@ Usage:
     python analyze.py --section feat   # specific section
     python analyze.py --screen "name"  # deep-dive one screen
 
-Sections: summary, top, recent, risk, feat, thresh, regime, stocks, overlap, corr, discard, all
+Sections: summary, top, recent, risk, feat, thresh, regime, oos, stocks, overlap, corr, discard, all
 """
 import argparse
 import json
@@ -179,7 +179,7 @@ def build_df(results):
         max_dd = compute_max_alpha_drawdown(alphas)
         lose_streak = compute_longest_losing_streak(alphas)
         stability = compute_alpha_stability(alphas)
-        rows.append({
+        row = {
             "idx": i,
             "name": r["name"],
             "hypothesis": r.get("hypothesis", ""),
@@ -204,7 +204,12 @@ def build_df(results):
             "uses_score": bool(r.get("score")),
             "filters_json": json.dumps(r.get("filters", []), sort_keys=True),
             "status": classify_verdict(r["sharpe"], trail_12m),
-        })
+            # IS/OOS fields (present when split_date was used)
+            "sharpe_is": r.get("sharpe_is", float("nan")),
+            "sharpe_oos": r.get("sharpe_oos", float("nan")),
+            "sharpe_ratio": r.get("sharpe_ratio", float("nan")),
+        }
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -429,6 +434,26 @@ def compute_regime_robustness(regime_alphas):
     return float(regimes_positive / regimes_with_data)
 
 
+REGIME_LABELS = [
+    "quiet_bull", "volatile_bull", "quiet_bear", "volatile_bear",
+]
+
+
+def compute_regime_robustness_4(regime_stats):
+    """Fraction of 4-label regimes with positive mean alpha."""
+    with_data = 0
+    positive = 0
+    for label in REGIME_LABELS:
+        stats = regime_stats.get(label)
+        if stats and stats["n_months"] > 0:
+            with_data += 1
+            if stats["alpha_mean"] > 0:
+                positive += 1
+    if with_data == 0:
+        return float("nan")
+    return float(positive / with_data)
+
+
 def section_regime(df, results):
     print("=" * 60)
     print("REGIME ANALYSIS (KEEP screens)")
@@ -438,48 +463,80 @@ def section_regime(df, results):
         print("  No KEEP screens.")
         return
 
-    # Per-regime aggregate stats across all KEEP screens
-    regime_all = defaultdict(list)
-    for r in keep:
-        for md in r.get("monthly_details", []):
-            regime = tag_regime(md["spy_return"])
-            regime_all[regime].append(md["alpha"])
+    # Check if results have 4-label regime_stats (new format)
+    has_regime_stats = any(r.get("regime_stats") for r in keep)
 
-    print("\n  Aggregate (all KEEP screens):")
-    hdr = f"    {'Regime':<6} {'Mean α':>8} {'Win%':>6} {'N':>6}"
-    print(hdr)
-    for regime in ("BULL", "BEAR", "FLAT"):
-        arr = np.array(regime_all.get(regime, []))
-        if len(arr) == 0:
-            continue
-        print(
-            f"    {regime:<6} {arr.mean():>8.4f}"
-            f" {(arr > 0).mean() * 100:>5.1f}% {len(arr):>6}"
-        )
+    if has_regime_stats:
+        # Aggregate across all KEEP screens with regime_stats
+        regime_all = defaultdict(list)
+        for r in keep:
+            for label, stats in r.get("regime_stats", {}).items():
+                regime_all[label].extend(
+                    [stats["alpha_mean"]] * stats["n_months"]
+                )
 
-    # Per-screen regime breakdown (top 15 by Sharpe)
-    top_keep = sorted(keep, key=lambda r: r["sharpe"], reverse=True)[:15]
-    print(f"\n  Per-screen regime stats (top {len(top_keep)}):")
-    hdr = (
-        f"    {'Screen':<40} {'Sharpe':>6}"
-        f"  {'BULL α':>7} {'BEAR α':>7} {'FLAT α':>7} {'Robust':>6}"
-    )
-    print(hdr)
-    for r in top_keep:
-        ra = defaultdict(list)
-        for md in r.get("monthly_details", []):
-            ra[tag_regime(md["spy_return"])].append(md["alpha"])
-        robustness = compute_regime_robustness(ra)
-        parts = [f"    {r['name'][:40]:<40} {r['sharpe']:>6.3f}"]
-        for regime in ("BULL", "BEAR", "FLAT"):
-            vals = ra.get(regime, [])
-            parts.append(
-                f"  {np.mean(vals):>7.4f}" if vals else f"  {'N/A':>7}"
+        print("\n  Aggregate (all KEEP screens, 4-label regime):")
+        hdr = f"    {'Regime':<16} {'Mean α':>8} {'Win%':>6} {'N':>6}"
+        print(hdr)
+        for label in REGIME_LABELS:
+            arr = np.array(regime_all.get(label, []))
+            if len(arr) == 0:
+                continue
+            print(
+                f"    {label:<16} {arr.mean():>8.4f}"
+                f" {(arr > 0).mean() * 100:>5.1f}% {len(arr):>6}"
             )
-        parts.append(f" {robustness:>6.2f}")
-        print("".join(parts))
 
-    # Year-by-year breakdown (retained from original)
+        # Per-screen regime breakdown (top 15)
+        top_keep = sorted(
+            [r for r in keep if r.get("regime_stats")],
+            key=lambda r: r["sharpe"], reverse=True,
+        )[:15]
+        if top_keep:
+            print(f"\n  Per-screen regime stats (top {len(top_keep)}):")
+            hdr = (
+                f"    {'Screen':<35} {'Sharpe':>6}"
+                f"  {'Q.Bull':>7} {'V.Bull':>7}"
+                f" {'Q.Bear':>7} {'V.Bear':>7}"
+                f" {'Robust':>6}"
+            )
+            print(hdr)
+            for r in top_keep:
+                rs = r["regime_stats"]
+                robustness = compute_regime_robustness_4(rs)
+                parts = [
+                    f"    {r['name'][:35]:<35} {r['sharpe']:>6.3f}"
+                ]
+                for label in REGIME_LABELS:
+                    s = rs.get(label)
+                    if s and s["n_months"] > 0:
+                        parts.append(f"  {s['alpha_mean']:>7.4f}")
+                    else:
+                        parts.append(f"  {'N/A':>7}")
+                parts.append(f" {robustness:>6.2f}")
+                print("".join(parts))
+    else:
+        # Fallback: BULL/BEAR/FLAT from monthly SPY return
+        regime_all = defaultdict(list)
+        for r in keep:
+            for md in r.get("monthly_details", []):
+                regime = tag_regime(md["spy_return"])
+                regime_all[regime].append(md["alpha"])
+
+        print("\n  Aggregate (all KEEP, monthly SPY regime):")
+        hdr = f"    {'Regime':<6} {'Mean α':>8} {'Win%':>6} {'N':>6}"
+        print(hdr)
+        for regime in ("BULL", "BEAR", "FLAT"):
+            arr = np.array(regime_all.get(regime, []))
+            if len(arr) == 0:
+                continue
+            print(
+                f"    {regime:<6} {arr.mean():>8.4f}"
+                f" {(arr > 0).mean() * 100:>5.1f}%"
+                f" {len(arr):>6}"
+            )
+
+    # Year-by-year breakdown (always shown)
     year_alphas = defaultdict(list)
     for r in keep:
         for md in r.get("monthly_details", []):
@@ -493,20 +550,62 @@ def section_regime(df, results):
     for yr in sorted(year_alphas):
         arr = np.array(year_alphas[yr])
         print(
-            f"    {yr:>6} {arr.mean():>8.4f} {np.median(arr):>8.4f}"
+            f"    {yr:>6} {arr.mean():>8.4f}"
+            f" {np.median(arr):>8.4f}"
             f" {arr.std():>8.4f} {len(arr):>5}"
             f" {(arr > 0).mean() * 100:>5.1f}%"
         )
 
-    # Best screen half-life decay
-    best_r = max(results, key=lambda r: r["sharpe"])
-    alphas = [md["alpha"] for md in best_r.get("monthly_details", [])]
-    if alphas:
-        mid = len(alphas) // 2
-        h1, h2 = np.array(alphas[:mid]), np.array(alphas[mid:])
-        print(f"\n  Best screen decay ({best_r['name'][:40]}):")
-        print(f"    First half:  mean={h1.mean():.4f}  std={h1.std():.4f}")
-        print(f"    Second half: mean={h2.mean():.4f}  std={h2.std():.4f}")
+
+def section_oos(df, results):
+    """IS vs OOS performance analysis."""
+    print("=" * 60)
+    print("OUT-OF-SAMPLE ANALYSIS")
+    print("=" * 60)
+    has_oos = df["sharpe_oos"].notna().any()
+    if not has_oos:
+        print("  No IS/OOS data. Run with --split-date to enable.")
+        return
+
+    oos_df = df[df["sharpe_oos"].notna()].copy()
+    if oos_df.empty:
+        print("  No screens with OOS data.")
+        return
+
+    # Summary stats
+    is_mean = oos_df["sharpe_is"].mean()
+    oos_mean = oos_df["sharpe_oos"].mean()
+    shrinkage = is_mean - oos_mean if is_mean != 0 else 0
+    print(f"\n  Screens with OOS data: {len(oos_df)}")
+    print(f"  Mean IS Sharpe:  {is_mean:.3f}")
+    print(f"  Mean OOS Sharpe: {oos_mean:.3f}")
+    print(f"  Mean shrinkage:  {shrinkage:.3f}")
+
+    # Per-screen IS vs OOS table
+    cols = [
+        "name", "sharpe", "sharpe_is", "sharpe_oos",
+        "sharpe_ratio", "status",
+    ]
+    sorted_df = oos_df.sort_values("sharpe_oos", ascending=False)
+    print(f"\n  {'IS vs OOS':}")
+    print(sorted_df[cols].to_string(index=False, na_rep="N/A"))
+
+    # Overfit warnings
+    overfit = oos_df[oos_df["sharpe_ratio"] > 3.0]
+    if len(overfit) > 0:
+        print(f"\n  OVERFIT WARNING (IS/OOS ratio > 3.0): "
+              f"{len(overfit)} screens")
+        for _, row in overfit.iterrows():
+            ratio_str = (
+                f"{row['sharpe_ratio']:.1f}"
+                if np.isfinite(row["sharpe_ratio"]) else "inf"
+            )
+            print(
+                f"    {row['name'][:40]:<42}"
+                f"IS={row['sharpe_is']:.3f}  "
+                f"OOS={row['sharpe_oos']:.3f}  "
+                f"ratio={ratio_str}"
+            )
 
 
 def section_stocks(df, results):
@@ -692,6 +791,7 @@ SECTIONS = {
     "feat": section_features,
     "thresh": section_thresholds,
     "regime": section_regime,
+    "oos": section_oos,
     "stocks": section_stocks,
     "overlap": section_overlap,
     "corr": section_correlation,

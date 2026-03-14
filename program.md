@@ -29,15 +29,35 @@ next month.
 ### Verdicts and recency
 
 Screens are classified with a three-way verdict:
-- **KEEP**: full-period Sharpe >= 0.3 AND trailing-12-month Sharpe >= 0 (works and still works)
+- **KEEP**: Sharpe >= 0.3 (uses OOS Sharpe when split_date is set, full-period otherwise) AND trailing-12-month Sharpe >= 0
 - **STALE**: full-period Sharpe >= 0.3 BUT trailing-12-month Sharpe < 0 (worked before, edge decayed)
-- **DISCARD**: full-period Sharpe < 0.3 (never worked)
+- **DISCARD**: Sharpe < 0.3
 
 **Avoid proposing variations on STALE screens** — their edge has decayed. Instead, focus on screens with strong trailing-12m Sharpe (see the RECENCY ANALYSIS section in analysis.md).
 
+### Out-of-sample discipline
+
+When run with `--split-date`, the backtest reports IS and OOS metrics separately:
+- **IS Sharpe**: performance on data before split_date (what you optimize on)
+- **OOS Sharpe**: performance on data after split_date (what matters for real trading)
+- **IS/OOS ratio**: overfit detector. Ratio > 3 means the screen is likely overfit to in-sample patterns.
+
+The LLM sees IS-period stats only. The keep/discard verdict uses OOS Sharpe. This prevents the optimization loop from overfitting to the full backtest period.
+
+### Market regimes
+
+Each backtest period is tagged with one of 4 market regimes:
+- **quiet_bull**: SPY above SMA(200), low volatility
+- **volatile_bull**: SPY above SMA(200), high volatility
+- **quiet_bear**: SPY below SMA(200), low volatility
+- **volatile_bear**: SPY below SMA(200), high volatility
+
+**Regime robustness score**: fraction of regimes where mean alpha > 0. A score of 1.0 means the screen works in all market conditions. A score of 0.25 means it only works in one regime — fragile.
+
+**Prefer regime-robust screens.** A screen with Sharpe 0.4 across all regimes is more valuable than one with Sharpe 0.8 that only works in quiet bull markets.
+
 The analysis also reports:
 - **Alpha trend slope**: positive = improving, negative = decaying (annualized OLS slope)
-- **Regime robustness**: fraction of market regimes (BULL/BEAR/FLAT) where mean alpha > 0. Prefer screens that work across regimes, not just in bull markets.
 - **Feature recency**: which features have high recent hit rate (positive trailing alpha) vs. historically predictive but now stale.
 
 ## Available features
@@ -78,6 +98,9 @@ NOTE: sector-relative features do NOT hardcode any sector. They adapt to whichev
 - roe: return on equity (annualized)
 - debt_to_equity: total debt / equity
 - current_ratio: current assets / current liabilities
+
+### Market (computed from SPY, same value for all stocks on a given day)
+- market_regime: one of quiet_bull, volatile_bull, quiet_bear, volatile_bear
 
 ### Stability (recent ~1.5 years only, moat proxies — lower = more stable)
 - gross_margin_stability: std of gross margin over recent quarters

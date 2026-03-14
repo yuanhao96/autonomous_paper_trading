@@ -108,13 +108,18 @@ def analyze_results() -> str:
         "2. RECENCY: which screens are STALE (good full-period but decaying "
         "recently) vs. fresh (strong trailing-12m Sharpe)? Highlight the "
         "trailing-12m Sharpe and alpha trend slope.\n"
-        "3. REGIME ROBUSTNESS: which screens work across BULL/BEAR/FLAT? "
+        "3. REGIME ROBUSTNESS: which screens work across market regimes "
+        "(quiet_bull, volatile_bull, quiet_bear, volatile_bear)? "
         "Flag screens that only work in one regime.\n"
-        "4. Stock concentration and overlap analysis\n"
-        "5. Strategies to avoid (already tried and failed, or STALE)\n"
-        "6. Specific promising directions — favor features with high recent "
-        "hit rate and positive trend direction\n"
-        "7. Current best Sharpe to beat\n\n"
+        "4. OUT-OF-SAMPLE: if IS/OOS data is present, compare IS vs OOS "
+        "Sharpe. Flag screens with IS/OOS ratio > 3 as likely overfit. "
+        "Note the mean OOS shrinkage.\n"
+        "5. Stock concentration and overlap analysis\n"
+        "6. Strategies to avoid (already tried, failed, overfit, or STALE)\n"
+        "7. Specific promising directions — favor features with high recent "
+        "hit rate and positive trend direction, and screens robust across "
+        "regimes\n"
+        "8. Current best Sharpe to beat (use OOS Sharpe if available)\n\n"
         "Every claim must cite numbers from the stats above. "
         "Output ONLY the memo content in markdown. No preamble. "
         "Do NOT use any tools — just output the text directly."
@@ -146,7 +151,8 @@ def propose_screen() -> dict:
     prompt += (
         "Based on the available features, the analysis insights, "
         "and your knowledge of what predicts stock returns, propose ONE new stock screen. "
-        "The KEEP criterion is Sharpe >= 0.3 (on monthly alpha vs SPY, annualized). "
+        "The KEEP criterion is Sharpe >= 0.3 (on OOS alpha if split_date is set, "
+        "otherwise full-period). "
         "IMPORTANT: You MUST include these optional fields in your JSON when appropriate:\n"
         "- rank_by: feature to rank passing stocks by, or '_score' for composite\n"
         "- rank_order: 'desc' (highest first) or 'asc' (lowest first)\n"
@@ -155,6 +161,9 @@ def propose_screen() -> dict:
         "(e.g., [{\"feature\": \"return_6m_pctrank\", \"weight\": 0.4}, ...])\n"
         "TIP: Use _pctrank features (e.g., roe_pctrank, return_6m_pctrank) for "
         "relative thresholds and in composite scores — they're all on 0-1 scale.\n"
+        "TIP: Aim for regime robustness — screens that work across market conditions "
+        "(quiet_bull, volatile_bull, quiet_bear, volatile_bear) are more valuable "
+        "than screens with high Sharpe in just one regime.\n"
         "Output ONLY the JSON object in a ```json code block. No other text."
     )
 
@@ -213,20 +222,25 @@ def print_summary():
             ].head(10).to_string(index=False))
 
 
-def run_loop(n_iterations: int = None, hours: float = None, patience: int = 20):
+def run_loop(
+    n_iterations: int = None,
+    hours: float = None,
+    patience: int = 20,
+    split_date: str = None,
+):
     """Main loop: analyze → propose → evaluate → log.
 
-    Stopping conditions (whichever comes first):
-    - n_iterations reached (if set)
-    - hours elapsed (if set)
-    - patience exhausted: no new KEEP for `patience` consecutive iterations
-    - Ctrl+C (graceful shutdown after current iteration)
+    Args:
+        split_date: IS/OOS split date (e.g. "2023-07-01"). When set,
+            verdict uses OOS Sharpe and regime_stats are computed.
     """
     from screen import apply_screen, compute_all_features
 
     print("Computing features from cached data...")
     features = compute_all_features()
     print(f"Features ready: {features.shape}")
+    if split_date:
+        print(f"IS/OOS split at: {split_date}")
 
     start_time = time.time()
     deadline = start_time + hours * 3600 if hours else None
@@ -301,14 +315,25 @@ def run_loop(n_iterations: int = None, hours: float = None, patience: int = 20):
 
         # Step 3: Evaluate
         print("Backtesting...")
-        result = apply_screen(screen_def, features)
+        result = apply_screen(
+            screen_def, features, split_date=split_date,
+        )
 
         # Log
         sharpe = result['sharpe']
         verdict = result['verdict']
         print(f"Alpha (monthly): {result['alpha_monthly_mean']:.4f}")
         print(f"Alpha (annual):  {result.get('alpha_annual', 0):.2%}")
-        print(f"Sharpe:          {sharpe:.2f}")
+        print(f"Sharpe (full):   {sharpe:.3f}")
+        if split_date and 'sharpe_is' in result:
+            print(f"Sharpe (IS):     {result['sharpe_is']:.3f}")
+            print(f"Sharpe (OOS):    {result['sharpe_oos']:.3f}")
+            ratio = result.get('sharpe_ratio', 0)
+            ratio_str = (
+                f"{ratio:.1f}" if isinstance(ratio, float)
+                and ratio != float('inf') else "inf"
+            )
+            print(f"IS/OOS ratio:    {ratio_str}")
         print(f"Win rate:        {result['win_rate']:.1%}")
         print(f"Avg stocks:      {result['n_avg_stocks']}")
         print(f"Verdict:         {verdict}")
@@ -351,6 +376,8 @@ if __name__ == "__main__":
                         help="Time limit in hours (e.g. 8 for overnight)")
     parser.add_argument("--patience", type=int, default=20,
                         help="Stop after N iterations with no new KEEP (default: 20)")
+    parser.add_argument("--split-date", type=str, default=None,
+                        help="IS/OOS split date, e.g. 2023-07-01 (default: None)")
     args = parser.parse_args()
 
     if args.screen:
@@ -360,4 +387,9 @@ if __name__ == "__main__":
         # Default to 10 iterations if no stopping condition specified
         if args.n is None and args.hours is None:
             args.n = 10
-        run_loop(n_iterations=args.n, hours=args.hours, patience=args.patience)
+        run_loop(
+            n_iterations=args.n,
+            hours=args.hours,
+            patience=args.patience,
+            split_date=args.split_date,
+        )

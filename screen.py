@@ -291,6 +291,38 @@ def compute_stability_features(financials: pd.DataFrame,
     return pd.concat(features, axis=1)
 
 
+def compute_regime(prices: pd.DataFrame) -> pd.Series:
+    """Classify each trading day into one of 4 market regimes.
+
+    Uses SPY price data on two axes:
+    - Trend: SPY close vs SMA(200). Above = uptrend, below = downtrend.
+    - Volatility: SPY 20d realized vol vs its expanding median.
+      Above median = high vol, below = low vol.
+
+    Returns Series of regime labels indexed by date:
+    quiet_bull, volatile_bull, quiet_bear, volatile_bear.
+    """
+    spy_close = prices["Close"]["SPY"]
+
+    # Trend axis: close vs SMA(200)
+    sma200 = spy_close.rolling(200).mean()
+    is_uptrend = spy_close >= sma200
+
+    # Volatility axis: 20d realized vol vs expanding median
+    daily_ret = spy_close.pct_change()
+    vol_20d = daily_ret.rolling(20).std() * np.sqrt(252)
+    vol_median = vol_20d.expanding().median()
+    is_high_vol = vol_20d >= vol_median
+
+    regime = pd.Series(index=spy_close.index, dtype="object")
+    regime[is_uptrend & ~is_high_vol] = "quiet_bull"
+    regime[is_uptrend & is_high_vol] = "volatile_bull"
+    regime[~is_uptrend & ~is_high_vol] = "quiet_bear"
+    regime[~is_uptrend & is_high_vol] = "volatile_bear"
+
+    return regime
+
+
 def compute_pctrank_features(features: pd.DataFrame) -> pd.DataFrame:
     """Compute cross-sectional percentile ranks for all numeric features.
 
@@ -335,6 +367,16 @@ def compute_all_features() -> pd.DataFrame:
     # Percentile rank features (cross-sectional per date)
     pctrank_feat = compute_pctrank_features(combined)
     combined = pd.concat([combined, pctrank_feat], axis=1)
+
+    # Market regime (broadcast to all tickers)
+    regime = compute_regime(prices)
+    tickers = combined.columns.get_level_values(1).unique()
+    regime_df = pd.DataFrame(
+        {("market_regime", t): regime for t in tickers},
+        index=combined.index,
+    )
+    regime_df.columns = pd.MultiIndex.from_tuples(regime_df.columns)
+    combined = pd.concat([combined, regime_df], axis=1)
 
     return combined
 
@@ -445,15 +487,108 @@ def _rank_and_select(passing: list[str], features: pd.DataFrame,
     return ranked[:top_n]
 
 
-def apply_screen(screen_def: dict, features: pd.DataFrame,
-                 start: str = "2020-01-01", end: str = "2025-12-31") -> dict:
-    """Backtest a screen: rebalance every holding_days, equal-weight top_n, measure vs SPY.
+def _compute_sharpe(alpha: np.ndarray, periods_per_year: float) -> float:
+    """Compute annualized Sharpe ratio from an array of alpha values."""
+    if len(alpha) < 2:
+        return 0.0
+    alpha_std = float(np.std(alpha))
+    if alpha_std == 0:
+        return 0.0
+    return float(np.mean(alpha)) / alpha_std * np.sqrt(periods_per_year)
 
-    Returns dict with backtest results.
+
+def _compute_split_metrics(
+    monthly_details: list[dict],
+    split_date: str,
+    periods_per_year: float,
+) -> dict:
+    """Compute IS/OOS metrics by splitting monthly_details at split_date."""
+    is_alphas, oos_alphas = [], []
+    for md in monthly_details:
+        if md["month"] < split_date:
+            is_alphas.append(md["alpha"])
+        else:
+            oos_alphas.append(md["alpha"])
+
+    is_arr = np.array(is_alphas) if is_alphas else np.array([])
+    oos_arr = np.array(oos_alphas) if oos_alphas else np.array([])
+
+    sharpe_is = _compute_sharpe(is_arr, periods_per_year)
+    sharpe_oos = _compute_sharpe(oos_arr, periods_per_year)
+
+    # IS/OOS ratio — overfit detector (>3 is a red flag)
+    if sharpe_oos != 0:
+        sharpe_ratio = round(sharpe_is / sharpe_oos, 2)
+    else:
+        sharpe_ratio = float("inf") if sharpe_is > 0 else 0.0
+
+    return {
+        "sharpe_is": round(sharpe_is, 3),
+        "sharpe_oos": round(sharpe_oos, 3),
+        "sharpe_ratio": sharpe_ratio,
+        "alpha_monthly_mean_is": round(
+            float(np.mean(is_arr)), 5
+        ) if len(is_arr) > 0 else 0.0,
+        "alpha_monthly_mean_oos": round(
+            float(np.mean(oos_arr)), 5
+        ) if len(oos_arr) > 0 else 0.0,
+        "win_rate_is": round(
+            float(np.mean(is_arr > 0)), 3
+        ) if len(is_arr) > 0 else 0.0,
+        "win_rate_oos": round(
+            float(np.mean(oos_arr > 0)), 3
+        ) if len(oos_arr) > 0 else 0.0,
+        "n_months_is": len(is_arr),
+        "n_months_oos": len(oos_arr),
+    }
+
+
+def _compute_regime_stats(
+    monthly_details: list[dict],
+    regime_series: pd.Series,
+) -> dict:
+    """Compute per-regime alpha stats from monthly_details."""
+    regime_alphas = {}
+    for md in monthly_details:
+        date = pd.Timestamp(md["month"])
+        # Find closest date in regime_series (rebal date may not align exactly)
+        idx = regime_series.index.get_indexer([date], method="ffill")
+        if idx[0] >= 0:
+            label = regime_series.iloc[idx[0]]
+        else:
+            label = "unknown"
+        regime_alphas.setdefault(label, []).append(md["alpha"])
+
+    stats = {}
+    for label, alphas in regime_alphas.items():
+        arr = np.array(alphas)
+        stats[label] = {
+            "alpha_mean": round(float(np.mean(arr)), 5),
+            "win_rate": round(float(np.mean(arr > 0)), 3),
+            "n_months": len(arr),
+        }
+    return stats
+
+
+def apply_screen(
+    screen_def: dict,
+    features: pd.DataFrame,
+    start: str = "2020-01-01",
+    end: str = "2025-12-31",
+    split_date: str | None = None,
+) -> dict:
+    """Backtest a screen: rebalance every holding_days, equal-weight top_n.
+
+    Args:
+        split_date: If set, compute IS/OOS metrics split at this date.
+            Verdict uses OOS Sharpe. Format: "YYYY-MM-DD".
     """
     prices = pd.read_parquet(DATA_DIR / "prices.parquet")
     close = prices["Close"]
     spy = close["SPY"] if "SPY" in close.columns else None
+
+    # Compute regime series for per-regime stats
+    regime_series = compute_regime(prices)
 
     filters = screen_def["filters"]
     holding_days = screen_def.get("holding_days", 21)
@@ -465,26 +600,31 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
     portfolio_returns = []
     spy_returns = []
     n_stocks_list = []
-    monthly_details = []  # Per-period granular data
+    monthly_details = []
 
     for i in range(len(rebal_indices) - 1):
         rebal_date = date_range[rebal_indices[i]]
         next_date = date_range[rebal_indices[i + 1]]
 
-        # Get tickers passing screen
         passing = _apply_filters(features, filters, rebal_date)
         if len(passing) == 0:
             continue
 
-        # Rank and select top_n
-        tickers = _rank_and_select(passing, features, rebal_date, screen_def)
+        tickers = _rank_and_select(
+            passing, features, rebal_date, screen_def,
+        )
 
-        # Per-stock 1-month returns
         stock_rets = {}
         for t in tickers:
             if t in close.columns:
-                p0 = close.loc[rebal_date, t] if rebal_date in close.index else np.nan
-                p1 = close.loc[next_date, t] if next_date in close.index else np.nan
+                p0 = (
+                    close.loc[rebal_date, t]
+                    if rebal_date in close.index else np.nan
+                )
+                p1 = (
+                    close.loc[next_date, t]
+                    if next_date in close.index else np.nan
+                )
                 if pd.notna(p0) and pd.notna(p1) and p0 > 0:
                     stock_rets[t] = round(p1 / p0 - 1, 5)
 
@@ -495,11 +635,16 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
         portfolio_returns.append(port_ret)
         n_stocks_list.append(len(stock_rets))
 
-        # SPY return for same period
         spy_ret = 0.0
         if spy is not None:
-            s0 = spy.loc[rebal_date] if rebal_date in spy.index else np.nan
-            s1 = spy.loc[next_date] if next_date in spy.index else np.nan
+            s0 = (
+                spy.loc[rebal_date]
+                if rebal_date in spy.index else np.nan
+            )
+            s1 = (
+                spy.loc[next_date]
+                if next_date in spy.index else np.nan
+            )
             if pd.notna(s0) and pd.notna(s1) and s0 > 0:
                 spy_ret = s1 / s0 - 1
         spy_returns.append(spy_ret)
@@ -513,7 +658,7 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
         })
 
     if len(portfolio_returns) == 0:
-        return {
+        result = {
             "name": screen_def.get("name", ""),
             "hypothesis": screen_def.get("hypothesis", ""),
             "filters": filters,
@@ -525,23 +670,40 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
             "monthly_details": [],
             "verdict": "NO DATA",
         }
+        if split_date:
+            result.update({
+                "sharpe_is": 0.0, "sharpe_oos": 0.0,
+                "sharpe_ratio": 0.0, "regime_stats": {},
+            })
+        return result
 
     port = np.array(portfolio_returns)
     spy_r = np.array(spy_returns[:len(port)])
     alpha = port - spy_r
+    periods_per_year = 252 / holding_days
 
     alpha_mean = float(np.mean(alpha))
-    alpha_std = float(np.std(alpha)) if len(alpha) > 1 else 1.0
-    periods_per_year = 252 / holding_days
-    sharpe = alpha_mean / alpha_std * np.sqrt(periods_per_year) if alpha_std > 0 else 0.0
+    sharpe = _compute_sharpe(alpha, periods_per_year)
 
-    return {
+    # Determine verdict
+    if split_date:
+        split_metrics = _compute_split_metrics(
+            monthly_details, split_date, periods_per_year,
+        )
+        verdict_sharpe = split_metrics["sharpe_oos"]
+    else:
+        verdict_sharpe = sharpe
+
+    result = {
         "name": screen_def.get("name", ""),
         "hypothesis": screen_def.get("hypothesis", ""),
         "filters": filters,
         "holding_days": holding_days,
         "rank_by": screen_def.get("rank_by"),
-        "rank_order": screen_def.get("rank_order", "desc") if screen_def.get("rank_by") else None,
+        "rank_order": (
+            screen_def.get("rank_order", "desc")
+            if screen_def.get("rank_by") else None
+        ),
         "score": screen_def.get("score"),
         "alpha_monthly_mean": round(alpha_mean, 5),
         "alpha_annual": round(alpha_mean * periods_per_year, 4),
@@ -549,8 +711,12 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
         "win_rate": round(float(np.mean(alpha > 0)), 3),
         "n_months": len(port),
         "n_avg_stocks": round(float(np.mean(n_stocks_list)), 1),
-        "port_total_return": round(float(np.prod(1 + port) - 1), 4),
-        "spy_total_return": round(float(np.prod(1 + spy_r) - 1), 4),
+        "port_total_return": round(
+            float(np.prod(1 + port) - 1), 4,
+        ),
+        "spy_total_return": round(
+            float(np.prod(1 + spy_r) - 1), 4,
+        ),
         "monthly_details": [
             {
                 "month": md["month"],
@@ -565,5 +731,14 @@ def apply_screen(screen_def: dict, features: pd.DataFrame,
             {"month": md["month"], "stocks": md["stocks"]}
             for md in monthly_details
         ],
-        "verdict": "KEEP" if sharpe >= 0.3 else "DISCARD",
+        "verdict": "KEEP" if verdict_sharpe >= 0.3 else "DISCARD",
     }
+
+    # Add split metrics and regime stats when split_date is set
+    if split_date:
+        result.update(split_metrics)
+        result["regime_stats"] = _compute_regime_stats(
+            monthly_details, regime_series,
+        )
+
+    return result

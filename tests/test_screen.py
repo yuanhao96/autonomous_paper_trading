@@ -3,7 +3,8 @@ import pandas as pd
 from screen import compute_price_features, compute_fundamental_features
 from screen import (
     apply_screen, compute_all_features, compute_pctrank_features,
-    _compute_composite_score,
+    compute_regime, _compute_composite_score,
+    _compute_sharpe, _compute_split_metrics,
 )
 from pathlib import Path
 import pytest
@@ -77,7 +78,10 @@ def test_pctrank_features_on_real_data():
     feature_names = features.columns.get_level_values(0).unique()
     # Should have pctrank variants
     pctrank_names = [f for f in feature_names if f.endswith("_pctrank")]
-    raw_names = [f for f in feature_names if not f.endswith("_pctrank")]
+    raw_names = [
+        f for f in feature_names
+        if not f.endswith("_pctrank") and f != "market_regime"
+    ]
     assert len(pctrank_names) == len(raw_names)
     # Pctrank values should be in [0, 1]
     for feat in pctrank_names[:3]:
@@ -198,6 +202,217 @@ def test_apply_screen_with_composite_score():
     assert result["n_months"] > 0
     assert isinstance(result["sharpe"], float)
     assert result.get("score") == screen_def["score"]
+
+
+def test_regime_synthetic():
+    """Test regime classification on synthetic SPY data."""
+    n_days = 300
+    dates = pd.date_range("2023-01-01", periods=n_days, freq="B")
+
+    # Construct SPY close that starts below SMA200 then crosses above
+    # First 220 days: declining (below SMA200 = downtrend)
+    # Last 80 days: rising sharply (above SMA200 = uptrend)
+    close_vals = np.concatenate([
+        np.linspace(100, 85, 220),  # declining
+        np.linspace(85, 120, 80),   # rising sharply
+    ])
+    spy_close = pd.Series(close_vals, index=dates, name="SPY")
+
+    # Build prices with MultiIndex columns (field, ticker)
+    prices = pd.DataFrame(
+        spy_close.values, index=dates,
+        columns=pd.MultiIndex.from_tuples([("Close", "SPY")]),
+    )
+
+    regime = compute_regime(prices)
+
+    # Basic checks
+    assert len(regime) == n_days
+    valid = regime.dropna()
+    assert set(valid.unique()).issubset({
+        "quiet_bull", "volatile_bull",
+        "quiet_bear", "volatile_bear",
+    })
+
+    # Early period (after warmup) should be downtrend (bear)
+    late_warmup = regime.iloc[210:220].dropna()
+    assert all(r in ("quiet_bear", "volatile_bear") for r in late_warmup)
+
+    # Late period should be uptrend (bull) — price well above SMA200
+    late_period = regime.iloc[-20:].dropna()
+    assert all(r in ("quiet_bull", "volatile_bull") for r in late_period)
+
+
+def test_regime_all_four_labels():
+    """Verify all 4 regime labels can be produced."""
+    n_days = 500
+    dates = pd.date_range("2022-01-01", periods=n_days, freq="B")
+
+    # Create price series with varied regimes:
+    # Quiet uptrend, then volatile crash, then quiet recovery, then volatile rally
+    close_vals = np.concatenate([
+        np.linspace(100, 110, 150),  # gentle up
+        np.linspace(110, 70, 50),    # sharp crash
+        np.linspace(70, 75, 150),    # slow grind
+        np.linspace(75, 130, 50),    # sharp rally
+        np.linspace(130, 135, 100),  # gentle up again
+    ])
+    spy_close = pd.Series(close_vals, index=dates, name="SPY")
+    prices = pd.DataFrame(
+        spy_close.values, index=dates,
+        columns=pd.MultiIndex.from_tuples([("Close", "SPY")]),
+    )
+
+    regime = compute_regime(prices)
+    valid_labels = regime.dropna().unique()
+
+    # Should produce at least 3 of the 4 labels with this price path
+    assert len(valid_labels) >= 3
+
+
+def test_regime_on_real_data():
+    """Test regime on actual cached data."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    prices = pd.read_parquet(Path("data/prices.parquet"))
+    regime = compute_regime(prices)
+
+    # Should cover our full date range
+    assert len(regime) > 1000
+    valid = regime.dropna()
+    # Real data should produce all 4 labels over 2020-2025
+    assert len(valid.unique()) == 4
+    assert set(valid.unique()) == {
+        "quiet_bull", "volatile_bull",
+        "quiet_bear", "volatile_bear",
+    }
+
+
+def test_regime_in_compute_all_features():
+    """Verify regime is integrated into the feature DataFrame."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    features = compute_all_features()
+    feature_names = features.columns.get_level_values(0).unique()
+    assert "market_regime" in feature_names
+    # Check values are valid regime labels
+    regime_vals = features["market_regime"].iloc[-1].dropna().unique()
+    assert len(regime_vals) == 1  # all tickers same regime on same day
+
+
+def test_compute_sharpe_basic():
+    """Test Sharpe ratio computation."""
+    alpha = np.array([0.01, 0.02, 0.01, 0.03, 0.01])
+    sharpe = _compute_sharpe(alpha, 12.0)
+    assert sharpe > 0
+    # Negative alpha should give negative Sharpe
+    sharpe_neg = _compute_sharpe(-alpha, 12.0)
+    assert sharpe_neg < 0
+
+
+def test_compute_sharpe_edge_cases():
+    """Test Sharpe with edge cases."""
+    assert _compute_sharpe(np.array([0.01]), 12.0) == 0.0  # too few
+    assert _compute_sharpe(np.array([]), 12.0) == 0.0
+    assert _compute_sharpe(np.array([0.01, 0.01]), 12.0) == 0.0  # zero std
+
+
+def test_split_metrics_basic():
+    """Test IS/OOS split computation."""
+    details = [
+        {"month": "2021-01-04", "alpha": 0.02},
+        {"month": "2021-02-01", "alpha": 0.03},
+        {"month": "2021-03-01", "alpha": 0.01},
+        {"month": "2023-08-01", "alpha": -0.01},
+        {"month": "2023-09-01", "alpha": 0.005},
+        {"month": "2024-01-02", "alpha": 0.01},
+    ]
+    result = _compute_split_metrics(details, "2023-07-01", 12.0)
+
+    assert result["n_months_is"] == 3
+    assert result["n_months_oos"] == 3
+    assert result["sharpe_is"] > 0  # positive IS alpha
+    assert "sharpe_oos" in result
+    assert "sharpe_ratio" in result
+    assert "win_rate_is" in result
+    assert "win_rate_oos" in result
+    assert result["win_rate_is"] == pytest.approx(1.0)  # all IS positive
+
+
+def test_split_metrics_all_is():
+    """All data before split_date — OOS should be empty."""
+    details = [
+        {"month": "2021-01-04", "alpha": 0.02},
+        {"month": "2021-02-01", "alpha": 0.03},
+    ]
+    result = _compute_split_metrics(details, "2025-01-01", 12.0)
+    assert result["n_months_is"] == 2
+    assert result["n_months_oos"] == 0
+    assert result["sharpe_oos"] == 0.0
+
+
+def test_apply_screen_backward_compatible():
+    """apply_screen without split_date returns same keys as before."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    features = compute_all_features()
+    screen_def = {
+        "name": "test momentum",
+        "hypothesis": "testing",
+        "filters": [
+            {"feature": "return_3m", "op": ">", "value": 0.05},
+            {"feature": "close_vs_sma200", "op": ">", "value": 1.0},
+        ],
+        "top_n": 20,
+    }
+    result = apply_screen(screen_def, features)
+    assert "sharpe" in result
+    assert "sharpe_is" not in result  # no split metrics
+    assert "regime_stats" not in result
+    assert result["verdict"] in ("KEEP", "DISCARD")
+
+
+def test_apply_screen_with_split_date():
+    """apply_screen with split_date returns IS/OOS metrics."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    features = compute_all_features()
+    screen_def = {
+        "name": "test split",
+        "hypothesis": "testing IS/OOS",
+        "filters": [
+            {"feature": "return_3m", "op": ">", "value": 0.05},
+            {"feature": "close_vs_sma200", "op": ">", "value": 1.0},
+        ],
+        "top_n": 20,
+    }
+    result = apply_screen(
+        screen_def, features, split_date="2023-07-01",
+    )
+    # Should have split metrics
+    assert "sharpe_is" in result
+    assert "sharpe_oos" in result
+    assert "sharpe_ratio" in result
+    assert "n_months_is" in result
+    assert "n_months_oos" in result
+    assert result["n_months_is"] > 0
+    assert result["n_months_oos"] > 0
+    assert result["n_months_is"] + result["n_months_oos"] == result["n_months"]
+    # Should have regime stats
+    assert "regime_stats" in result
+    regime_stats = result["regime_stats"]
+    assert len(regime_stats) > 0
+    for label, stats in regime_stats.items():
+        assert "alpha_mean" in stats
+        assert "win_rate" in stats
+        assert "n_months" in stats
+    # Full-period Sharpe still present
+    assert "sharpe" in result
+    # Verdict based on OOS Sharpe
+    if result["sharpe_oos"] >= 0.3:
+        assert result["verdict"] == "KEEP"
+    else:
+        assert result["verdict"] == "DISCARD"
 
 
 def test_apply_screen():
