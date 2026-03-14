@@ -50,3 +50,25 @@
 
 ### Patterns to Avoid
 - Don't skip the integration test (run.py -n 3) — it validates the full pipeline end-to-end
+
+## Milestone: Regime awareness + OOS discipline (2026-03-14)
+
+### What Worked
+- Brainstorming the design before implementation (2x2 grid, Option C split) made implementation smooth
+- Broadcasting regime to all tickers in the feature DataFrame was simple and future-proof
+- Adding split_date as optional parameter preserved backward compatibility cleanly
+- Keeping regime diagnostic-only (not filterable) kept scope tight
+- Fallback in analyze.py (BULL/BEAR/FLAT for old data, 4-label for new) avoids migration
+
+### What Didn't Work
+- Synthetic test for MultiIndex prices DataFrame construction required debugging (nested DataFrame constructor doesn't work, need explicit MultiIndex)
+- Adding market_regime broke existing pctrank test (32 vs 33 features) — needed to exclude non-numeric feature
+
+### Patterns to Reuse
+- When adding a new feature type to the DataFrame, check downstream consumers (pctrank, filters, tests)
+- Optional parameters with None default + conditional result fields = clean backward compatibility
+- Helper functions (_compute_sharpe, _compute_split_metrics, _compute_regime_stats) keep apply_screen under line limit
+
+### Patterns to Avoid
+- Don't assume pd.DataFrame constructor handles nested DataFrames — use explicit MultiIndex
+- When adding categorical features, exclude them from numeric-only operations (pctrank)

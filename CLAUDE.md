@@ -215,7 +215,7 @@ The loop stops on whichever comes first:
 
 Long-term goal: low-frequency quant framework with LLM-driven learning. Gaps to address (roughly priority-ordered):
 
-1. **Out-of-sample discipline** — Current backtests run over full 2020–2025; LLM sees results and proposes new screens, creating an overfitting loop. Need walk-forward validation (train 2020–2023, validate 2024, test 2025). LLM should only see in-sample stats.
+1. ~~**Out-of-sample discipline**~~ ✓ — IS/OOS split via `--split-date`. Verdict uses OOS Sharpe. IS/OOS ratio > 3 flagged as overfit.
 
 2. **Alpha combination** — Screens are evaluated independently. Need an ensemble layer to combine top screens into a single portfolio with diversified alpha sources.
 
@@ -223,7 +223,7 @@ Long-term goal: low-frequency quant framework with LLM-driven learning. Gaps to 
 
 4. **Structured LLM memory** — No persistent memory of why hypotheses failed. Build a hypothesis graph (hypothesis → result → lesson) so the LLM avoids dead ends and compounds understanding across sessions.
 
-5. **Regime awareness** — One screen won't work in all markets. Add macro regime detection (bull/bear, high/low vol, risk-on/off) and regime-conditional screen selection.
+5. ~~**Regime awareness**~~ ✓ — 2x2 regime grid (trend x volatility) from SPY. Per-regime stats and robustness scores in backtest and analysis.
 
 6. **Risk management** — Portfolio-level drawdown limits, correlation-aware position sizing, sector/factor exposure caps.
 
