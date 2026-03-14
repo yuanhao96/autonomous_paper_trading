@@ -351,6 +351,34 @@ def test_split_metrics_all_is():
     assert result["sharpe_oos"] == 0.0
 
 
+def test_split_fallback_insufficient_months():
+    """When IS or OOS has < 6 months, verdict uses full-period Sharpe."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    features = compute_all_features()
+    # Use fundamental-only filters that produce data only in recent period
+    # with a very early split_date so all data lands in OOS
+    screen_def = {
+        "name": "test fallback",
+        "hypothesis": "test insufficient IS months",
+        "filters": [
+            {"feature": "roe", "op": ">", "value": 0.1},
+        ],
+        "top_n": 20,
+    }
+    # Split date far enough that IS has very few or zero months
+    # (fundamental features only cover ~1.5yr)
+    result = apply_screen(
+        screen_def, features, split_date="2019-01-01",
+    )
+    # With split_date="2019-01-01", IS should have 0 months
+    # Verdict should fall back to full-period Sharpe, not OOS
+    assert result["n_months_is"] == 0
+    # Verdict matches full-period sharpe, not OOS
+    expected = "KEEP" if result["sharpe"] >= 0.3 else "DISCARD"
+    assert result["verdict"] == expected
+
+
 def test_apply_screen_backward_compatible():
     """apply_screen without split_date returns same keys as before."""
     if not Path("data/prices.parquet").exists():

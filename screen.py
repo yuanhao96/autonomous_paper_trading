@@ -686,11 +686,19 @@ def apply_screen(
     sharpe = _compute_sharpe(alpha, periods_per_year)
 
     # Determine verdict
+    min_split_months = 6
     if split_date:
         split_metrics = _compute_split_metrics(
             monthly_details, split_date, periods_per_year,
         )
-        verdict_sharpe = split_metrics["sharpe_oos"]
+        # Fall back to full-period Sharpe if either split has too few months
+        has_valid_split = (
+            split_metrics["n_months_is"] >= min_split_months
+            and split_metrics["n_months_oos"] >= min_split_months
+        )
+        verdict_sharpe = (
+            split_metrics["sharpe_oos"] if has_valid_split else sharpe
+        )
     else:
         verdict_sharpe = sharpe
 
