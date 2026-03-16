@@ -204,10 +204,10 @@ def build_df(results):
             "uses_score": bool(r.get("score")),
             "filters_json": json.dumps(r.get("filters", []), sort_keys=True),
             "status": classify_verdict(r["sharpe"], trail_12m),
-            # IS/OOS fields (present when split_date was used)
-            "sharpe_is": r.get("sharpe_is", float("nan")),
-            "sharpe_oos": r.get("sharpe_oos", float("nan")),
-            "sharpe_ratio": r.get("sharpe_ratio", float("nan")),
+            # Walk-forward fields
+            "wf_oos_sharpe_mean": r.get("wf_oos_sharpe_mean", float("nan")),
+            "wf_oos_sharpe_std": r.get("wf_oos_sharpe_std", float("nan")),
+            "wf_n_windows": r.get("wf_n_windows", 0),
         }
         rows.append(row)
     return pd.DataFrame(rows)
@@ -558,53 +558,44 @@ def section_regime(df, results):
 
 
 def section_oos(df, results):
-    """IS vs OOS performance analysis."""
+    """Walk-forward OOS performance analysis."""
     print("=" * 60)
-    print("OUT-OF-SAMPLE ANALYSIS")
+    print("WALK-FORWARD OOS ANALYSIS")
     print("=" * 60)
-    has_oos = df["sharpe_oos"].notna().any()
-    if not has_oos:
-        print("  No IS/OOS data. Run with --split-date to enable.")
+    has_wf = df["wf_oos_sharpe_mean"].notna().any()
+    if not has_wf:
+        print("  No walk-forward data. Run with walk-forward enabled.")
         return
 
-    oos_df = df[df["sharpe_oos"].notna()].copy()
-    if oos_df.empty:
-        print("  No screens with OOS data.")
+    wf_df = df[df["wf_oos_sharpe_mean"].notna()].copy()
+    if wf_df.empty:
+        print("  No screens with walk-forward data.")
         return
 
-    # Summary stats
-    is_mean = oos_df["sharpe_is"].mean()
-    oos_mean = oos_df["sharpe_oos"].mean()
-    shrinkage = is_mean - oos_mean if is_mean != 0 else 0
-    print(f"\n  Screens with OOS data: {len(oos_df)}")
-    print(f"  Mean IS Sharpe:  {is_mean:.3f}")
-    print(f"  Mean OOS Sharpe: {oos_mean:.3f}")
-    print(f"  Mean shrinkage:  {shrinkage:.3f}")
+    oos_mean = wf_df["wf_oos_sharpe_mean"].mean()
+    full_mean = wf_df["sharpe"].mean()
+    print(f"\n  Screens with WF data: {len(wf_df)}")
+    print(f"  Mean full-period Sharpe: {full_mean:.3f}")
+    print(f"  Mean WF OOS Sharpe:     {oos_mean:.3f}")
+    print(f"  Mean shrinkage:         {full_mean - oos_mean:.3f}")
 
-    # Per-screen IS vs OOS table
     cols = [
-        "name", "sharpe", "sharpe_is", "sharpe_oos",
-        "sharpe_ratio", "status",
+        "name", "sharpe", "wf_oos_sharpe_mean",
+        "wf_oos_sharpe_std", "wf_n_windows", "status",
     ]
-    sorted_df = oos_df.sort_values("sharpe_oos", ascending=False)
-    print(f"\n  {'IS vs OOS':}")
+    sorted_df = wf_df.sort_values("wf_oos_sharpe_mean", ascending=False)
+    print("\n  Walk-forward results:")
     print(sorted_df[cols].to_string(index=False, na_rep="N/A"))
 
-    # Overfit warnings
-    overfit = oos_df[oos_df["sharpe_ratio"] > 3.0]
-    if len(overfit) > 0:
-        print(f"\n  OVERFIT WARNING (IS/OOS ratio > 3.0): "
-              f"{len(overfit)} screens")
-        for _, row in overfit.iterrows():
-            ratio_str = (
-                f"{row['sharpe_ratio']:.1f}"
-                if np.isfinite(row["sharpe_ratio"]) else "inf"
-            )
+    # Flag high-variance screens
+    unstable = wf_df[wf_df["wf_oos_sharpe_std"] > 1.0]
+    if len(unstable) > 0:
+        print(f"\n  UNSTABLE (OOS Sharpe std > 1.0): {len(unstable)} screens")
+        for _, row in unstable.iterrows():
             print(
                 f"    {row['name'][:40]:<42}"
-                f"IS={row['sharpe_is']:.3f}  "
-                f"OOS={row['sharpe_oos']:.3f}  "
-                f"ratio={ratio_str}"
+                f"mean={row['wf_oos_sharpe_mean']:.3f}  "
+                f"std={row['wf_oos_sharpe_std']:.3f}"
             )
 
 
