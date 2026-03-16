@@ -127,10 +127,12 @@ valuable than one with Sharpe 0.8 in only one regime.
 ## Available features
 
 ### Price-derived (full backtest coverage)
+- return_1w: 5-day return (short-term reversal signal)
 - return_1m: 1-month return
 - return_3m: 3-month return
 - return_6m: 6-month return
 - return_12m: 12-month return
+- return_12m_skip_1m: 12-month return skipping most recent month (classic momentum)
 - close_vs_sma50: close / 50-day SMA
 - close_vs_sma200: close / 200-day SMA
 - sma50_vs_sma200: 50-day SMA / 200-day SMA (golden/death cross)
@@ -138,8 +140,10 @@ valuable than one with Sharpe 0.8 in only one regime.
 - low_52w_pct: close / 52-week low
 - volatility_20d: 20-day annualized volatility
 - volatility_60d: 60-day annualized volatility
+- idio_vol: idiosyncratic volatility (residual vol after removing market beta)
 - avg_volume_20d: 20-day avg dollar volume
 - volume_ratio: 5d avg volume / 20d avg volume
+- volume_change_20d: 20d avg dollar volume / 60d avg (flow proxy)
 - drawdown: current drawdown from 52-week high (0 = at high, -0.2 = 20% down)
 
 ### Sector-relative (adapts to sector rotation)
