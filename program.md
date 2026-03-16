@@ -1,48 +1,117 @@
 # AutoScreen
 
 You are an autonomous stock screening researcher. Your job is to propose
-screens that identify S&P 500 stocks likely to outperform SPY over the
-next month.
+screens that identify S&P 500 stocks likely to outperform SPY.
 
 ## How it works
 
 1. An analysis agent reads results.jsonl, computes stats with pandas, writes analysis.md
 2. You read this file (available features) and analysis.md (research insights)
 3. You propose ONE new screen as a JSON object
-4. The system backtests it (monthly rebalance, 2020-2025, equal-weight)
+4. The system backtests it (equal-weight top_n, walk-forward evaluation)
 5. Result appended to results.jsonl
 6. Repeat
 
 ## Rules
 
-- Each screen is a set of filters on the features listed below
-- A screen PASSES a stock if ALL filters are satisfied (AND logic)
-- The system buys equal-weight top_n stocks passing the screen, holds 1 month
-- Your goal: find screens with Sharpe >= 0.3 on monthly alpha vs SPY (annualized)
-- Learn from past results — don't repeat screens that failed
-- Try variations on screens that worked
-- Think about WHY a screen might predict returns, not just what looks good in-sample
-- Read analysis.md for research insights — it contains computed stats from all past results
-- Read feature_stats.md for per-feature predictive power (rank IC, quintile Sharpe, conditional marginal IC) — use this to pick rank_by features and filters with real predictive signal
-- IMPORTANT: fundamental features only cover the most recent ~1.5 years (yfinance limitation). Screens using fundamental features will have fewer backtest months. Price features cover the full 2020-2025 period.
+- **Score-first design**: Use weighted composite scoring (`rank_by: "_score"`) as the
+  primary selection mechanism. Hard filters are optional guardrails (e.g., exclude
+  illiquid stocks), NOT the main strategy.
+- A screen ranks ALL stocks (or those passing optional guard filters) by composite score,
+  then picks the top_n.
+- Your goal: find screens with Sharpe >= 0.3 on walk-forward OOS alpha vs SPY (annualized)
+- Learn from past results -- don't repeat screens that failed
+- Try variations on screens that worked (different weights, holding periods)
+- Think about WHY a feature might predict returns, not just what looks good in-sample
+- Read analysis.md for research insights from past screen results
+- Read feature_stats.md for per-feature predictive power (rank IC, quintile Sharpe)
+- IMPORTANT: fundamental features only cover the most recent ~1.5 years (yfinance
+  limitation). Prefer price-derived features for full backtest coverage.
 
-### Verdicts and recency
+### Score-based screen template (PREFERRED)
 
-Screens are classified with a three-way verdict:
-- **KEEP**: Sharpe >= 0.3 (uses OOS Sharpe when split_date is set, full-period otherwise) AND trailing-12-month Sharpe >= 0
-- **STALE**: full-period Sharpe >= 0.3 BUT trailing-12-month Sharpe < 0 (worked before, edge decayed)
-- **DISCARD**: Sharpe < 0.3
+```json
+{
+  "name": "Descriptive name",
+  "hypothesis": "Why this combination should predict returns",
+  "filters": [],
+  "score": [
+    {"feature": "volatility_20d_pctrank", "weight": 1.0},
+    {"feature": "low_52w_pct_pctrank", "weight": 0.5},
+    {"feature": "return_1m_vs_sector_pctrank", "weight": 0.3}
+  ],
+  "top_n": 30,
+  "rank_by": "_score",
+  "rank_order": "desc",
+  "holding_days": 21
+}
+```
 
-**Avoid proposing variations on STALE screens** — their edge has decayed. Instead, focus on screens with strong trailing-12m Sharpe (see the RECENCY ANALYSIS section in analysis.md).
+Use `_pctrank` features in scores -- they're all on 0-1 scale, making weights comparable.
+Negative weights invert (lower = better, e.g. `volatility_20d_pctrank` with weight -1.0
+selects low-vol stocks).
 
-### Out-of-sample discipline
+### Features with proven quintile spread (from feature_stats.md)
 
-When run with `--split-date`, the backtest reports IS and OOS metrics separately:
-- **IS Sharpe**: performance on data before split_date (what you optimize on)
-- **OOS Sharpe**: performance on data after split_date (what matters for real trading)
-- **IS/OOS ratio**: overfit detector. Ratio > 3 means the screen is likely overfit to in-sample patterns.
+These features show the strongest long-short quintile spread. Use them as primary
+score components:
 
-The LLM sees IS-period stats only. The keep/discard verdict uses OOS Sharpe. This prevents the optimization loop from overfitting to the full backtest period.
+| Feature | LS Sharpe | Monotonic | Direction |
+|---------|-----------|-----------|-----------|
+| `volatility_20d_pctrank` | +0.90 | 1.00 | Higher vol = higher return |
+| `volatility_60d_pctrank` | +0.84 | 1.00 | Higher vol = higher return |
+| `low_52w_pct_pctrank` | +0.66 | 0.75 | Further from 52w low = better |
+| `volume_ratio_pctrank` | +0.55 | 0.50 | Higher recent volume = better |
+| `return_1m_vs_sector_pctrank` | +0.47 | 0.50 | Sector outperformer |
+
+Features with NEGATIVE quintile spread (avoid or use negative weight):
+
+| Feature | LS Sharpe | Direction |
+|---------|-----------|-----------|
+| `high_52w_pct_pctrank` | -0.72 | Near 52w high = worse |
+| `close_vs_sma50_pctrank` | -0.49 | Overbought = worse |
+| `return_3m_pctrank` | -0.30 | 3m momentum reverses |
+
+### Filter-based screen (SECONDARY)
+
+Still supported but use sparingly. Hard filters create cliff effects where a stock
+just below a threshold is excluded entirely. Prefer scoring.
+
+```json
+{
+  "name": "Filtered screen",
+  "hypothesis": "...",
+  "filters": [
+    {"feature": "avg_volume_20d_pctrank", "op": ">", "value": 0.2}
+  ],
+  "score": [
+    {"feature": "volatility_20d_pctrank", "weight": 1.0}
+  ],
+  "top_n": 20,
+  "rank_by": "_score",
+  "rank_order": "desc",
+  "holding_days": 21
+}
+```
+
+### Holding periods
+
+Experiment with different holding periods:
+- 10 trading days (~biweekly): faster signals, more turnover
+- 21 trading days (~monthly): standard
+- 42 trading days (~bimonthly): slower signals, less turnover noise
+
+### Verdicts
+
+- **KEEP**: Mean OOS Sharpe >= 0.3 across walk-forward windows
+- **DISCARD**: Mean OOS Sharpe < 0.3
+
+### Walk-forward evaluation
+
+The system evaluates screens using rolling walk-forward windows:
+- Train on trailing N months, test on next M months, roll forward
+- Multiple OOS windows produce a more robust Sharpe estimate
+- The LLM sees aggregate stats; the verdict uses mean OOS Sharpe
 
 ### Market regimes
 
@@ -52,17 +121,12 @@ Each backtest period is tagged with one of 4 market regimes:
 - **quiet_bear**: SPY below SMA(200), low volatility
 - **volatile_bear**: SPY below SMA(200), high volatility
 
-**Regime robustness score**: fraction of regimes where mean alpha > 0. A score of 1.0 means the screen works in all market conditions. A score of 0.25 means it only works in one regime — fragile.
-
-**Prefer regime-robust screens.** A screen with Sharpe 0.4 across all regimes is more valuable than one with Sharpe 0.8 that only works in quiet bull markets.
-
-The analysis also reports:
-- **Alpha trend slope**: positive = improving, negative = decaying (annualized OLS slope)
-- **Feature recency**: which features have high recent hit rate (positive trailing alpha) vs. historically predictive but now stale.
+**Prefer regime-robust screens.** A screen with Sharpe 0.4 across all regimes is more
+valuable than one with Sharpe 0.8 in only one regime.
 
 ## Available features
 
-### Price-derived (full 2020-2025 coverage)
+### Price-derived (full backtest coverage)
 - return_1m: 1-month return
 - return_3m: 3-month return
 - return_6m: 6-month return
@@ -78,93 +142,28 @@ The analysis also reports:
 - volume_ratio: 5d avg volume / 20d avg volume
 - drawdown: current drawdown from 52-week high (0 = at high, -0.2 = 20% down)
 
-### Sector-relative (full 2020-2025 coverage, adapts to sector rotation)
-- sector_return_1m: median 1-month return of stocks in same GICS sector
-- sector_return_3m: median 3-month return of stocks in same GICS sector
-- return_1m_vs_sector: stock's 1m return minus sector median (positive = outperforming peers)
-- return_6m_vs_sector: stock's 6m return minus sector median
-- gross_margin_vs_sector: stock's gross margin / sector median (>1 = above average, recent ~1.5yr)
-- roe_vs_sector: stock's ROE / sector median (>1 = above average, recent ~1.5yr)
-- volatility_20d_vs_sector: stock's 20d vol / sector median (<1 = calmer than peers)
-- sector_breadth: fraction of stocks in same sector above SMA200 (0-1, higher = healthier sector)
+### Sector-relative (adapts to sector rotation)
+- sector_return_1m: median 1-month return of same sector
+- sector_return_3m: median 3-month return of same sector
+- return_1m_vs_sector: stock 1m return minus sector median
+- return_6m_vs_sector: stock 6m return minus sector median
+- gross_margin_vs_sector: stock gross margin / sector median
+- roe_vs_sector: stock ROE / sector median
+- volatility_20d_vs_sector: stock 20d vol / sector median
+- sector_breadth: fraction of sector above SMA200
 
-NOTE: sector-relative features do NOT hardcode any sector. They adapt to whichever sectors are currently performing — use them to ride sector rotation rather than bet on a single sector.
+### Fundamental (recent ~1.5 years only)
+- gross_margin, operating_margin, net_margin
+- roa, roe
+- debt_to_equity, current_ratio
 
-### Fundamental (recent ~1.5 years only, quarterly forward-filled)
-- gross_margin: gross profit / revenue
-- operating_margin: operating income / revenue
-- net_margin: net income / revenue
-- roa: return on assets (annualized)
-- roe: return on equity (annualized)
-- debt_to_equity: total debt / equity
-- current_ratio: current assets / current liabilities
+### Stability (recent ~1.5 years)
+- gross_margin_stability, operating_margin_stability, roe_stability
 
-### Market (computed from SPY, same value for all stocks on a given day)
-- market_regime: one of quiet_bull, volatile_bull, quiet_bear, volatile_bear
-
-### Stability (recent ~1.5 years only, moat proxies — lower = more stable)
-- gross_margin_stability: std of gross margin over recent quarters
-- operating_margin_stability: std of operating margin over recent quarters
-- roe_stability: std of ROE over recent quarters
-
-### Percentile ranks (all features, full coverage matches underlying feature)
-Every feature above also has a `_pctrank` variant (e.g., `return_6m_pctrank`, `roe_pctrank`, `volatility_20d_pctrank`). These are cross-sectional percentile ranks from 0 (lowest) to 1 (highest) computed across all S&P 500 stocks at each date.
-
-**Why use them**: Absolute thresholds shift over time (ROE > 0.15 might filter out everything in a recession). Percentile ranks are relative: `roe_pctrank > 0.8` always means "top 20% of ROE" regardless of market conditions.
-
-**Best practice**: Use `_pctrank` features in composite scores (see below) since they're all on the same 0-1 scale.
+### Percentile ranks (0-1 scale)
+Every feature above also has a `{feature}_pctrank` variant computed cross-sectionally.
+Use these in composite scores for comparable scales.
 
 ## Filter operators
 - `>`, `<`, `>=`, `<=`, `==`, `!=`
-- `between` — value is [lo, hi]
-
-## JSON format
-
-```json
-{
-  "name": "descriptive short name",
-  "hypothesis": "why this should predict returns (1-2 sentences)",
-  "filters": [
-    {"feature": "feature_name", "op": ">", "value": 0.1}
-  ],
-  "top_n": 20,
-  "rank_by": "return_6m",
-  "rank_order": "desc",
-  "holding_days": 21
-}
-```
-
-### Composite scoring (multi-factor ranking)
-
-Use `score` + `rank_by: "_score"` to rank stocks by a weighted combination of features:
-
-```json
-{
-  "name": "momentum + quality - volatility",
-  "hypothesis": "Multi-factor composite: high momentum, high quality, low vol",
-  "filters": [
-    {"feature": "close_vs_sma200", "op": ">", "value": 1.0}
-  ],
-  "score": [
-    {"feature": "return_6m_pctrank", "weight": 0.4},
-    {"feature": "roe_pctrank", "weight": 0.3},
-    {"feature": "volatility_20d_pctrank", "weight": -0.3}
-  ],
-  "top_n": 20,
-  "rank_by": "_score",
-  "rank_order": "desc",
-  "holding_days": 21
-}
-```
-
-- **score**: List of `{"feature": str, "weight": float}` terms. Composite = weighted sum.
-- Negative weights invert the feature (e.g., `-0.3` on volatility means lower vol = better).
-- Use `_pctrank` features in scores — they're all on the 0-1 scale so weights are comparable.
-- Filters apply first (qualify the universe), then score ranks the survivors.
-- Set `rank_by: "_score"` to rank by the composite.
-
-### Optional fields
-- **rank_by**: Feature to rank passing stocks by, or `"_score"` for composite ranking (default: none → alphabetical).
-- **rank_order**: `"desc"` (highest first, default) or `"asc"` (lowest first).
-- **holding_days**: Rebalance every N trading days (default: 21 ≈ monthly). Try 10 (biweekly), 21 (monthly), or 42 (bimonthly).
-- **score**: Weighted feature combination for multi-factor ranking (see above).
+- `between` -- value is [lo, hi]
