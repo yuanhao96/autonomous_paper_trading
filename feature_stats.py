@@ -5,12 +5,12 @@ from scipy import stats
 
 from screen import DATA_DIR, compute_all_features
 
-# Core template filters (from analysis.md best-performing skeleton)
+# Core template for conditional marginal IC analysis.
+# These are the features with strongest unconditional quintile spread,
+# used as the "base model" to test what additional features help.
 CORE_FILTERS = [
-    ("return_6m", ">", 0.12),
-    ("close_vs_sma200", ">", 1.03),
-    ("drawdown", ">", -0.07),
-    ("volume_ratio", ">", 1.15),
+    ("volatility_20d_pctrank", ">", 0.5),
+    ("low_52w_pct_pctrank", ">", 0.5),
 ]
 
 HOLDING_DAYS = 21  # Evaluate at monthly frequency
