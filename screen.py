@@ -733,9 +733,13 @@ def apply_screen(
     # Walk-forward evaluation
     wf_result = {}
     if walk_forward:
+        # Scale test window to ensure >= 6 rebalance periods
+        min_test = int(np.ceil(6 * holding_days / 21))
+        wf_test_months = max(test_months, min_test)
+
         date_range = close.loc[start:end].index
         windows = generate_wf_windows(
-            date_range, train_months, test_months,
+            date_range, train_months, wf_test_months,
         )
 
         wf_windows = []
