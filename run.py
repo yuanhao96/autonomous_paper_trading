@@ -137,10 +137,7 @@ def analyze_results() -> str:
 
 
 def propose_screen() -> dict:
-    """Use Claude Code CLI to propose a new screen.
-
-    Reads program.md for features/rules and analysis.md for research insights.
-    """
+    """Use Claude Code CLI to propose a new screen."""
     prompt = (
         "Read program.md to understand the AutoScreen system and available features. "
     )
@@ -150,20 +147,12 @@ def propose_screen() -> dict:
         prompt += "Read feature_stats.md for per-feature predictive power stats. "
     prompt += (
         "Based on the available features, the analysis insights, "
-        "and your knowledge of what predicts stock returns, propose ONE new stock screen. "
-        "The KEEP criterion is Sharpe >= 0.3 (on OOS alpha if split_date is set, "
-        "otherwise full-period). "
-        "IMPORTANT: You MUST include these optional fields in your JSON when appropriate:\n"
-        "- rank_by: feature to rank passing stocks by, or '_score' for composite\n"
-        "- rank_order: 'desc' (highest first) or 'asc' (lowest first)\n"
-        "- holding_days: rebalance frequency — 10, 21, or 42 trading days\n"
-        "- score: weighted multi-factor composite for rank_by='_score' "
-        "(e.g., [{\"feature\": \"return_6m_pctrank\", \"weight\": 0.4}, ...])\n"
-        "TIP: Use _pctrank features (e.g., roe_pctrank, return_6m_pctrank) for "
-        "relative thresholds and in composite scores — they're all on 0-1 scale.\n"
-        "TIP: Aim for regime robustness — screens that work across market conditions "
-        "(quiet_bull, volatile_bull, quiet_bear, volatile_bear) are more valuable "
-        "than screens with high Sharpe in just one regime.\n"
+        "and your knowledge of what predicts stock returns, propose ONE new stock screen.\n"
+        "IMPORTANT: Use score-based screens (rank_by='_score' with score weights) as "
+        "the default approach. Hard filters are optional guardrails only.\n"
+        "Use _pctrank features in scores for comparable 0-1 scales.\n"
+        "Experiment with holding_days: 10, 21, or 42 trading days.\n"
+        "Focus on features with proven quintile spread from feature_stats.md.\n"
         "Output ONLY the JSON object in a ```json code block. No other text."
     )
 
