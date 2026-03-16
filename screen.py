@@ -52,6 +52,30 @@ def compute_price_features(prices: pd.DataFrame) -> pd.DataFrame:
     rolling_max = close.rolling(252, min_periods=1).max()
     features["drawdown"] = close / rolling_max - 1
 
+    # Short-term reversal (1-week return)
+    features["return_1w"] = close.pct_change(5)
+
+    # Classic momentum: 12m return skipping most recent month
+    # (Jegadeesh-Titman: avoids short-term reversal contamination)
+    ret_12m = close.pct_change(252)
+    ret_1m = close.pct_change(21)
+    features["return_12m_skip_1m"] = (1 + ret_12m) / (1 + ret_1m) - 1
+
+    # Idiosyncratic volatility: residual vol after removing market beta
+    if "SPY" in close.columns:
+        spy_ret = daily_ret["SPY"]
+        window = 60
+        cov_with_spy = daily_ret.rolling(window).cov(spy_ret)
+        spy_var = spy_ret.rolling(window).var()
+        beta = cov_with_spy.div(spy_var.clip(lower=1e-10), axis=0)
+        residual = daily_ret.sub(beta.mul(spy_ret, axis=0))
+        features["idio_vol"] = residual.rolling(20).std() * np.sqrt(252)
+
+    # Volume flow proxy: 20d avg dollar volume / 60d avg dollar volume
+    features["volume_change_20d"] = (
+        dollar_vol.rolling(20).mean() / dollar_vol.rolling(60).mean()
+    )
+
     return pd.concat(features, axis=1)
 
 
