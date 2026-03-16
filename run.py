@@ -111,9 +111,9 @@ def analyze_results() -> str:
         "3. REGIME ROBUSTNESS: which screens work across market regimes "
         "(quiet_bull, volatile_bull, quiet_bear, volatile_bear)? "
         "Flag screens that only work in one regime.\n"
-        "4. OUT-OF-SAMPLE: if IS/OOS data is present, compare IS vs OOS "
-        "Sharpe. Flag screens with IS/OOS ratio > 3 as likely overfit. "
-        "Note the mean OOS shrinkage.\n"
+        "4. WALK-FORWARD: if walk-forward data is present, analyze mean OOS "
+        "Sharpe across windows and consistency (std). Flag screens with high "
+        "variance across windows as unstable.\n"
         "5. Stock concentration and overlap analysis\n"
         "6. Strategies to avoid (already tried, failed, overfit, or STALE)\n"
         "7. Specific promising directions — favor features with high recent "
@@ -215,21 +215,24 @@ def run_loop(
     n_iterations: int = None,
     hours: float = None,
     patience: int = 20,
-    split_date: str = None,
+    walk_forward: bool = True,
+    train_months: int = 18,
+    test_months: int = 6,
 ):
     """Main loop: analyze → propose → evaluate → log.
 
     Args:
-        split_date: IS/OOS split date (e.g. "2023-07-01"). When set,
-            verdict uses OOS Sharpe and regime_stats are computed.
+        walk_forward: Use rolling walk-forward evaluation (default: True).
+        train_months: Walk-forward train window in months.
+        test_months: Walk-forward test window in months.
     """
     from screen import apply_screen, compute_all_features
 
     print("Computing features from cached data...")
     features = compute_all_features()
     print(f"Features ready: {features.shape}")
-    if split_date:
-        print(f"IS/OOS split at: {split_date}")
+    if walk_forward:
+        print(f"Walk-forward: {train_months}mo train / {test_months}mo test")
 
     start_time = time.time()
     deadline = start_time + hours * 3600 if hours else None
@@ -305,7 +308,10 @@ def run_loop(
         # Step 3: Evaluate
         print("Backtesting...")
         result = apply_screen(
-            screen_def, features, split_date=split_date,
+            screen_def, features,
+            walk_forward=walk_forward,
+            train_months=train_months,
+            test_months=test_months,
         )
 
         # Log
@@ -314,15 +320,10 @@ def run_loop(
         print(f"Alpha (monthly): {result['alpha_monthly_mean']:.4f}")
         print(f"Alpha (annual):  {result.get('alpha_annual', 0):.2%}")
         print(f"Sharpe (full):   {sharpe:.3f}")
-        if split_date and 'sharpe_is' in result:
-            print(f"Sharpe (IS):     {result['sharpe_is']:.3f}")
-            print(f"Sharpe (OOS):    {result['sharpe_oos']:.3f}")
-            ratio = result.get('sharpe_ratio', 0)
-            ratio_str = (
-                f"{ratio:.1f}" if isinstance(ratio, float)
-                and ratio != float('inf') else "inf"
-            )
-            print(f"IS/OOS ratio:    {ratio_str}")
+        if walk_forward and 'wf_oos_sharpe_mean' in result:
+            print(f"WF OOS Sharpe:   {result['wf_oos_sharpe_mean']:.3f}"
+                  f" +/- {result['wf_oos_sharpe_std']:.3f}")
+            print(f"WF windows:      {result['wf_n_windows']}")
         print(f"Win rate:        {result['win_rate']:.1%}")
         print(f"Avg stocks:      {result['n_avg_stocks']}")
         print(f"Verdict:         {verdict}")
@@ -365,8 +366,13 @@ if __name__ == "__main__":
                         help="Time limit in hours (e.g. 8 for overnight)")
     parser.add_argument("--patience", type=int, default=20,
                         help="Stop after N iterations with no new KEEP (default: 20)")
-    parser.add_argument("--split-date", type=str, default=None,
-                        help="IS/OOS split date, e.g. 2023-07-01 (default: None)")
+    parser.add_argument("--no-walk-forward", dest="walk_forward",
+                        action="store_false", default=True,
+                        help="Disable walk-forward (use full-period Sharpe)")
+    parser.add_argument("--train-months", type=int, default=18,
+                        help="Walk-forward train window in months (default: 18)")
+    parser.add_argument("--test-months", type=int, default=6,
+                        help="Walk-forward test window in months (default: 6)")
     args = parser.parse_args()
 
     if args.screen:
@@ -380,5 +386,7 @@ if __name__ == "__main__":
             n_iterations=args.n,
             hours=args.hours,
             patience=args.patience,
-            split_date=args.split_date,
+            walk_forward=args.walk_forward,
+            train_months=args.train_months,
+            test_months=args.test_months,
         )
