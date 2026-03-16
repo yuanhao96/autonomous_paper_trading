@@ -566,21 +566,21 @@ def generate_wf_windows(
     return windows
 
 
-def apply_screen(
+def _backtest_period(
     screen_def: dict,
     features: pd.DataFrame,
-    start: str = "2020-01-01",
-    end: str = "2025-12-31",
-) -> dict:
-    """Backtest a screen: rebalance every holding_days, equal-weight top_n."""
-    prices = pd.read_parquet(DATA_DIR / "prices.parquet")
-    close = prices["Close"]
-    spy = close["SPY"] if "SPY" in close.columns else None
+    close: pd.DataFrame,
+    spy: pd.Series | None,
+    start: str | pd.Timestamp,
+    end: str | pd.Timestamp,
+) -> tuple[list, list, list, list]:
+    """Run backtest over a single period.
 
+    Returns (port_returns, spy_returns, monthly_details, n_stocks_list).
+    """
     filters = screen_def.get("filters", [])
     holding_days = screen_def.get("holding_days", 21)
 
-    # Rebalance dates: every holding_days trading days
     date_range = close.loc[start:end].index
     rebal_indices = list(range(0, len(date_range), holding_days))
 
@@ -644,7 +644,40 @@ def apply_screen(
             "alpha": round(float(port_ret - spy_ret), 5),
         })
 
-    if len(portfolio_returns) == 0:
+    return portfolio_returns, spy_returns, monthly_details, n_stocks_list
+
+
+def apply_screen(
+    screen_def: dict,
+    features: pd.DataFrame,
+    start: str = "2020-01-01",
+    end: str = "2025-12-31",
+    walk_forward: bool = False,
+    train_months: int = 18,
+    test_months: int = 6,
+) -> dict:
+    """Backtest a screen: rebalance every holding_days, equal-weight top_n.
+
+    Args:
+        walk_forward: If True, use rolling walk-forward evaluation.
+            Verdict uses mean OOS Sharpe across windows.
+        train_months: Walk-forward train window in months.
+        test_months: Walk-forward test window in months.
+    """
+    prices = pd.read_parquet(DATA_DIR / "prices.parquet")
+    close = prices["Close"]
+    spy = close["SPY"] if "SPY" in close.columns else None
+
+    filters = screen_def.get("filters", [])
+    holding_days = screen_def.get("holding_days", 21)
+    periods_per_year = 252 / holding_days
+
+    # Full-period backtest (always run for overall metrics)
+    port_rets, spy_rets, monthly_details, n_stocks_list = (
+        _backtest_period(screen_def, features, close, spy, start, end)
+    )
+
+    if len(port_rets) == 0:
         result = {
             "name": screen_def.get("name", ""),
             "hypothesis": screen_def.get("hypothesis", ""),
@@ -657,17 +690,87 @@ def apply_screen(
             "monthly_details": [],
             "verdict": "NO DATA",
         }
+        if walk_forward:
+            result.update({
+                "wf_oos_sharpe_mean": 0.0,
+                "wf_oos_sharpe_std": 0.0,
+                "wf_n_windows": 0,
+                "wf_windows": [],
+            })
         return result
 
-    port = np.array(portfolio_returns)
-    spy_r = np.array(spy_returns[:len(port)])
+    port = np.array(port_rets)
+    spy_r = np.array(spy_rets[:len(port)])
     alpha = port - spy_r
-    periods_per_year = 252 / holding_days
 
     alpha_mean = float(np.mean(alpha))
     sharpe = _compute_sharpe(alpha, periods_per_year)
 
-    verdict_sharpe = sharpe
+    # Walk-forward evaluation
+    wf_result = {}
+    if walk_forward:
+        date_range = close.loc[start:end].index
+        windows = generate_wf_windows(
+            date_range, train_months, test_months,
+        )
+
+        wf_windows = []
+        for tr_start, tr_end, te_start, te_end in windows:
+            is_rets, is_spy, _, _ = _backtest_period(
+                screen_def, features, close, spy,
+                tr_start, tr_end,
+            )
+            oos_rets, oos_spy, _, _ = _backtest_period(
+                screen_def, features, close, spy,
+                te_start, te_end,
+            )
+            is_alpha = (
+                np.array(is_rets) - np.array(is_spy[:len(is_rets)])
+                if is_rets else np.array([])
+            )
+            oos_alpha = (
+                np.array(oos_rets) - np.array(oos_spy[:len(oos_rets)])
+                if oos_rets else np.array([])
+            )
+
+            wf_windows.append({
+                "train_start": str(tr_start.date()),
+                "train_end": str(tr_end.date()),
+                "test_start": str(te_start.date()),
+                "test_end": str(te_end.date()),
+                "sharpe_is": round(
+                    _compute_sharpe(is_alpha, periods_per_year), 3,
+                ),
+                "sharpe_oos": round(
+                    _compute_sharpe(oos_alpha, periods_per_year), 3,
+                ),
+                "n_months_is": len(is_alpha),
+                "n_months_oos": len(oos_alpha),
+            })
+
+        oos_sharpes = [
+            w["sharpe_oos"] for w in wf_windows
+            if w["n_months_oos"] > 0
+        ]
+        wf_oos_mean = (
+            float(np.mean(oos_sharpes)) if oos_sharpes else 0.0
+        )
+        wf_oos_std = (
+            float(np.std(oos_sharpes)) if oos_sharpes else 0.0
+        )
+
+        wf_result = {
+            "wf_oos_sharpe_mean": round(wf_oos_mean, 3),
+            "wf_oos_sharpe_std": round(wf_oos_std, 3),
+            "wf_n_windows": len(wf_windows),
+            "wf_windows": wf_windows,
+        }
+
+    # Verdict
+    if walk_forward:
+        verdict_sharpe = wf_result.get("wf_oos_sharpe_mean", 0.0)
+    else:
+        verdict_sharpe = sharpe
 
     result = {
         "name": screen_def.get("name", ""),
@@ -708,5 +811,6 @@ def apply_screen(
         ],
         "verdict": "KEEP" if verdict_sharpe >= 0.3 else "DISCARD",
     }
+    result.update(wf_result)
 
     return result

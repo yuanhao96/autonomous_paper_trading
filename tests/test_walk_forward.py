@@ -51,3 +51,116 @@ def test_generate_wf_windows_too_short():
     dates = pd.date_range("2024-06-01", "2025-06-30", freq="B")
     windows = generate_wf_windows(dates, train_months=18, test_months=6)
     assert len(windows) == 0
+
+
+def test_apply_screen_walk_forward():
+    """Walk-forward backtest on real data."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    from screen import apply_screen, compute_all_features
+
+    features = compute_all_features()
+    screen_def = {
+        "name": "test wf",
+        "hypothesis": "testing walk-forward",
+        "filters": [],
+        "score": [
+            {"feature": "volatility_20d_pctrank", "weight": 1.0},
+        ],
+        "top_n": 30,
+        "rank_by": "_score",
+        "rank_order": "desc",
+        "holding_days": 21,
+    }
+    result = apply_screen(
+        screen_def, features,
+        walk_forward=True, train_months=18, test_months=6,
+    )
+    assert "wf_oos_sharpe_mean" in result
+    assert "wf_oos_sharpe_std" in result
+    assert "wf_n_windows" in result
+    assert result["wf_n_windows"] >= 1
+    assert isinstance(result["wf_oos_sharpe_mean"], float)
+    assert "sharpe" in result
+    assert result["n_months"] > 0
+    if result["wf_oos_sharpe_mean"] >= 0.3:
+        assert result["verdict"] == "KEEP"
+    else:
+        assert result["verdict"] == "DISCARD"
+
+
+def test_apply_screen_walk_forward_per_window():
+    """Walk-forward result includes per-window breakdown."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    from screen import apply_screen, compute_all_features
+
+    features = compute_all_features()
+    screen_def = {
+        "name": "test wf detail",
+        "hypothesis": "testing",
+        "filters": [],
+        "score": [
+            {"feature": "volatility_20d_pctrank", "weight": 1.0},
+        ],
+        "top_n": 30,
+        "rank_by": "_score",
+        "rank_order": "desc",
+    }
+    result = apply_screen(
+        screen_def, features,
+        walk_forward=True, train_months=18, test_months=6,
+    )
+    assert "wf_windows" in result
+    for w in result["wf_windows"]:
+        assert "train_start" in w
+        assert "test_start" in w
+        assert "sharpe_is" in w
+        assert "sharpe_oos" in w
+
+
+def test_apply_screen_no_walk_forward_backward_compat():
+    """Without walk_forward, behavior unchanged."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    from screen import apply_screen, compute_all_features
+
+    features = compute_all_features()
+    screen_def = {
+        "name": "test compat",
+        "hypothesis": "testing",
+        "filters": [
+            {"feature": "return_3m", "op": ">", "value": 0.05},
+        ],
+        "top_n": 20,
+    }
+    result = apply_screen(screen_def, features)
+    assert "wf_oos_sharpe_mean" not in result
+    assert "sharpe" in result
+
+
+def test_apply_screen_walk_forward_zero_windows():
+    """Walk-forward with insufficient data returns DISCARD gracefully."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    from screen import apply_screen, compute_all_features
+
+    features = compute_all_features()
+    screen_def = {
+        "name": "test zero wf",
+        "hypothesis": "testing",
+        "filters": [],
+        "score": [
+            {"feature": "volatility_20d_pctrank", "weight": 1.0},
+        ],
+        "top_n": 30,
+        "rank_by": "_score",
+        "rank_order": "desc",
+    }
+    result = apply_screen(
+        screen_def, features,
+        start="2025-01-01", end="2025-06-30",
+        walk_forward=True, train_months=18, test_months=6,
+    )
+    assert result["wf_n_windows"] == 0
+    assert result["verdict"] == "DISCARD"
