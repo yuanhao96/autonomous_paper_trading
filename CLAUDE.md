@@ -40,11 +40,14 @@ conda run -n data_science python data.py
 # Re-download data (quarterly refresh)
 conda run -n data_science python data.py --force
 
-# Run N iterations of autonomous screen research
+# Run N iterations (walk-forward evaluation is default)
 conda run -n data_science python run.py -n 10
 
 # Run with time limit + patience
 conda run -n data_science python run.py --hours 8 --patience 20
+
+# Run without walk-forward (full-period Sharpe only)
+conda run -n data_science python run.py -n 10 --no-walk-forward
 
 # Compute per-feature predictive power stats
 conda run -n data_science python feature_stats.py
@@ -124,13 +127,15 @@ Optional fields:
 
 ## Available Features
 
-### Price-derived (from daily OHLCV, full 2020-2025 coverage)
+### Price-derived (from daily OHLCV, full 2015-2025 coverage)
 | Feature | Description |
 |---------|-------------|
+| `return_1w` | 5-day return (short-term reversal signal) |
 | `return_1m` | 1-month (21 trading day) return |
 | `return_3m` | 3-month return |
 | `return_6m` | 6-month return |
 | `return_12m` | 12-month return |
+| `return_12m_skip_1m` | 12-month return skipping most recent month (classic momentum) |
 | `close_vs_sma50` | Close / SMA(50) ratio |
 | `close_vs_sma200` | Close / SMA(200) ratio |
 | `sma50_vs_sma200` | SMA(50) / SMA(200) — golden/death cross |
@@ -138,8 +143,10 @@ Optional fields:
 | `low_52w_pct` | Close / 52-week low |
 | `volatility_20d` | 20-day annualized volatility |
 | `volatility_60d` | 60-day annualized volatility |
+| `idio_vol` | Idiosyncratic volatility (residual vol after removing market beta) |
 | `avg_volume_20d` | 20-day average dollar volume |
 | `volume_ratio` | Recent 5d avg volume / 20d avg volume |
+| `volume_change_20d` | 20d avg dollar volume / 60d avg (flow proxy) |
 | `drawdown` | Current drawdown from rolling 52w high |
 
 ### Sector-relative (adapts to sector rotation — no hardcoded sector bets)
@@ -192,7 +199,7 @@ Claude Code reads program.md + analysis.md + feature_stats.md
            ↓
 Proposes ONE screen as structured JSON
            ↓
-screen.py backtests: rebalance every holding_days over 2020-2025,
+screen.py backtests: rebalance every holding_days over 2015-2025,
 equal-weight top_n, per-stock returns tracked
            ↓
 Result appended to results.jsonl
@@ -215,7 +222,7 @@ The loop stops on whichever comes first:
 
 Long-term goal: low-frequency quant framework with LLM-driven learning. Gaps to address (roughly priority-ordered):
 
-1. ~~**Out-of-sample discipline**~~ ✓ — IS/OOS split via `--split-date`. Verdict uses OOS Sharpe. IS/OOS ratio > 3 flagged as overfit.
+1. ~~**Out-of-sample discipline**~~ ✓ — Rolling walk-forward evaluation (default). 18mo train / 6mo test windows. Verdict uses mean OOS Sharpe across windows.
 
 2. **Alpha combination** — Screens are evaluated independently. Need an ensemble layer to combine top screens into a single portfolio with diversified alpha sources.
 
