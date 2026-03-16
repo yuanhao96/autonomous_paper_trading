@@ -524,6 +524,48 @@ def _compute_regime_stats(
     return stats
 
 
+def generate_wf_windows(
+    dates: pd.DatetimeIndex,
+    train_months: int = 18,
+    test_months: int = 6,
+) -> list[tuple]:
+    """Generate rolling walk-forward windows from a date index.
+
+    Returns list of (train_start, train_end, test_start, test_end) tuples.
+    Windows roll forward by test_months. Test periods do not overlap.
+    """
+    from dateutil.relativedelta import relativedelta
+
+    windows = []
+    train_start = dates[0]
+
+    while True:
+        train_end_cal = train_start + relativedelta(months=train_months)
+        test_start_cal = train_end_cal
+        test_end_cal = test_start_cal + relativedelta(months=test_months)
+
+        train_start_idx = dates.searchsorted(train_start)
+        train_end_idx = dates.searchsorted(train_end_cal)
+        test_start_idx = train_end_idx
+        test_end_idx = dates.searchsorted(test_end_cal)
+
+        if test_end_idx >= len(dates):
+            test_end_idx = len(dates) - 1
+        if train_end_idx >= len(dates) or test_start_idx >= test_end_idx:
+            break
+
+        windows.append((
+            dates[train_start_idx],
+            dates[train_end_idx - 1],
+            dates[test_start_idx],
+            dates[test_end_idx],
+        ))
+
+        train_start = train_start + relativedelta(months=test_months)
+
+    return windows
+
+
 def apply_screen(
     screen_def: dict,
     features: pd.DataFrame,
