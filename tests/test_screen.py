@@ -4,7 +4,7 @@ from screen import compute_price_features, compute_fundamental_features
 from screen import (
     apply_screen, compute_all_features, compute_pctrank_features,
     compute_regime, _compute_composite_score,
-    _compute_sharpe, _compute_split_metrics,
+    _compute_sharpe,
 )
 from pathlib import Path
 import pytest
@@ -317,70 +317,8 @@ def test_compute_sharpe_edge_cases():
     assert _compute_sharpe(np.array([0.01, 0.01]), 12.0) == 0.0  # zero std
 
 
-def test_split_metrics_basic():
-    """Test IS/OOS split computation."""
-    details = [
-        {"month": "2021-01-04", "alpha": 0.02},
-        {"month": "2021-02-01", "alpha": 0.03},
-        {"month": "2021-03-01", "alpha": 0.01},
-        {"month": "2023-08-01", "alpha": -0.01},
-        {"month": "2023-09-01", "alpha": 0.005},
-        {"month": "2024-01-02", "alpha": 0.01},
-    ]
-    result = _compute_split_metrics(details, "2023-07-01", 12.0)
-
-    assert result["n_months_is"] == 3
-    assert result["n_months_oos"] == 3
-    assert result["sharpe_is"] > 0  # positive IS alpha
-    assert "sharpe_oos" in result
-    assert "sharpe_ratio" in result
-    assert "win_rate_is" in result
-    assert "win_rate_oos" in result
-    assert result["win_rate_is"] == pytest.approx(1.0)  # all IS positive
-
-
-def test_split_metrics_all_is():
-    """All data before split_date — OOS should be empty."""
-    details = [
-        {"month": "2021-01-04", "alpha": 0.02},
-        {"month": "2021-02-01", "alpha": 0.03},
-    ]
-    result = _compute_split_metrics(details, "2025-01-01", 12.0)
-    assert result["n_months_is"] == 2
-    assert result["n_months_oos"] == 0
-    assert result["sharpe_oos"] == 0.0
-
-
-def test_split_fallback_insufficient_months():
-    """When IS or OOS has < 6 months, verdict uses full-period Sharpe."""
-    if not Path("data/prices.parquet").exists():
-        pytest.skip("No cached data")
-    features = compute_all_features()
-    # Use fundamental-only filters that produce data only in recent period
-    # with a very early split_date so all data lands in OOS
-    screen_def = {
-        "name": "test fallback",
-        "hypothesis": "test insufficient IS months",
-        "filters": [
-            {"feature": "roe", "op": ">", "value": 0.1},
-        ],
-        "top_n": 20,
-    }
-    # Split date far enough that IS has very few or zero months
-    # (fundamental features only cover ~1.5yr)
-    result = apply_screen(
-        screen_def, features, split_date="2019-01-01",
-    )
-    # With split_date="2019-01-01", IS should have 0 months
-    # Verdict should fall back to full-period Sharpe, not OOS
-    assert result["n_months_is"] == 0
-    # Verdict matches full-period sharpe, not OOS
-    expected = "KEEP" if result["sharpe"] >= 0.3 else "DISCARD"
-    assert result["verdict"] == expected
-
-
-def test_apply_screen_backward_compatible():
-    """apply_screen without split_date returns same keys as before."""
+def test_apply_screen_basic_keys():
+    """apply_screen returns expected keys without walk-forward."""
     if not Path("data/prices.parquet").exists():
         pytest.skip("No cached data")
     features = compute_all_features()
@@ -395,52 +333,8 @@ def test_apply_screen_backward_compatible():
     }
     result = apply_screen(screen_def, features)
     assert "sharpe" in result
-    assert "sharpe_is" not in result  # no split metrics
-    assert "regime_stats" not in result
+    assert "wf_oos_sharpe_mean" not in result
     assert result["verdict"] in ("KEEP", "DISCARD")
-
-
-def test_apply_screen_with_split_date():
-    """apply_screen with split_date returns IS/OOS metrics."""
-    if not Path("data/prices.parquet").exists():
-        pytest.skip("No cached data")
-    features = compute_all_features()
-    screen_def = {
-        "name": "test split",
-        "hypothesis": "testing IS/OOS",
-        "filters": [
-            {"feature": "return_3m", "op": ">", "value": 0.05},
-            {"feature": "close_vs_sma200", "op": ">", "value": 1.0},
-        ],
-        "top_n": 20,
-    }
-    result = apply_screen(
-        screen_def, features, split_date="2023-07-01",
-    )
-    # Should have split metrics
-    assert "sharpe_is" in result
-    assert "sharpe_oos" in result
-    assert "sharpe_ratio" in result
-    assert "n_months_is" in result
-    assert "n_months_oos" in result
-    assert result["n_months_is"] > 0
-    assert result["n_months_oos"] > 0
-    assert result["n_months_is"] + result["n_months_oos"] == result["n_months"]
-    # Should have regime stats
-    assert "regime_stats" in result
-    regime_stats = result["regime_stats"]
-    assert len(regime_stats) > 0
-    for label, stats in regime_stats.items():
-        assert "alpha_mean" in stats
-        assert "win_rate" in stats
-        assert "n_months" in stats
-    # Full-period Sharpe still present
-    assert "sharpe" in result
-    # Verdict based on OOS Sharpe
-    if result["sharpe_oos"] >= 0.3:
-        assert result["verdict"] == "KEEP"
-    else:
-        assert result["verdict"] == "DISCARD"
 
 
 def test_apply_screen():

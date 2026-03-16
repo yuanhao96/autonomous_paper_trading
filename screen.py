@@ -497,52 +497,6 @@ def _compute_sharpe(alpha: np.ndarray, periods_per_year: float) -> float:
     return float(np.mean(alpha)) / alpha_std * np.sqrt(periods_per_year)
 
 
-def _compute_split_metrics(
-    monthly_details: list[dict],
-    split_date: str,
-    periods_per_year: float,
-) -> dict:
-    """Compute IS/OOS metrics by splitting monthly_details at split_date."""
-    is_alphas, oos_alphas = [], []
-    for md in monthly_details:
-        if md["month"] < split_date:
-            is_alphas.append(md["alpha"])
-        else:
-            oos_alphas.append(md["alpha"])
-
-    is_arr = np.array(is_alphas) if is_alphas else np.array([])
-    oos_arr = np.array(oos_alphas) if oos_alphas else np.array([])
-
-    sharpe_is = _compute_sharpe(is_arr, periods_per_year)
-    sharpe_oos = _compute_sharpe(oos_arr, periods_per_year)
-
-    # IS/OOS ratio — overfit detector (>3 is a red flag)
-    if sharpe_oos != 0:
-        sharpe_ratio = round(sharpe_is / sharpe_oos, 2)
-    else:
-        sharpe_ratio = float("inf") if sharpe_is > 0 else 0.0
-
-    return {
-        "sharpe_is": round(sharpe_is, 3),
-        "sharpe_oos": round(sharpe_oos, 3),
-        "sharpe_ratio": sharpe_ratio,
-        "alpha_monthly_mean_is": round(
-            float(np.mean(is_arr)), 5
-        ) if len(is_arr) > 0 else 0.0,
-        "alpha_monthly_mean_oos": round(
-            float(np.mean(oos_arr)), 5
-        ) if len(oos_arr) > 0 else 0.0,
-        "win_rate_is": round(
-            float(np.mean(is_arr > 0)), 3
-        ) if len(is_arr) > 0 else 0.0,
-        "win_rate_oos": round(
-            float(np.mean(oos_arr > 0)), 3
-        ) if len(oos_arr) > 0 else 0.0,
-        "n_months_is": len(is_arr),
-        "n_months_oos": len(oos_arr),
-    }
-
-
 def _compute_regime_stats(
     monthly_details: list[dict],
     regime_series: pd.Series,
@@ -575,22 +529,13 @@ def apply_screen(
     features: pd.DataFrame,
     start: str = "2020-01-01",
     end: str = "2025-12-31",
-    split_date: str | None = None,
 ) -> dict:
-    """Backtest a screen: rebalance every holding_days, equal-weight top_n.
-
-    Args:
-        split_date: If set, compute IS/OOS metrics split at this date.
-            Verdict uses OOS Sharpe. Format: "YYYY-MM-DD".
-    """
+    """Backtest a screen: rebalance every holding_days, equal-weight top_n."""
     prices = pd.read_parquet(DATA_DIR / "prices.parquet")
     close = prices["Close"]
     spy = close["SPY"] if "SPY" in close.columns else None
 
-    # Compute regime series for per-regime stats
-    regime_series = compute_regime(prices)
-
-    filters = screen_def["filters"]
+    filters = screen_def.get("filters", [])
     holding_days = screen_def.get("holding_days", 21)
 
     # Rebalance dates: every holding_days trading days
@@ -670,11 +615,6 @@ def apply_screen(
             "monthly_details": [],
             "verdict": "NO DATA",
         }
-        if split_date:
-            result.update({
-                "sharpe_is": 0.0, "sharpe_oos": 0.0,
-                "sharpe_ratio": 0.0, "regime_stats": {},
-            })
         return result
 
     port = np.array(portfolio_returns)
@@ -685,22 +625,7 @@ def apply_screen(
     alpha_mean = float(np.mean(alpha))
     sharpe = _compute_sharpe(alpha, periods_per_year)
 
-    # Determine verdict
-    min_split_months = 6
-    if split_date:
-        split_metrics = _compute_split_metrics(
-            monthly_details, split_date, periods_per_year,
-        )
-        # Fall back to full-period Sharpe if either split has too few months
-        has_valid_split = (
-            split_metrics["n_months_is"] >= min_split_months
-            and split_metrics["n_months_oos"] >= min_split_months
-        )
-        verdict_sharpe = (
-            split_metrics["sharpe_oos"] if has_valid_split else sharpe
-        )
-    else:
-        verdict_sharpe = sharpe
+    verdict_sharpe = sharpe
 
     result = {
         "name": screen_def.get("name", ""),
@@ -741,12 +666,5 @@ def apply_screen(
         ],
         "verdict": "KEEP" if verdict_sharpe >= 0.3 else "DISCARD",
     }
-
-    # Add split metrics and regime stats when split_date is set
-    if split_date:
-        result.update(split_metrics)
-        result["regime_stats"] = _compute_regime_stats(
-            monthly_details, regime_series,
-        )
 
     return result
