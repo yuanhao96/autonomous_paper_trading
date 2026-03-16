@@ -24,7 +24,7 @@ def get_sp500_tickers() -> tuple[list[str], pd.DataFrame]:
     return tickers, sectors
 
 
-def download_prices(tickers: list[str], start: str = "2019-01-01",
+def download_prices(tickers: list[str], start: str = "2014-01-01",
                     end: str = "2025-12-31",
                     batch_size: int = 20) -> pd.DataFrame:
     """Download daily OHLCV in batches to avoid Yahoo rate limits.

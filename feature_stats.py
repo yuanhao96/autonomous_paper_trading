@@ -25,7 +25,7 @@ def load_forward_alpha(holding_days: int = HOLDING_DAYS) -> pd.DataFrame:
     close = prices["Close"]
     spy = close["SPY"]
 
-    date_range = close.loc["2020-01-01":"2025-12-31"].index
+    date_range = close.loc["2015-01-01":"2025-12-31"].index
     rebal_indices = list(range(0, len(date_range), holding_days))
 
     rows = {}
@@ -254,7 +254,7 @@ def write_feature_stats(rank_ic: dict, quintile: dict, conditional: dict):
     lines = [
         "# Feature Predictive Power Stats",
         "",
-        f"Computed on S&P 500 universe, 2020-01 to 2025-12, {HOLDING_DAYS}-day forward alpha vs SPY.",
+        f"Computed on S&P 500 universe, 2015-01 to 2025-12, {HOLDING_DAYS}-day forward alpha vs SPY.",
         "",
         "## 1. Rank IC (Spearman correlation: feature rank vs forward alpha rank)",
         "",

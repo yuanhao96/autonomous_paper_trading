@@ -650,7 +650,7 @@ def _backtest_period(
 def apply_screen(
     screen_def: dict,
     features: pd.DataFrame,
-    start: str = "2020-01-01",
+    start: str = "2015-01-01",
     end: str = "2025-12-31",
     walk_forward: bool = False,
     train_months: int = 18,
