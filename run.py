@@ -149,7 +149,9 @@ def propose_screen() -> dict:
         "Based on the available features, the analysis insights, "
         "and your knowledge of what predicts stock returns, propose ONE new stock screen.\n"
         "IMPORTANT: Use score-based screens (rank_by='_score' with score weights) as "
-        "the default approach. Hard filters are optional guardrails only.\n"
+        "the default approach. Always include at least 1-2 hard filters to narrow the "
+        "universe (e.g., liquidity floor, volatility cap, or quality threshold) — "
+        "pure score-only screens with no filters are not allowed.\n"
         "Use _pctrank features in scores for comparable 0-1 scales.\n"
         "Experiment with holding_days: 10, 21, or 42 trading days.\n"
         "Focus on features with proven quintile spread from feature_stats.md.\n"
@@ -299,7 +301,20 @@ def run_loop(
 
         print(f"Screen: {screen_def.get('name', '?')}")
         print(f"Hypothesis: {screen_def.get('hypothesis', '?')}")
-        print(f"Filters: {json.dumps(screen_def.get('filters', []), indent=2)}")
+        filters = screen_def.get('filters', [])
+        if filters:
+            print("Filters:")
+            for f in filters:
+                val = f['value']
+                if isinstance(val, list):
+                    val = f"[{val[0]}, {val[1]}]"
+                print(f"  {f['feature']:>30} {f['op']} {val}")
+        else:
+            print("Filters: (none)")
+        if screen_def.get('score'):
+            print("Score weights:")
+            for s in screen_def['score']:
+                print(f"  {s['feature']:>30}  w={s['weight']}")
         if screen_def.get('rank_by'):
             print(f"Rank by: {screen_def['rank_by']} ({screen_def.get('rank_order', 'desc')})")
         if screen_def.get('holding_days') and screen_def['holding_days'] != 21:
