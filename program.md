@@ -161,6 +161,16 @@ valuable than one with Sharpe 0.8 in only one regime.
 - roa, roe
 - debt_to_equity, current_ratio
 
+### Value (recent ~1.5 years, requires market cap)
+- market_cap: shares outstanding * close price
+- earnings_yield: annualized operating income / market cap
+- book_to_price: stockholders equity / market cap (higher = cheaper)
+- fcf_yield: annualized free cash flow / market cap
+
+### Growth (recent ~1.5 years, QoQ changes)
+- revenue_growth_qoq: quarter-over-quarter revenue change
+- margin_expansion: gross margin change vs prior quarter
+
 ### Stability (recent ~1.5 years)
 - gross_margin_stability, operating_margin_stability, roe_stability
 

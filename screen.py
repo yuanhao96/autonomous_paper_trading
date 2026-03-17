@@ -122,6 +122,8 @@ def compute_fundamental_features(financials: pd.DataFrame,
     total_debt_q = get_field("Total Debt", "TotalDebt")
     current_assets_q = get_field("Current Assets", "CurrentAssets")
     current_liab_q = get_field("Current Liabilities", "CurrentLiabilities")
+    fcf_q = get_field("Free Cash Flow", "FreeCashFlow")
+    shares_q = get_field("Ordinary Shares Number", "OrdinarySharesNumber")
 
     features = {}
 
@@ -160,6 +162,80 @@ def compute_fundamental_features(financials: pd.DataFrame,
     if current_assets_q is not None and current_liab_q is not None:
         features["current_ratio"] = ffill_to_daily(
             current_assets_q / current_liab_q.abs().clip(lower=1)
+        )
+
+    # Market cap: shares outstanding * close price
+    # shares_q is quarterly, forward-filled to daily, then multiplied by daily close
+    if shares_q is not None:
+        shares_daily = ffill_to_daily(shares_q)
+        # Align columns to tickers present in both shares and close
+        common = shares_daily.columns.intersection(close.columns)
+        market_cap = shares_daily[common] * close[common]
+        features["market_cap"] = market_cap
+
+        # Value factors: use market cap as denominator
+        # earnings_yield = annualized operating income / market cap
+        if operating_income_q is not None:
+            oi_daily = ffill_to_daily(operating_income_q * 4)
+            common_oi = oi_daily.columns.intersection(market_cap.columns)
+            features["earnings_yield"] = (
+                oi_daily[common_oi] / market_cap[common_oi].clip(lower=1)
+            )
+
+        # book_to_price = stockholders equity / market cap
+        if equity_q is not None:
+            eq_daily = ffill_to_daily(equity_q)
+            common_eq = eq_daily.columns.intersection(market_cap.columns)
+            features["book_to_price"] = (
+                eq_daily[common_eq] / market_cap[common_eq].clip(lower=1)
+            )
+
+        # fcf_yield = annualized free cash flow / market cap
+        if fcf_q is not None:
+            fcf_daily = ffill_to_daily(fcf_q * 4)
+            common_fcf = fcf_daily.columns.intersection(market_cap.columns)
+            features["fcf_yield"] = (
+                fcf_daily[common_fcf] / market_cap[common_fcf].clip(lower=1)
+            )
+
+    # Growth factors (QoQ changes — computed per-ticker to handle different
+    # reporting dates in the sparse quarterly pivot)
+    def per_ticker_qoq(quarterly_df):
+        """Compute QoQ change per ticker, handling sparse quarterly dates."""
+        result = pd.DataFrame(
+            index=quarterly_df.index, columns=quarterly_df.columns, dtype=float,
+        )
+        for ticker in quarterly_df.columns:
+            vals = quarterly_df[ticker].dropna().sort_index()
+            if len(vals) >= 2:
+                prev = vals.shift(1)
+                change = vals / prev.abs().clip(lower=1) - 1
+                result[ticker] = change.reindex(quarterly_df.index)
+        return result
+
+    def per_ticker_qoq_diff(quarterly_df):
+        """Compute QoQ difference per ticker (for margins, not ratios)."""
+        result = pd.DataFrame(
+            index=quarterly_df.index, columns=quarterly_df.columns, dtype=float,
+        )
+        for ticker in quarterly_df.columns:
+            vals = quarterly_df[ticker].dropna().sort_index()
+            if len(vals) >= 2:
+                diff = vals - vals.shift(1)
+                result[ticker] = diff.reindex(quarterly_df.index)
+        return result
+
+    # revenue_growth_qoq: quarter-over-quarter revenue change
+    if revenue_q is not None:
+        features["revenue_growth_qoq"] = ffill_to_daily(
+            per_ticker_qoq(revenue_q)
+        )
+
+    # margin_expansion: gross margin change vs prior quarter
+    if gross_profit_q is not None and revenue_q is not None:
+        gm_q = gross_profit_q / revenue_q.abs().clip(lower=1)
+        features["margin_expansion"] = ffill_to_daily(
+            per_ticker_qoq_diff(gm_q)
         )
 
     if not features:

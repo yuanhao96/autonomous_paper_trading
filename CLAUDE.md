@@ -174,6 +174,20 @@ Note: yfinance only provides ~6 quarters of history. These features have limited
 | `debt_to_equity` | Total debt / stockholders equity |
 | `current_ratio` | Current assets / current liabilities |
 
+### Value (recent ~1.5 years, requires market cap from shares * close)
+| Feature | Description |
+|---------|-------------|
+| `market_cap` | Shares outstanding * close price |
+| `earnings_yield` | Annualized operating income / market cap |
+| `book_to_price` | Stockholders equity / market cap (higher = cheaper) |
+| `fcf_yield` | Annualized free cash flow / market cap |
+
+### Growth (recent ~1.5 years, QoQ changes)
+| Feature | Description |
+|---------|-------------|
+| `revenue_growth_qoq` | Quarter-over-quarter revenue change |
+| `margin_expansion` | Gross margin change vs prior quarter |
+
 ### Stability (recent ~1.5 years, moat proxies — lower = more stable)
 | Feature | Description |
 |---------|-------------|
