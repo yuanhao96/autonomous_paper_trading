@@ -11,6 +11,8 @@ from analyze import (
     compute_regime_robustness,
     compute_trailing_sharpe,
     tag_regime,
+    _pairwise_jaccard,
+    _cluster_screens,
 )
 
 
@@ -251,3 +253,73 @@ class TestRegimeRobustness:
 
     def test_empty(self):
         assert np.isnan(compute_regime_robustness({}))
+
+
+class TestPairwiseJaccard:
+    def test_identical_picks(self):
+        picks = {"2024-01": {"AAPL", "MSFT", "GOOG"}}
+        assert _pairwise_jaccard(picks, picks) == pytest.approx(1.0)
+
+    def test_disjoint_picks(self):
+        a = {"2024-01": {"AAPL", "MSFT"}}
+        b = {"2024-01": {"GOOG", "AMZN"}}
+        assert _pairwise_jaccard(a, b) == pytest.approx(0.0)
+
+    def test_partial_overlap(self):
+        a = {"2024-01": {"AAPL", "MSFT", "GOOG"}}
+        b = {"2024-01": {"AAPL", "MSFT", "AMZN"}}
+        # intersection=2, union=4 → 0.5
+        assert _pairwise_jaccard(a, b) == pytest.approx(0.5)
+
+    def test_average_across_months(self):
+        a = {
+            "2024-01": {"AAPL", "MSFT"},      # Jaccard=1.0
+            "2024-02": {"AAPL", "GOOG"},       # Jaccard=0.0
+        }
+        b = {
+            "2024-01": {"AAPL", "MSFT"},
+            "2024-02": {"MSFT", "AMZN"},
+        }
+        # month 1: 2/2=1.0, month 2: 0/4=0.0 → avg 0.5
+        assert _pairwise_jaccard(a, b) == pytest.approx(0.5)
+
+    def test_no_common_months(self):
+        a = {"2024-01": {"AAPL"}}
+        b = {"2024-02": {"AAPL"}}
+        assert _pairwise_jaccard(a, b) == pytest.approx(0.0)
+
+    def test_empty_picks(self):
+        assert _pairwise_jaccard({}, {}) == pytest.approx(0.0)
+
+
+class TestClusterScreens:
+    def test_two_similar_screens(self):
+        sims = [(0, 1, 0.8)]  # above threshold
+        clusters = _cluster_screens(sims, threshold=0.5)
+        assert clusters[0] == clusters[1]
+
+    def test_two_dissimilar_screens(self):
+        sims = [(0, 1, 0.3)]  # below threshold
+        clusters = _cluster_screens(sims, threshold=0.5)
+        assert clusters[0] != clusters[1]
+
+    def test_transitive_clustering(self):
+        # 0-1 similar, 1-2 similar → all in same cluster
+        sims = [(0, 1, 0.7), (1, 2, 0.6), (0, 2, 0.4)]
+        clusters = _cluster_screens(sims, threshold=0.5)
+        assert clusters[0] == clusters[1] == clusters[2]
+
+    def test_two_clusters(self):
+        # 0-1 similar, 2-3 similar, but groups are dissimilar
+        sims = [
+            (0, 1, 0.8), (0, 2, 0.1), (0, 3, 0.2),
+            (1, 2, 0.1), (1, 3, 0.2), (2, 3, 0.9),
+        ]
+        clusters = _cluster_screens(sims, threshold=0.5)
+        assert clusters[0] == clusters[1]
+        assert clusters[2] == clusters[3]
+        assert clusters[0] != clusters[2]
+
+    def test_empty_similarities(self):
+        clusters = _cluster_screens([], threshold=0.5)
+        assert clusters == {}

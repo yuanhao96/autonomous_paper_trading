@@ -634,30 +634,154 @@ def section_stocks(df, results):
         print(f"    {t:<7} {m:>8.4f} {n:>5} {s:>8.4f}")
 
 
-def section_overlap(df, results):
+def _load_screen_picks(idx, result):
+    """Load stock picks per month for a screen as {month: set(tickers)}."""
+    picks = {}
+    for md in get_stock_details(idx, result):
+        picks[md["month"]] = set(md.get("stocks", {}).keys())
+    return picks
+
+
+def _pairwise_jaccard(picks_a, picks_b):
+    """Average Jaccard similarity across common months."""
+    common_months = sorted(set(picks_a) & set(picks_b))
+    if not common_months:
+        return 0.0
+    jaccards = []
+    for m in common_months:
+        a, b = picks_a[m], picks_b[m]
+        union = a | b
+        if not union:
+            continue
+        jaccards.append(len(a & b) / len(union))
+    return np.mean(jaccards) if jaccards else 0.0
+
+
+def _cluster_screens(similarities, threshold=0.5):
+    """Union-find clustering from pairwise similarities above threshold.
+
+    Args:
+        similarities: list of (i, j, jaccard) tuples
+        threshold: minimum Jaccard to merge into same cluster
+
+    Returns:
+        dict mapping screen index to cluster id (0-based)
+    """
+    parent = {}
+
+    def find(x):
+        while parent.get(x, x) != x:
+            parent[x] = parent.get(parent[x], parent[x])
+            x = parent[x]
+        return x
+
+    def union(x, y):
+        px, py = find(x), find(y)
+        if px != py:
+            parent[px] = py
+
+    indices = set()
+    for i, j, sim in similarities:
+        indices.add(i)
+        indices.add(j)
+        if sim >= threshold:
+            union(i, j)
+
+    clusters = {}
+    cluster_id = 0
+    root_to_id = {}
+    for idx in sorted(indices):
+        root = find(idx)
+        if root not in root_to_id:
+            root_to_id[root] = cluster_id
+            cluster_id += 1
+        clusters[idx] = root_to_id[root]
+    return clusters
+
+
+def section_overlap(df, results, max_screens=20):
     print("=" * 60)
-    print("SCREEN OVERLAP")
+    print("SCREEN OVERLAP (pairwise Jaccard on stock picks)")
     print("=" * 60)
-    keep = [r for r in results if r["sharpe"] >= SHARPE_THRESHOLD]
-    if len(keep) < 2:
+    keep_indices = [i for i, r in enumerate(results)
+                    if r["sharpe"] >= SHARPE_THRESHOLD]
+    if len(keep_indices) < 2:
         print("  Need >= 2 KEEP screens for overlap analysis.")
         return
 
-    month_tickers = defaultdict(lambda: defaultdict(int))
-    for i, r in enumerate(results):
-        if r["sharpe"] < SHARPE_THRESHOLD:
-            continue
-        for md in get_stock_details(i, r):
-            for t in md.get("stocks", {}):
-                month_tickers[md["month"]][t] += 1
+    # Cap to top screens by WF OOS Sharpe (or full Sharpe)
+    def sort_key(i):
+        r = results[i]
+        return r.get("wf_oos_sharpe_mean", r["sharpe"])
 
-    overlaps = []
-    for m, tickers in month_tickers.items():
-        multi = sum(1 for c in tickers.values() if c > 1)
-        overlaps.append(multi / len(tickers) if tickers else 0)
+    keep_indices = sorted(keep_indices, key=sort_key, reverse=True)
+    if len(keep_indices) > max_screens:
+        keep_indices = keep_indices[:max_screens]
+    print(f"\n  Analyzing top {len(keep_indices)} KEEP screens")
 
-    print(f"\n  Avg fraction of stocks in >1 screen/month: {np.mean(overlaps):.1%}")
-    print(f"  Min: {min(overlaps):.1%}  Max: {max(overlaps):.1%}")
+    # Load picks for each screen
+    all_picks = {}
+    for idx in keep_indices:
+        picks = _load_screen_picks(idx, results[idx])
+        if picks:
+            all_picks[idx] = picks
+
+    if len(all_picks) < 2:
+        print("  Not enough screens with stock details.")
+        return
+
+    # Compute pairwise Jaccard
+    indices = sorted(all_picks.keys())
+    similarities = []
+    for a_pos in range(len(indices)):
+        for b_pos in range(a_pos + 1, len(indices)):
+            i, j = indices[a_pos], indices[b_pos]
+            sim = _pairwise_jaccard(all_picks[i], all_picks[j])
+            similarities.append((i, j, sim))
+
+    # Show top pairs
+    top_pairs = sorted(similarities, key=lambda x: x[2], reverse=True)[:15]
+    print(f"\n  Top similar pairs (of {len(similarities)} pairs):")
+    print(f"  {'Screen A':>40}  {'Screen B':>40}  {'Jaccard':>7}")
+    for i, j, sim in top_pairs:
+        na = results[i]["name"][:38]
+        nb = results[j]["name"][:38]
+        print(f"  {na:>40}  {nb:>40}  {sim:>7.3f}")
+
+    # Cluster
+    clusters = _cluster_screens(similarities, threshold=0.5)
+    cluster_groups = defaultdict(list)
+    for idx, cid in clusters.items():
+        cluster_groups[cid].append(idx)
+
+    multi_clusters = {cid: members for cid, members
+                      in cluster_groups.items() if len(members) > 1}
+
+    print(f"\n  Clusters (Jaccard > 0.5): {len(cluster_groups)} total, "
+          f"{len(multi_clusters)} with 2+ screens")
+
+    for cid in sorted(multi_clusters):
+        members = multi_clusters[cid]
+        best = max(members, key=sort_key)
+        print(f"\n  Cluster {cid} ({len(members)} screens, "
+              f"representative: {results[best]['name'][:50]}):")
+        for idx in sorted(members, key=sort_key, reverse=True):
+            r = results[idx]
+            sharpe = r.get("wf_oos_sharpe_mean", r["sharpe"])
+            print(f"    [{idx:>3}] {r['name'][:50]:<52} "
+                  f"Sharpe={sharpe:.3f}")
+
+    # Singleton screens (unique alpha)
+    singletons = [cid for cid, members in cluster_groups.items()
+                  if len(members) == 1]
+    if singletons:
+        print(f"\n  Unique screens (no close duplicates): {len(singletons)}")
+        for cid in sorted(singletons):
+            idx = cluster_groups[cid][0]
+            r = results[idx]
+            sharpe = r.get("wf_oos_sharpe_mean", r["sharpe"])
+            print(f"    [{idx:>3}] {r['name'][:50]:<52} "
+                  f"Sharpe={sharpe:.3f}")
 
 
 def section_correlation(df, results, max_screens=10):
