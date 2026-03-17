@@ -1,35 +1,54 @@
-# AutoScreen: Score-First + Walk-Forward + Feature Enrichment
+# AutoScreen: Alpha Combination & Screen Quality
 
 ## Current Milestone
 
-Three changes to make the screening loop more robust:
+Two changes to move from "collect individual screens" to "build a useful portfolio":
 
-1. **Score-first strategy** (DONE) — Composite scoring replaces hard AND-filters as the
-   primary screen mechanism. Scores degrade gracefully; filters create cliff effects.
+1. **Screen dedup & overlap detection** — Many KEEP screens are near-duplicates
+   (same core factors, slightly different thresholds). Add correlation analysis
+   between KEEP screens' stock picks across time. Flag redundant screens so the
+   LLM avoids proposing more of the same. Surface overlap stats in analysis.md.
 
-2. **Walk-forward evaluation** (IN PROGRESS) — Replace single-date IS/OOS split with
-   rolling walk-forward windows (18mo train / 6mo test). Multiple OOS observations
-   produce a more robust Sharpe estimate than one fixed split.
-
-3. **Feature enrichment + extended history** (NEXT) — Add return_1w, return_12m_skip_1m,
-   idio_vol, volume_change_20d. Extend price data from 2019 to 2014 for 10+ years
-   of backtest history and more walk-forward windows.
+2. **Automatic reject for degenerate screens** — Screens that pass Gate 1
+   (backtest runs) can still be degenerate. Add hard reject criteria:
+   - Average stock count < 5 (too concentrated)
+   - Turnover > 80% per rebalance (churning)
+   - > 50% of weight in a single sector (sector bet, not alpha)
+   - Win rate < 45% (losing more periods than winning)
 
 ## Why
 
-The previous approach had three problems:
-- **Weak features**: No single feature had meaningful rank IC (best was 0.047). AND-filter
-  screens on these features are searching in a desert.
-- **Adversarial IS period**: 2020-2022 IS period spans covid crash, meme stocks, and rate
-  hikes — three regime breaks that make finding stable screens almost impossible.
-- **Rigid DSL**: Hard filters create cliff effects. A stock at 79th percentile is excluded
-  while 80th passes, even though they're nearly identical.
+The loop is now producing KEEP screens at a healthy rate, but quantity without
+quality control leads to a bloated pool of correlated bets. The two biggest
+risks at this stage:
+
+- **Redundancy**: The LLM keeps proposing slight variations of the same
+  momentum + idio_vol + sector_contrarian screen. Without overlap detection,
+  the KEEP pool grows but diversification doesn't.
+- **Degenerate screens**: Some screens pass the Sharpe threshold by being
+  extremely concentrated or sector-biased, which wouldn't survive real
+  portfolio construction.
 
 ## Definition of Done
 
-1. `program.md` instructs LLM to use score-based screens by default
-2. `apply_screen(walk_forward=True)` returns `wf_oos_sharpe_mean` across multiple windows
-3. Walk-forward is the default mode in `run.py`
-4. 4 new price features added: return_1w, return_12m_skip_1m, idio_vol, volume_change_20d
-5. Data extended to 2014, backtest starts 2015
+1. `analyze.py` computes pairwise overlap (Jaccard similarity of stock picks
+   across rebalance dates) between all KEEP screens
+2. `analysis.md` includes a "redundancy cluster" section showing groups of
+   near-duplicate screens
+3. `screen.py` rejects screens with avg_stocks < 5, turnover > 0.8,
+   max_sector_weight > 0.5, or win_rate < 0.45 before computing Sharpe
+4. Rejected screens are logged to results.jsonl with verdict REJECT and reason
+5. LLM prompt in run.py references overlap stats to avoid redundant proposals
 6. All tests pass, all code passes ruff check
+
+## Future (not this milestone)
+
+- **Alpha combination**: Ensemble layer combining top uncorrelated screens
+  into a single portfolio with diversified alpha sources
+- **Risk-aware weighting**: Move from equal-weight to min-variance or risk
+  parity within the combined portfolio
+- **Marginal IR**: Score new screens by how much incremental Sharpe they add
+  to the existing portfolio, not just standalone performance
+- **Transaction cost modeling**: Test screens at 5/10/20 bps cost assumptions
+- **Complexity penalty**: Penalize screens with many filters to reduce
+  overfitting risk

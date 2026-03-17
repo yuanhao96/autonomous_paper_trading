@@ -2,43 +2,54 @@
 
 ## Goal Summary
 
-Add regime awareness (2x2 grid: trend x volatility from SPY data) and out-of-sample discipline (IS/OOS split with configurable split_date) to the AutoScreen system. Regime labels tag every backtest period; OOS Sharpe drives keep/discard verdicts; LLM sees only IS-period stats.
+Move AutoScreen from "collect individual screens" to "build a useful portfolio" by adding screen deduplication/overlap detection and automatic rejection of degenerate screens (too concentrated, high turnover, sector-biased).
 
 ## Completed Milestones
 
 ### Milestone 1: Regime computation and feature integration
 - **Status**: completed
 - **Date completed**: 2026-03-14
-- **Summary**: Added compute_regime() to screen.py — 2x2 grid (trend x vol) from SPY data. Regime broadcast to all tickers in feature DataFrame. 4 new tests (2 synthetic, 2 real data).
+- **Summary**: Added compute_regime() to screen.py — 2x2 grid (trend x vol) from SPY data. Regime broadcast to all tickers in feature DataFrame.
 - **Final score**: 9.0 / 10
+
+### Milestone 2: Walk-forward OOS evaluation
+- **Status**: completed
+- **Date completed**: 2026-03-16
+- **Summary**: Replaced single IS/OOS split with rolling walk-forward windows (18mo train / 6mo test). Multiple OOS observations produce robust Sharpe estimates. Walk-forward is now the default mode.
+- **Final score**: N/A (completed outside project-finisher)
+
+### Milestone 3: Feature enrichment + extended history
+- **Status**: completed
+- **Date completed**: 2026-03-16
+- **Summary**: Added return_1w, return_12m_skip_1m, idio_vol, volume_change_20d, value features (earnings_yield, book_to_price, fcf_yield, market_cap), growth features (revenue_growth_qoq, margin_expansion). Extended data to 2014.
+- **Final score**: N/A (completed outside project-finisher)
+
+### Milestone 4: Score-first DSL + documentation
+- **Status**: completed
+- **Date completed**: 2026-03-16
+- **Summary**: Composite scoring with rank_by=_score replaces hard AND-filters as primary mechanism. program.md and CLAUDE.md updated with all new features and walk-forward docs.
+- **Final score**: N/A (completed outside project-finisher)
 
 ## Current Milestone
 
-### Milestone 2: IS/OOS split in backtest
-- **Status**: in_progress
+### Milestone 5: Screen dedup and overlap detection
+- **Status**: in-progress
 - **Phase**: brainstorm
-- **Acceptance Criteria**:
-  1. `apply_screen()` accepts optional `split_date` parameter
-  2. Returns `sharpe_is`, `sharpe_oos`, `sharpe_ratio`, and per-regime `regime_stats`
-  3. Verdict uses `sharpe_oos >= 0.3` when split_date is set
-  4. Without `split_date`, behavior is identical to current (backward compatible)
-  5. Tests verify split metrics and backward compatibility
+- **Acceptance criteria**:
+  - [ ] analyze.py computes pairwise overlap (Jaccard similarity of stock picks across rebalance dates) between all KEEP screens
+  - [ ] analysis.md includes a "redundancy cluster" section showing groups of near-duplicate screens
+  - [ ] LLM prompt in run.py references overlap stats to avoid redundant proposals
+  - [ ] Tests for overlap computation
+  - [ ] All code passes ruff check
 
 ## Upcoming Milestones
 
-### Milestone 3: Analysis sections (regime + oos)
-- **Status**: not_started
-- **Acceptance Criteria**:
-  1. `analyze.py --section regime` shows per-regime breakdown with robustness scores
-  2. `analyze.py --section oos` shows IS vs OOS Sharpe with overfit warnings
-  3. Summary section includes OOS stats when available
-  4. Tests for new analysis sections
+### Milestone 6: Automatic reject for degenerate screens
+- **Priority**: high
+- **Depends on**: none
+- **Rough scope**: Add hard reject criteria in screen.py for avg_stocks < 5, turnover > 0.8, max_sector_weight > 0.5, win_rate < 0.45. Log rejected screens with reason.
 
-### Milestone 4: Orchestration and LLM integration
-- **Status**: not_started
-- **Acceptance Criteria**:
-  1. `run.py --split-date 2023-07-01` passes split_date through the loop
-  2. LLM analysis prompt references regime robustness and OOS shrinkage
-  3. `program.md` documents regime labels, IS/OOS split, overfit detection
-  4. Current regime label provided as context for proposals
-  5. All code passes `ruff check` and `pytest tests/ -v`
+### Milestone 7: Transaction cost modeling
+- **Priority**: medium
+- **Depends on**: Milestone 6
+- **Rough scope**: Subtract turnover * cost_bps from period returns before computing Sharpe. One realistic cost parameter, not multi-assumption testing.

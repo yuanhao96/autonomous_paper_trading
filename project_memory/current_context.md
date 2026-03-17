@@ -2,17 +2,18 @@
 
 ## Active Milestone
 
-**Name**: Regime computation and feature integration
-**Goal**: Add compute_regime() function to screen.py that classifies each trading day into one of 4 regimes using SPY price data (trend x volatility). Integrate regime as a column in the feature DataFrame.
+**Name**: Screen dedup and overlap detection
+**Goal**: Detect when KEEP screens are near-duplicates (same core factors, slightly different thresholds) so the LLM avoids proposing more of the same.
 
 ## Current Phase
 
 **Phase**: brainstorm
-**Started**: 2026-03-13
+**Started**: 2026-03-17
 
 ## Key Decisions
 
-<!-- None yet. -->
+- The system is producing KEEP screens at a healthy rate but many are variations of momentum + idio_vol + sector_contrarian
+- Need overlap detection at the stock-pick level (Jaccard similarity), not just at the filter/score definition level
 
 ## Blockers
 
@@ -24,17 +25,17 @@
 
 ## Milestone Rubric
 
-| Dimension | Weight | Target |
-|-----------|--------|--------|
-| acceptance_criteria | 4 | All 5 criteria met |
-| correctness | 4 | Regime labels match expected classification |
-| test_coverage | 3 | Synthetic price data tests, edge cases |
-| code_quality | 3 | Functional style, follows existing patterns |
-| documentation | 1 | Docstrings on new functions |
-| performance | 1 | No measurable overhead |
+| Dimension | Weight | 1-3 | 7-10 |
+|-----------|--------|-----|------|
+| acceptance_criteria | 4 | Missing overlap computation or clustering | All 5 criteria met |
+| correctness | 4 | Jaccard computed wrong or clustering nonsensical | Correct overlap, meaningful clusters |
+| test_coverage | 3 | No tests | Synthetic + real data tests for overlap |
+| code_quality | 3 | Monolithic function, over 100 lines | Clean helpers, follows existing patterns |
+| documentation | 1 | No docs | Overlap section clear in analysis.md |
+| performance | 1 | Slow on large results.jsonl | Runs in seconds |
 
 ## Notes
 
-- SPY is already in prices.parquet
-- Existing regime in analyze.py uses BULL/BEAR/FLAT from monthly SPY return — this replaces it with daily 2x2 grid
-- compute_all_features() orchestrates all feature computation — regime gets added there
+- Stock details are archived in data/details/ as JSON per screen — these contain per-rebalance stock picks needed for Jaccard computation
+- analyze.py already has a correlation section (--section correlation) that could be extended
+- The overlap section in analyze.py already exists (--section overlap) — need to check what it currently does
