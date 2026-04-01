@@ -2,22 +2,20 @@
 
 ## Active Milestone
 
-**Name**: Alpha decay curve
-**Goal**: Compute cumulative alpha at sub-holding-period checkpoints for each rebalance period to distinguish front-loaded vs gradual edges.
+**Name**: Quintile monotonicity in feature stats
+**Goal**: Report all five quintile returns per feature in feature_stats.py/md.
 
 ## Current Phase
 
-**Phase**: execute
+**Phase**: review
 **Started**: 2026-04-01
 
 ## Key Decisions
 
-- Compute decay inline in screen.py `_backtest_period()` — already has prices and date_range loaded
-- Checkpoints: 5d, 10d only (filtered to those < holding_days; full period alpha already logged)
-- Alpha at checkpoint = mean(stock_return_at_t) - spy_return_at_t for each rebalance period
-- Add `alpha_decay` dict to each monthly_details entry (backward compatible — old results just lack the field)
-- Aggregate decay profile in analyze.py as new `section_decay` section
-- No changes to feature_stats.py in this milestone (quintile monotonicity is Milestone 9)
+- Add q2_alpha, q3_alpha, q4_alpha to compute_quintile_sharpe output (q1 and q5 already existed)
+- Update feature_stats.md table to show all 5 quintile columns
+- Monotonicity score already existed — no changes needed
+- Created new test file tests/test_feature_stats.py (no prior tests existed)
 
 ## Blockers
 
@@ -27,26 +25,23 @@
 
 ### Steps
 
-1. [x] Add alpha decay checkpoint computation to `_backtest_period()` in screen.py
-2. [x] Add `section_decay` to analyze.py for KEEP screens
-3. [x] Register section_decay in SECTIONS dict
-4. [x] Add tests for alpha decay computation (9 tests: 4 synthetic + 1 e2e + 5 classify)
-5. [x] Run ruff check + pytest (101 passed, 0 failed)
-6. [ ] Update CLAUDE.md/program.md if needed
+1. [x] Add q2-q4 alpha to compute_quintile_sharpe return dict
+2. [x] Update write_feature_stats table format to show all 5 quintiles
+3. [x] Add tests for quintile reporting
+4. [x] Run ruff check + pytest
 
 ## Milestone Rubric
 
 | Dimension | Weight | 1-3 | 7-10 |
 |-----------|--------|-----|------|
-| acceptance_criteria | 4 | Missing decay computation or logging | Decay at checkpoints, logged in results, surfaced in analysis |
-| correctness | 4 | Alpha computed wrong or checkpoints misaligned | Correct per-period alpha relative to SPY |
-| test_coverage | 3 | No tests | Synthetic tests for decay computation |
-| code_quality | 3 | Monolithic, over 100 lines | Clean addition to existing functions |
-| documentation | 1 | No docs | Clear output in analysis |
-| performance | 1 | Slow | Runs in seconds |
+| acceptance_criteria | 4 | Missing quintile data | All 5 quintiles shown with monotonicity |
+| correctness | 4 | Wrong quintile assignment | Correct returns per quintile |
+| test_coverage | 3 | No tests | Synthetic tests for quintile computation |
+| code_quality | 3 | Major refactor | Minimal targeted additions |
+| documentation | 1 | No docs | Updated table format |
+| performance | 1 | Slow | No perf change |
 
 ## Notes
 
-- date_range in _backtest_period is daily trading dates, so date_range[rebal_indices[i] + 5] gives the 5th trading day after rebalance
-- Need to handle edge case where checkpoint index exceeds period length
-- Each detail file has ~65 periods with ~20 stocks each
+- The quintile computation logic already existed — just needed to expose q2-q4 in output
+- Monotonicity was already computed and reported

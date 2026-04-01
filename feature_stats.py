@@ -164,9 +164,12 @@ def compute_quintile_sharpe(features: pd.DataFrame,
 
         results[feat_name] = {
             "ls_sharpe": round(ls_sharpe, 3),
-            "q1_alpha": round(q_means[1] * 100, 2),  # Bottom quintile, %
-            "q5_alpha": round(q_means[5] * 100, 2),  # Top quintile, %
-            "spread": round((q_means[5] - q_means[1]) * 100, 2),  # Q5-Q1, %
+            "q1_alpha": round(q_means[1] * 100, 2),
+            "q2_alpha": round(q_means[2] * 100, 2),
+            "q3_alpha": round(q_means[3] * 100, 2),
+            "q4_alpha": round(q_means[4] * 100, 2),
+            "q5_alpha": round(q_means[5] * 100, 2),
+            "spread": round((q_means[5] - q_means[1]) * 100, 2),
             "monotonic": round(monotonic, 2),
         }
 
@@ -278,16 +281,20 @@ def write_feature_stats(rank_ic: dict, quintile: dict, conditional: dict):
         "",
         "Each month: sort stocks by feature, measure alpha of each quintile. "
         "Q5 = top, Q1 = bottom. LS Sharpe = annualized Sharpe of (Q5 - Q1). "
-        "Monotonic = fraction of Q1→Q5 steps that increase (1.0 = perfect).",
+        "Monotonic = fraction of Q1→Q5 steps that increase (1.0 = perfect). "
+        "A real edge shows smooth gradient Q1→Q5; non-monotonic suggests noise.",
         "",
-        "| Feature | LS Sharpe | Q1 Alpha% | Q5 Alpha% | Spread% | Monotonic |",
-        "|---------|-----------|-----------|-----------|---------|-----------|",
+        "| Feature | LS Sharpe | Q1% | Q2% | Q3% | Q4% | Q5% | Spread% | Mono |",
+        "|---------|-----------|-----|-----|-----|-----|-----|---------|------|",
     ]
 
     for feat, v in sorted(quintile.items(), key=lambda x: x[1]["ls_sharpe"], reverse=True):
         lines.append(
-            f"| `{feat}` | {v['ls_sharpe']:+.3f} | {v['q1_alpha']:+.2f} | "
-            f"{v['q5_alpha']:+.2f} | {v['spread']:+.2f} | {v['monotonic']:.2f} |"
+            f"| `{feat}` | {v['ls_sharpe']:+.3f} | "
+            f"{v['q1_alpha']:+.2f} | {v['q2_alpha']:+.2f} | "
+            f"{v['q3_alpha']:+.2f} | {v['q4_alpha']:+.2f} | "
+            f"{v['q5_alpha']:+.2f} | {v['spread']:+.2f} | "
+            f"{v['monotonic']:.2f} |"
         )
 
     lines += [
