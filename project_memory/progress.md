@@ -2,7 +2,7 @@
 
 ## Goal Summary
 
-Move AutoScreen from "collect individual screens" to "build a useful portfolio" by adding screen deduplication/overlap detection and automatic rejection of degenerate screens (too concentrated, high turnover, sector-biased).
+Evolve AutoScreen from "does this screen make money?" to "does this screen make money for the reason I think it does?" by adding mechanism-aware diagnostics: alpha decay curves, quintile monotonicity, mechanism fields in the DSL, and mechanism diagnostics in backtest output.
 
 ## Completed Milestones
 
@@ -30,26 +30,37 @@ Move AutoScreen from "collect individual screens" to "build a useful portfolio" 
 - **Summary**: Composite scoring with rank_by=_score replaces hard AND-filters as primary mechanism. program.md and CLAUDE.md updated with all new features and walk-forward docs.
 - **Final score**: N/A (completed outside project-finisher)
 
+### Milestone 5: Screen dedup and overlap detection
+- **Status**: completed
+- **Date completed**: 2026-03-17
+- **Summary**: Added pairwise Jaccard overlap and union-find clustering to analyze.py section_overlap. KEEP screens are clustered by stock-pick similarity.
+- **Final score**: N/A (completed outside project-finisher)
+
 ## Current Milestone
 
-### Milestone 5: Screen dedup and overlap detection
+### Milestone 8: Alpha decay curve
 - **Status**: in-progress
 - **Phase**: brainstorm
 - **Acceptance criteria**:
-  - [ ] analyze.py computes pairwise overlap (Jaccard similarity of stock picks across rebalance dates) between all KEEP screens
-  - [ ] analysis.md includes a "redundancy cluster" section showing groups of near-duplicate screens
-  - [ ] LLM prompt in run.py references overlap stats to avoid redundant proposals
-  - [ ] Tests for overlap computation
+  - [ ] Backtest computes cumulative alpha at 5d, 10d, 21d checkpoints relative to entry for each rebalance period
+  - [ ] Alpha decay profile logged in results.jsonl per screen
+  - [ ] analysis.md surfaces alpha decay summaries for KEEP screens
+  - [ ] Tests for alpha decay computation
   - [ ] All code passes ruff check
 
 ## Upcoming Milestones
 
-### Milestone 6: Automatic reject for degenerate screens
+### Milestone 9: Quintile monotonicity in feature stats
 - **Priority**: high
 - **Depends on**: none
-- **Rough scope**: Add hard reject criteria in screen.py for avg_stocks < 5, turnover > 0.8, max_sector_weight > 0.5, win_rate < 0.45. Log rejected screens with reason.
+- **Rough scope**: Extend feature_stats.py to report returns for all five quintiles per feature (not just long-short spread). Compute monotonicity score. Surface in feature_stats.md.
 
-### Milestone 7: Transaction cost modeling
+### Milestone 10: Mechanism field in screen DSL
+- **Priority**: high
+- **Depends on**: Milestone 8
+- **Rough scope**: Add optional mechanism field (cause, expected_decay) to screen JSON. LLM must articulate mispricing cause. Backtest compares observed vs expected decay.
+
+### Milestone 11: Mechanism diagnostics in analysis
 - **Priority**: medium
-- **Depends on**: Milestone 6
-- **Rough scope**: Subtract turnover * cost_bps from period returns before computing Sharpe. One realistic cost parameter, not multi-assumption testing.
+- **Depends on**: Milestones 8, 9, 10
+- **Rough scope**: Combine alpha decay, quintile monotonicity, and mechanism match into diagnostic summary in analysis.md. LLM prompt references diagnostics to improve proposals.

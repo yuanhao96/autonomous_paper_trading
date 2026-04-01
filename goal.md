@@ -1,54 +1,79 @@
-# AutoScreen: Alpha Combination & Screen Quality
+# AutoScreen: Mispricing Mechanism Testing
 
 ## Current Milestone
 
-Two changes to move from "collect individual screens" to "build a useful portfolio":
+Evolve from "does this screen make money?" to "does this screen make money
+for the reason I think it does?" by adding mechanism-aware diagnostics.
 
-1. **Screen dedup & overlap detection** — Many KEEP screens are near-duplicates
-   (same core factors, slightly different thresholds). Add correlation analysis
-   between KEEP screens' stock picks across time. Flag redundant screens so the
-   LLM avoids proposing more of the same. Surface overlap stats in analysis.md.
+### 1. Alpha Decay Curve
 
-2. **Automatic reject for degenerate screens** — Screens that pass Gate 1
-   (backtest runs) can still be degenerate. Add hard reject criteria:
-   - Average stock count < 5 (too concentrated)
-   - Turnover > 80% per rebalance (churning)
-   - > 50% of weight in a single sector (sector bet, not alpha)
-   - Win rate < 45% (losing more periods than winning)
+Decompose each screen's returns by days-since-entry across rebalance periods.
+Plot cumulative alpha over time (5, 10, 21, 42, 63 days) to distinguish
+front-loaded edges (earnings drift) from slow structural edges (low-vol anomaly).
+
+Data source: per-rebalance stock picks already in `data/details/` JSON files.
+
+### 2. Quintile Monotonicity
+
+For each screen's primary `rank_by` feature, compute returns across all five
+quintiles (not just top vs. bottom). A real edge shows monotonic returns across
+quintiles. Non-monotonic patterns suggest noise or confounding.
+
+Extend `feature_stats.py` to report all five quintile returns.
+
+### 3. Mechanism Field in Screen DSL
+
+Add an optional `mechanism` field to the screen JSON:
+
+```json
+{
+  "mechanism": {
+    "cause": "Why consensus is wrong",
+    "expected_decay": "front-loaded | gradual | regime-dependent"
+  }
+}
+```
+
+The LLM must articulate a mispricing cause for every proposal. The backtest
+compares observed alpha decay against `expected_decay` and flags mismatches.
+
+### 4. Mechanism Diagnostics in Backtest Output
+
+After backtesting, compute and log:
+- Alpha decay profile (cumulative return at 5d, 10d, 21d, 42d, 63d checkpoints)
+- Quintile monotonicity score for the primary ranking feature
+- Observed vs. expected decay match (if mechanism field provided)
+
+Include these diagnostics in `results.jsonl` and surface them in `analysis.md`
+so the LLM learns which mechanisms hold up and which don't.
 
 ## Why
 
-The loop is now producing KEEP screens at a healthy rate, but quantity without
-quality control leads to a bloated pool of correlated bets. The two biggest
-risks at this stage:
+The LLM currently proposes screens by pattern-matching on feature stats, producing
+mechanistically hollow filters that overfit. By requiring a causal mechanism and
+testing its specific predictions (alpha decay shape, quintile gradient), we:
 
-- **Redundancy**: The LLM keeps proposing slight variations of the same
-  momentum + idio_vol + sector_contrarian screen. Without overlap detection,
-  the KEEP pool grows but diversification doesn't.
-- **Degenerate screens**: Some screens pass the Sharpe threshold by being
-  extremely concentrated or sector-biased, which wouldn't survive real
-  portfolio construction.
+- Reduce overfitting (testing structured predictions, not a single Sharpe number)
+- Help the LLM compound understanding across iterations (learn which mechanisms
+  hold up, not just which features have high IC)
+- Distinguish real edges from statistical noise with limited data
 
 ## Definition of Done
 
-1. `analyze.py` computes pairwise overlap (Jaccard similarity of stock picks
-   across rebalance dates) between all KEEP screens
-2. `analysis.md` includes a "redundancy cluster" section showing groups of
-   near-duplicate screens
-3. `screen.py` rejects screens with avg_stocks < 5, turnover > 0.8,
-   max_sector_weight > 0.5, or win_rate < 0.45 before computing Sharpe
-4. Rejected screens are logged to results.jsonl with verdict REJECT and reason
-5. LLM prompt in run.py references overlap stats to avoid redundant proposals
-6. All tests pass, all code passes ruff check
+1. Alpha decay curve computed for each backtest, logged in results.jsonl
+2. All five quintile returns shown in feature_stats.py output
+3. Screen DSL accepts optional `mechanism` field (backward compatible)
+4. Backtest output includes mechanism diagnostics (decay profile, monotonicity)
+5. `analysis.md` surfaces mechanism diagnostic summaries for KEEP screens
+6. LLM prompt references mechanism diagnostics to improve proposal quality
+7. All tests pass, all code passes ruff check
 
 ## Future (not this milestone)
 
-- **Alpha combination**: Ensemble layer combining top uncorrelated screens
-  into a single portfolio with diversified alpha sources
-- **Risk-aware weighting**: Move from equal-weight to min-variance or risk
-  parity within the combined portfolio
-- **Marginal IR**: Score new screens by how much incremental Sharpe they add
-  to the existing portfolio, not just standalone performance
-- **Transaction cost modeling**: Test screens at 5/10/20 bps cost assumptions
-- **Complexity penalty**: Penalize screens with many filters to reduce
-  overfitting risk
+- Mechanism-specific falsification tests (sector decomposition, earnings
+  calendar alignment, analyst coverage filtering)
+- Out-of-mechanism correlation (flag screens with different stated mechanisms
+  but identical stock picks)
+- Alpha combination: ensemble layer combining top uncorrelated screens
+- Risk-aware weighting (min-variance, risk parity)
+- Transaction cost modeling at 5/10/20 bps
