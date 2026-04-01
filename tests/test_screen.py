@@ -400,6 +400,26 @@ def test_alpha_decay_synthetic():
     assert decay["10d"] > decay["5d"]
 
 
+def test_alpha_decay_includes_21d_for_default_hold():
+    """21-day holding period includes 21d checkpoint."""
+    from screen import _compute_alpha_decay
+
+    dates = pd.date_range("2024-01-01", periods=25, freq="B")
+    close = pd.DataFrame({
+        "AAPL": np.linspace(100, 120, 25),
+        "SPY": np.linspace(100, 105, 25),
+    }, index=dates)
+    spy = close["SPY"]
+
+    decay = _compute_alpha_decay(
+        {"AAPL": 100.0}, close, spy, dates,
+        rebal_idx=0, period_len=21, s0_rebal=100.0,
+    )
+    assert "5d" in decay
+    assert "10d" in decay
+    assert "21d" in decay
+
+
 def test_alpha_decay_short_period():
     """Holding period shorter than checkpoints produces empty decay."""
     from screen import _compute_alpha_decay
@@ -411,7 +431,7 @@ def test_alpha_decay_short_period():
     }, index=dates)
     spy = close["SPY"]
 
-    # period_len=4 means only 4 trading days — both 5d and 10d skipped
+    # period_len=4 means only 4 trading days — all checkpoints skipped
     decay = _compute_alpha_decay(
         {"AAPL": 100.0}, close, spy, dates,
         rebal_idx=0, period_len=4, s0_rebal=100.0,
@@ -435,6 +455,53 @@ def test_alpha_decay_no_spy():
     assert "5d" in decay
     # Without SPY, alpha = port return (spy_cp=0)
     assert decay["5d"] > 0
+
+
+def test_alpha_decay_skips_missing_spy():
+    """Checkpoint skipped when SPY has no price at that date."""
+    from screen import _compute_alpha_decay
+
+    dates = pd.date_range("2024-01-01", periods=25, freq="B")
+    spy_vals = np.linspace(100, 105, 25).copy()
+    spy_vals[5] = np.nan  # SPY missing at 5d checkpoint
+    close = pd.DataFrame({
+        "AAPL": np.linspace(100, 120, 25),
+        "SPY": spy_vals,
+    }, index=dates)
+    spy = close["SPY"]
+
+    decay = _compute_alpha_decay(
+        {"AAPL": 100.0}, close, spy, dates,
+        rebal_idx=0, period_len=21, s0_rebal=100.0,
+    )
+    assert "5d" not in decay  # skipped due to missing SPY
+    assert "10d" in decay     # SPY available at 10d
+
+
+def test_alpha_decay_skips_low_coverage():
+    """Checkpoint skipped when < 80% of basket has valid prices."""
+    from screen import _compute_alpha_decay
+
+    dates = pd.date_range("2024-01-01", periods=25, freq="B")
+    # 5 stocks, but 4 have NaN at 5d checkpoint -> only 20% coverage
+    close_data = {
+        "A": np.linspace(100, 120, 25),
+        "B": np.full(25, np.nan),
+        "C": np.full(25, np.nan),
+        "D": np.full(25, np.nan),
+        "E": np.full(25, np.nan),
+        "SPY": np.linspace(100, 105, 25),
+    }
+    close = pd.DataFrame(close_data, index=dates)
+    spy = close["SPY"]
+    entry_prices = {"A": 100.0, "B": 100.0, "C": 100.0, "D": 100.0, "E": 100.0}
+
+    decay = _compute_alpha_decay(
+        entry_prices, close, spy, dates,
+        rebal_idx=0, period_len=21, s0_rebal=100.0,
+    )
+    # Only 1/5 stocks have valid prices -> 20% < 80% threshold -> skipped
+    assert decay == {}
 
 
 def test_alpha_decay_long_period():

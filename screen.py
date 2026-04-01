@@ -684,13 +684,24 @@ def _compute_alpha_decay(
     Only includes checkpoints that fit within the holding period.
     """
     decay = {}
+    n_stocks = len(entry_prices)
     for cp in ALPHA_DECAY_CHECKPOINTS:
-        if cp >= period_len:
+        if cp > period_len:
             continue
         cp_idx = rebal_idx + cp
         if cp_idx >= len(date_range):
             continue
         cp_date = date_range[cp_idx]
+
+        # Require SPY benchmark at checkpoint
+        if spy is not None and pd.notna(s0_rebal) and s0_rebal > 0:
+            s_cp = spy.loc[cp_date] if cp_date in spy.index else np.nan
+            if pd.notna(s_cp):
+                spy_cp = float(s_cp / s0_rebal - 1)
+            else:
+                continue  # skip checkpoint if SPY missing
+        else:
+            spy_cp = 0.0
 
         rets = []
         for t, p0 in entry_prices.items():
@@ -698,15 +709,12 @@ def _compute_alpha_decay(
                 p_cp = close.loc[cp_date, t]
                 if pd.notna(p_cp) and p0 > 0:
                     rets.append(p_cp / p0 - 1)
-        if not rets:
+
+        # Require >= 80% basket coverage to avoid partial-basket bias
+        if not rets or len(rets) < n_stocks * 0.8:
             continue
 
         port_cp = float(np.mean(rets))
-        spy_cp = 0.0
-        if spy is not None and pd.notna(s0_rebal) and s0_rebal > 0:
-            s_cp = spy.loc[cp_date] if cp_date in spy.index else np.nan
-            if pd.notna(s_cp):
-                spy_cp = float(s_cp / s0_rebal - 1)
         decay[f"{cp}d"] = round(port_cp - spy_cp, 5)
     return decay
 
