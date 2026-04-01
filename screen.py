@@ -669,6 +669,56 @@ def generate_wf_windows(
 ALPHA_DECAY_CHECKPOINTS = [5, 10, 21]
 
 
+def _check_decay_match(
+    monthly_details: list[dict],
+    mechanism: dict,
+) -> dict | None:
+    """Compare observed alpha decay against mechanism's expected_decay.
+
+    Returns dict with observed_pattern, expected, and match (bool).
+    """
+    expected = mechanism.get("expected_decay")
+    if not expected:
+        return None
+
+    # Aggregate alpha_decay across all periods
+    decay_sums: dict[str, float] = {}
+    decay_counts: dict[str, int] = {}
+    for md in monthly_details:
+        ad = md.get("alpha_decay", {})
+        for label, val in ad.items():
+            decay_sums[label] = decay_sums.get(label, 0.0) + val
+            decay_counts[label] = decay_counts.get(label, 0) + 1
+
+    if not decay_sums:
+        return None
+
+    avg_decay = {
+        k: decay_sums[k] / decay_counts[k]
+        for k in sorted(decay_sums, key=lambda x: int(x.rstrip("d")))
+    }
+    final_alpha = float(np.mean([
+        md["alpha"] for md in monthly_details if "alpha" in md
+    ]))
+
+    # Classify observed pattern
+    checkpoints = sorted(avg_decay.items(), key=lambda x: int(x[0].rstrip("d")))
+    first_cp_alpha = checkpoints[0][1]
+    ratio = first_cp_alpha / final_alpha if final_alpha != 0 else 0
+    if ratio > 0.6:
+        observed = "front-loaded"
+    elif ratio < 0.3:
+        observed = "back-loaded"
+    else:
+        observed = "gradual"
+
+    return {
+        "expected": expected,
+        "observed": observed,
+        "match": observed == expected,
+    }
+
+
 def _compute_alpha_decay(
     entry_prices: dict,
     close: pd.DataFrame,
@@ -946,6 +996,7 @@ def apply_screen(
     result = {
         "name": screen_def.get("name", ""),
         "hypothesis": screen_def.get("hypothesis", ""),
+        "mechanism": screen_def.get("mechanism"),
         "filters": filters,
         "holding_days": holding_days,
         "rank_by": screen_def.get("rank_by"),
@@ -984,6 +1035,14 @@ def apply_screen(
         ],
         "verdict": "KEEP" if verdict_sharpe >= 0.3 else "DISCARD",
     }
+
+    # Mechanism diagnostic: compare observed decay to expected
+    mechanism = screen_def.get("mechanism")
+    if mechanism and monthly_details:
+        decay_match = _check_decay_match(monthly_details, mechanism)
+        if decay_match:
+            result["decay_match"] = decay_match
+
     result.update(wf_result)
 
     return result

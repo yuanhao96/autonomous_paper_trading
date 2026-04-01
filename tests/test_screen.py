@@ -555,3 +555,67 @@ def test_alpha_decay_in_backtest():
                 assert k.endswith("d")
                 assert isinstance(v, float)
             break
+
+
+def test_check_decay_match_correct():
+    """Decay match reports match when observed matches expected."""
+    from screen import _check_decay_match
+
+    # Front-loaded: first checkpoint has >60% of final alpha
+    details = [
+        {"alpha": 0.01, "alpha_decay": {"5d": 0.008, "10d": 0.009}},
+        {"alpha": 0.02, "alpha_decay": {"5d": 0.015, "10d": 0.018}},
+    ]
+    mechanism = {"cause": "test", "expected_decay": "front-loaded"}
+    result = _check_decay_match(details, mechanism)
+    assert result is not None
+    assert result["observed"] == "front-loaded"
+    assert result["match"] is True
+
+
+def test_check_decay_match_mismatch():
+    """Decay match reports mismatch when observed differs from expected."""
+    from screen import _check_decay_match
+
+    # Back-loaded: first checkpoint has <30% of final alpha
+    details = [
+        {"alpha": 0.01, "alpha_decay": {"5d": 0.001, "10d": 0.003}},
+        {"alpha": 0.02, "alpha_decay": {"5d": 0.002, "10d": 0.005}},
+    ]
+    mechanism = {"cause": "test", "expected_decay": "front-loaded"}
+    result = _check_decay_match(details, mechanism)
+    assert result is not None
+    assert result["observed"] == "back-loaded"
+    assert result["match"] is False
+
+
+def test_check_decay_match_no_mechanism():
+    """No mechanism field returns None."""
+    from screen import _check_decay_match
+
+    details = [{"alpha": 0.01, "alpha_decay": {"5d": 0.005}}]
+    assert _check_decay_match(details, {}) is None
+    assert _check_decay_match(details, {"cause": "test"}) is None
+
+
+def test_mechanism_in_result():
+    """Mechanism field is passed through to result dict."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    features = compute_all_features()
+    screen_def = {
+        "name": "test mechanism",
+        "hypothesis": "testing mechanism passthrough",
+        "mechanism": {
+            "cause": "test cause",
+            "expected_decay": "gradual",
+        },
+        "filters": [
+            {"feature": "return_3m", "op": ">", "value": 0.05},
+            {"feature": "close_vs_sma200", "op": ">", "value": 1.0},
+        ],
+        "top_n": 20,
+        "holding_days": 21,
+    }
+    result = apply_screen(screen_def, features)
+    assert result["mechanism"] == screen_def["mechanism"]

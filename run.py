@@ -155,6 +155,11 @@ def propose_screen() -> dict:
         "Use _pctrank features in scores for comparable 0-1 scales.\n"
         "Experiment with holding_days: 10, 21, or 42 trading days.\n"
         "Focus on features with proven quintile spread from feature_stats.md.\n"
+        "Include a 'mechanism' field explaining WHY this screen should work:\n"
+        '  "mechanism": {"cause": "why consensus is wrong", '
+        '"expected_decay": "front-loaded|gradual|back-loaded"}\n'
+        "The cause should name the specific mispricing (e.g., 'analysts slow to revise "
+        "estimates after earnings surprises'). expected_decay predicts the alpha shape.\n"
         "Output ONLY the JSON object in a ```json code block. No other text."
     )
 

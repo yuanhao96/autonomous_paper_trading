@@ -637,11 +637,14 @@ def section_decay(df, results):
         profile += f" → full={final_alpha:+.3%}"
 
         front_load = _classify_decay(avg_decay, final_alpha)
+        dm = r.get("decay_match", {})
         rows.append({
             "name": r.get("name", "")[:40],
             "sharpe": df.loc[idx, "sharpe"],
             "profile": profile,
             "pattern": front_load,
+            "mechanism": r.get("mechanism"),
+            "decay_match": dm.get("match") if dm else None,
         })
 
     if not rows:
@@ -652,9 +655,12 @@ def section_decay(df, results):
     print(f"\n  Screens with decay data: {len(rows)}")
     print()
     for row in sorted(rows, key=lambda x: -x["sharpe"]):
+        match_str = ""
+        if row["decay_match"] is not None:
+            match_str = " ✓" if row["decay_match"] else " ✗"
         print(
             f"  {row['name']:<42} Sharpe={row['sharpe']:.3f}  "
-            f"{row['profile']}  [{row['pattern']}]"
+            f"{row['profile']}  [{row['pattern']}]{match_str}"
         )
 
     patterns = [r["pattern"] for r in rows]
@@ -662,6 +668,15 @@ def section_decay(df, results):
         count = patterns.count(p)
         if count:
             print(f"\n  {p}: {count} screens")
+
+    # Mechanism summary
+    with_mechanism = [r for r in rows if r["mechanism"]]
+    if with_mechanism:
+        matches = sum(1 for r in with_mechanism if r["decay_match"])
+        print(
+            f"\n  Mechanism predictions: {matches}/{len(with_mechanism)} "
+            f"match observed decay"
+        )
 
 
 def _classify_decay(avg_decay: dict, final_alpha: float) -> str:

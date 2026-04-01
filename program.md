@@ -94,6 +94,26 @@ just below a threshold is excluded entirely. Prefer scoring.
 }
 ```
 
+### Mechanism field (REQUIRED)
+
+Every screen must include a `mechanism` field explaining WHY it should work:
+
+```json
+"mechanism": {
+  "cause": "Analysts are slow to revise estimates after earnings surprises",
+  "expected_decay": "front-loaded"
+}
+```
+
+- **cause**: Name the specific mispricing — who is wrong and why.
+- **expected_decay**: Predict the alpha shape:
+  - `"front-loaded"` — alpha concentrates in first few days (e.g., post-earnings drift)
+  - `"gradual"` — alpha accrues steadily over the holding period
+  - `"back-loaded"` — alpha appears late (e.g., slow mean reversion)
+
+The backtest compares observed decay against your prediction. Mismatches suggest the
+mechanism story is wrong even if the screen makes money.
+
 ### Holding periods
 
 Experiment with different holding periods:
