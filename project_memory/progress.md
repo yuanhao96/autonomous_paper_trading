@@ -42,16 +42,22 @@ Evolve AutoScreen from "does this screen make money?" to "does this screen make 
 - **Summary**: Added _compute_alpha_decay to screen.py computing cumulative alpha at 5d, 10d, 21d checkpoints within each holding period. Added section_decay to analyze.py classifying decay patterns. 10 new tests.
 - **Final score**: 8.4 / 10
 
+### Milestone 9: Quintile monotonicity in feature stats
+- **Status**: completed
+- **Date completed**: 2026-04-01
+- **Summary**: Added q2-q4 alpha to compute_quintile_sharpe output. Updated feature_stats.md table to show all 5 quintile returns. 5 new tests.
+- **Final score**: 9.0 / 10
+
 ## Current Milestone
 
-### Milestone 9: Quintile monotonicity in feature stats
+### Milestone 10: Mechanism field in screen DSL
 - **Status**: in-progress
 - **Phase**: brainstorm
 - **Acceptance criteria**:
-  - [ ] feature_stats.py reports returns for all five quintiles per feature
-  - [ ] Monotonicity score computed per feature
-  - [ ] feature_stats.md includes quintile breakdown
-  - [ ] Tests for quintile reporting
+  - [ ] Screen DSL accepts optional mechanism field (cause, expected_decay)
+  - [ ] LLM must articulate mispricing cause in proposals
+  - [ ] Backtest compares observed vs expected decay when mechanism provided
+  - [ ] Tests for mechanism field parsing and decay comparison
   - [ ] All code passes ruff check
 
 ## Upcoming Milestones

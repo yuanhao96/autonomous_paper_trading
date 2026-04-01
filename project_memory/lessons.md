@@ -89,3 +89,17 @@
 
 ### Patterns to Avoid
 - Don't assume all intermediate data ends up in the final result dict — trace the data flow through the slim/archive split
+
+## Milestone: Quintile monotonicity in feature stats (2026-04-01)
+
+### What Worked
+- The internal computation already had all 5 quintiles — just needed to expose q2-q4 in the output dict
+- Minimal change (3 lines in return dict, table format update) for full milestone completion
+- Codex adversarial review caught that feature_stats.md was stale (gitignored, but good to regenerate locally)
+
+### Patterns to Reuse
+- When data is already computed internally, check if it's fully exposed in output before building new infrastructure
+- Run Codex review + reviewer agent in parallel to save time
+
+### Patterns to Avoid
+- Don't forget to regenerate gitignored generated artifacts after changing their generator
