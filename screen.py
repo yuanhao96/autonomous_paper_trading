@@ -666,7 +666,7 @@ def generate_wf_windows(
     return windows
 
 
-ALPHA_DECAY_CHECKPOINTS = [5, 10]
+ALPHA_DECAY_CHECKPOINTS = [5, 10, 21]
 
 
 def _compute_alpha_decay(

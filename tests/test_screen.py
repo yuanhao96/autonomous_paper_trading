@@ -437,6 +437,28 @@ def test_alpha_decay_no_spy():
     assert decay["5d"] > 0
 
 
+def test_alpha_decay_long_period():
+    """Holding period > 21d includes 21d checkpoint."""
+    from screen import _compute_alpha_decay
+
+    dates = pd.date_range("2024-01-01", periods=50, freq="B")
+    close = pd.DataFrame({
+        "AAPL": np.linspace(100, 150, 50),
+        "SPY": np.linspace(100, 110, 50),
+    }, index=dates)
+    spy = close["SPY"]
+
+    decay = _compute_alpha_decay(
+        {"AAPL": 100.0}, close, spy, dates,
+        rebal_idx=0, period_len=42, s0_rebal=100.0,
+    )
+    assert "5d" in decay
+    assert "10d" in decay
+    assert "21d" in decay
+    # Alpha should grow as AAPL outpaces SPY
+    assert decay["21d"] > decay["10d"] > decay["5d"]
+
+
 def test_alpha_decay_in_backtest():
     """End-to-end: apply_screen produces alpha_decay in monthly_details."""
     if not Path("data/prices.parquet").exists():
