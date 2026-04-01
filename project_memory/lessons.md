@@ -103,3 +103,16 @@
 
 ### Patterns to Avoid
 - Don't forget to regenerate gitignored generated artifacts after changing their generator
+
+## Milestone: Mechanism field in screen DSL (2026-04-01)
+
+### What Worked
+- Mechanism field is a simple passthrough (screen_def → result dict) — zero changes to core backtest logic
+- _check_decay_match reuses the same classification logic as _classify_decay in analyze.py
+- Updating LLM prompt + program.md together ensures the LLM actually uses the new field
+- Running reviewer agent + Codex in parallel saves significant review time
+
+### Patterns to Reuse
+- When adding optional DSL fields, use .get() with None default for backward compatibility
+- Update both the LLM prompt (run.py) and reference docs (program.md, CLAUDE.md) when adding DSL fields
+- Diagnostic integration milestones may be absorbed into implementation milestones — check before starting

@@ -48,26 +48,22 @@ Evolve AutoScreen from "does this screen make money?" to "does this screen make 
 - **Summary**: Added q2-q4 alpha to compute_quintile_sharpe output. Updated feature_stats.md table to show all 5 quintile returns. 5 new tests.
 - **Final score**: 9.0 / 10
 
+### Milestone 10: Mechanism field in screen DSL
+- **Status**: completed
+- **Date completed**: 2026-04-01
+- **Summary**: Added mechanism field (cause, expected_decay) to screen DSL. Backtest compares observed vs expected alpha decay. LLM prompt and program.md require mechanism. section_decay shows match/mismatch.
+- **Final score**: 8.9 / 10
+
+### Milestone 11: Mechanism diagnostics in analysis
+- **Status**: completed
+- **Date completed**: 2026-04-01
+- **Summary**: Diagnostics were integrated into milestones 8-10 rather than needing a separate milestone. section_decay shows decay profiles + mechanism match. feature_stats.md shows quintile monotonicity. LLM prompt references both.
+- **Final score**: N/A (absorbed into milestones 8-10)
+
 ## Current Milestone
 
-### Milestone 10: Mechanism field in screen DSL
-- **Status**: in-progress
-- **Phase**: brainstorm
-- **Acceptance criteria**:
-  - [ ] Screen DSL accepts optional mechanism field (cause, expected_decay)
-  - [ ] LLM must articulate mispricing cause in proposals
-  - [ ] Backtest compares observed vs expected decay when mechanism provided
-  - [ ] Tests for mechanism field parsing and decay comparison
-  - [ ] All code passes ruff check
+None — all goal requirements satisfied.
 
 ## Upcoming Milestones
 
-### Milestone 10: Mechanism field in screen DSL
-- **Priority**: high
-- **Depends on**: Milestone 8
-- **Rough scope**: Add optional mechanism field (cause, expected_decay) to screen JSON. LLM must articulate mispricing cause. Backtest compares observed vs expected decay.
-
-### Milestone 11: Mechanism diagnostics in analysis
-- **Priority**: medium
-- **Depends on**: Milestones 8, 9, 10
-- **Rough scope**: Combine alpha decay, quintile monotonicity, and mechanism match into diagnostic summary in analysis.md. LLM prompt references diagnostics to improve proposals.
+None.
