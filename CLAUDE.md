@@ -256,6 +256,12 @@ Long-term goal: low-frequency quant framework with LLM-driven learning. Gaps to 
 
 10. **Multi-universe** — Expand beyond S&P 500 to Russell 1000/2000, international developed, sector ETFs for more cross-sectional dispersion.
 
+## Gotchas
+
+- When modifying analyze.py or scoring logic, ensure backward compatibility with older result files that may lack new fields.
+- Yahoo Finance has aggressive rate limits — use batched downloads with delays and incremental updates.
+- Always test edge cases: zero IS months, zero standard deviation, missing data fields in old results.
+
 ## Conventions
 
 - All code must pass `ruff check` before commit
