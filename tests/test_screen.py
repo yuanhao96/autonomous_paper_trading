@@ -598,6 +598,46 @@ def test_check_decay_match_no_mechanism():
     assert _check_decay_match(details, {"cause": "test"}) is None
 
 
+def test_check_decay_match_non_dict_mechanism():
+    """Non-dict mechanism returns None instead of crashing."""
+    from screen import _check_decay_match
+
+    details = [{"alpha": 0.01, "alpha_decay": {"5d": 0.005}}]
+    assert _check_decay_match(details, "front-loaded") is None
+    assert _check_decay_match(details, ["front-loaded"]) is None
+    assert _check_decay_match(details, 42) is None
+
+
+def test_check_decay_match_invalid_expected():
+    """Invalid expected_decay value returns None."""
+    from screen import _check_decay_match
+
+    details = [{"alpha": 0.01, "alpha_decay": {"5d": 0.005}}]
+    mechanism = {"cause": "test", "expected_decay": "invalid-pattern"}
+    assert _check_decay_match(details, mechanism) is None
+
+
+def test_check_decay_match_consistent_periods():
+    """Decay match uses same period set for checkpoints and final alpha."""
+    from screen import _check_decay_match
+
+    # Mix of periods: some with decay, some without
+    details = [
+        {"alpha": 0.01, "alpha_decay": {"5d": 0.008}},  # front-loaded
+        {"alpha": 0.02, "alpha_decay": {"5d": 0.015}},  # front-loaded
+        {"alpha": -0.05},  # no decay — should be excluded from final_alpha
+        {"alpha": -0.03},  # no decay — should be excluded
+    ]
+    mechanism = {"cause": "test", "expected_decay": "front-loaded"}
+    result = _check_decay_match(details, mechanism)
+    assert result is not None
+    # Without the fix, final_alpha would be diluted by the -0.05 and -0.03
+    # periods, making the ratio wrong. With the fix, only periods with
+    # alpha_decay contribute to final_alpha.
+    assert result["observed"] == "front-loaded"
+    assert result["match"] is True
+
+
 def test_mechanism_in_result():
     """Mechanism field is passed through to result dict."""
     if not Path("data/prices.parquet").exists():

@@ -669,6 +669,9 @@ def generate_wf_windows(
 ALPHA_DECAY_CHECKPOINTS = [5, 10, 21]
 
 
+VALID_DECAY_PATTERNS = {"front-loaded", "gradual", "back-loaded"}
+
+
 def _check_decay_match(
     monthly_details: list[dict],
     mechanism: dict,
@@ -676,17 +679,23 @@ def _check_decay_match(
     """Compare observed alpha decay against mechanism's expected_decay.
 
     Returns dict with observed_pattern, expected, and match (bool).
+    Only uses periods that have alpha_decay data for consistent comparison.
     """
+    if not isinstance(mechanism, dict):
+        return None
     expected = mechanism.get("expected_decay")
-    if not expected:
+    if not expected or expected not in VALID_DECAY_PATTERNS:
         return None
 
-    # Aggregate alpha_decay across all periods
+    # Only use periods that have alpha_decay for consistent month set
+    decay_periods = [md for md in monthly_details if md.get("alpha_decay")]
+    if not decay_periods:
+        return None
+
     decay_sums: dict[str, float] = {}
     decay_counts: dict[str, int] = {}
-    for md in monthly_details:
-        ad = md.get("alpha_decay", {})
-        for label, val in ad.items():
+    for md in decay_periods:
+        for label, val in md["alpha_decay"].items():
             decay_sums[label] = decay_sums.get(label, 0.0) + val
             decay_counts[label] = decay_counts.get(label, 0) + 1
 
@@ -697,11 +706,9 @@ def _check_decay_match(
         k: decay_sums[k] / decay_counts[k]
         for k in sorted(decay_sums, key=lambda x: int(x.rstrip("d")))
     }
-    final_alpha = float(np.mean([
-        md["alpha"] for md in monthly_details if "alpha" in md
-    ]))
+    # Use same period set for final alpha to avoid population mismatch
+    final_alpha = float(np.mean([md["alpha"] for md in decay_periods]))
 
-    # Classify observed pattern
     checkpoints = sorted(avg_decay.items(), key=lambda x: int(x[0].rstrip("d")))
     first_cp_alpha = checkpoints[0][1]
     ratio = first_cp_alpha / final_alpha if final_alpha != 0 else 0
