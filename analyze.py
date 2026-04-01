@@ -599,6 +599,85 @@ def section_oos(df, results):
             )
 
 
+def section_decay(df, results):
+    """Alpha decay profile for KEEP screens."""
+    print("=" * 60)
+    print("ALPHA DECAY ANALYSIS (KEEP screens)")
+    print("=" * 60)
+    keep_idx = df.index[df["status"] == "KEEP"].tolist()
+    if not keep_idx:
+        print("  No KEEP screens.")
+        return
+
+    rows = []
+    for idx in keep_idx:
+        r = results[idx]
+        md_list = r.get("monthly_details", [])
+        decay_sums = {}
+        decay_counts = {}
+        for md in md_list:
+            ad = md.get("alpha_decay", {})
+            for label, val in ad.items():
+                decay_sums[label] = decay_sums.get(label, 0.0) + val
+                decay_counts[label] = decay_counts.get(label, 0) + 1
+
+        if not decay_sums:
+            continue
+        avg_decay = {
+            k: round(decay_sums[k] / decay_counts[k], 5)
+            for k in sorted(decay_sums, key=lambda x: int(x.rstrip("d")))
+        }
+        final_alpha = float(np.mean([
+            md["alpha"] for md in md_list if "alpha" in md
+        ])) if md_list else 0.0
+
+        profile = " → ".join(
+            f"{k}={v:+.3%}" for k, v in avg_decay.items()
+        )
+        profile += f" → full={final_alpha:+.3%}"
+
+        front_load = _classify_decay(avg_decay, final_alpha)
+        rows.append({
+            "name": r.get("name", "")[:40],
+            "sharpe": df.loc[idx, "sharpe"],
+            "profile": profile,
+            "pattern": front_load,
+        })
+
+    if not rows:
+        print("  No KEEP screens have alpha_decay data.")
+        print("  Re-run backtests to generate decay profiles.")
+        return
+
+    print(f"\n  Screens with decay data: {len(rows)}")
+    print()
+    for row in sorted(rows, key=lambda x: -x["sharpe"]):
+        print(
+            f"  {row['name']:<42} Sharpe={row['sharpe']:.3f}  "
+            f"{row['profile']}  [{row['pattern']}]"
+        )
+
+    patterns = [r["pattern"] for r in rows]
+    for p in ["front-loaded", "gradual", "back-loaded"]:
+        count = patterns.count(p)
+        if count:
+            print(f"\n  {p}: {count} screens")
+
+
+def _classify_decay(avg_decay: dict, final_alpha: float) -> str:
+    """Classify alpha decay as front-loaded, gradual, or back-loaded."""
+    if not avg_decay or final_alpha == 0:
+        return "flat"
+    checkpoints = sorted(avg_decay.items(), key=lambda x: int(x[0].rstrip("d")))
+    first_cp_alpha = checkpoints[0][1]
+    ratio = first_cp_alpha / final_alpha if final_alpha != 0 else 0
+    if ratio > 0.6:
+        return "front-loaded"
+    if ratio < 0.3:
+        return "back-loaded"
+    return "gradual"
+
+
 def section_stocks(df, results):
     print("=" * 60)
     print("STOCK-LEVEL ANALYSIS (KEEP screens)")
@@ -907,6 +986,7 @@ SECTIONS = {
     "thresh": section_thresholds,
     "regime": section_regime,
     "oos": section_oos,
+    "decay": section_decay,
     "stocks": section_stocks,
     "overlap": section_overlap,
     "corr": section_correlation,
