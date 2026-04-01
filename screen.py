@@ -666,6 +666,51 @@ def generate_wf_windows(
     return windows
 
 
+ALPHA_DECAY_CHECKPOINTS = [5, 10]
+
+
+def _compute_alpha_decay(
+    entry_prices: dict,
+    close: pd.DataFrame,
+    spy: pd.Series | None,
+    date_range: pd.DatetimeIndex,
+    rebal_idx: int,
+    period_len: int,
+    s0_rebal: float,
+) -> dict:
+    """Compute cumulative alpha at intermediate checkpoints within a period.
+
+    Returns dict mapping checkpoint label (e.g. "5d") to alpha at that point.
+    Only includes checkpoints that fit within the holding period.
+    """
+    decay = {}
+    for cp in ALPHA_DECAY_CHECKPOINTS:
+        if cp >= period_len:
+            continue
+        cp_idx = rebal_idx + cp
+        if cp_idx >= len(date_range):
+            continue
+        cp_date = date_range[cp_idx]
+
+        rets = []
+        for t, p0 in entry_prices.items():
+            if t in close.columns and cp_date in close.index:
+                p_cp = close.loc[cp_date, t]
+                if pd.notna(p_cp) and p0 > 0:
+                    rets.append(p_cp / p0 - 1)
+        if not rets:
+            continue
+
+        port_cp = float(np.mean(rets))
+        spy_cp = 0.0
+        if spy is not None and pd.notna(s0_rebal) and s0_rebal > 0:
+            s_cp = spy.loc[cp_date] if cp_date in spy.index else np.nan
+            if pd.notna(s_cp):
+                spy_cp = float(s_cp / s0_rebal - 1)
+        decay[f"{cp}d"] = round(port_cp - spy_cp, 5)
+    return decay
+
+
 def _backtest_period(
     screen_def: dict,
     features: pd.DataFrame,
@@ -701,7 +746,11 @@ def _backtest_period(
             passing, features, rebal_date, screen_def,
         )
 
+        rebal_idx = rebal_indices[i]
+        period_len = rebal_indices[i + 1] - rebal_idx
+
         stock_rets = {}
+        entry_prices = {}
         for t in tickers:
             if t in close.columns:
                 p0 = (
@@ -714,6 +763,7 @@ def _backtest_period(
                 )
                 if pd.notna(p0) and pd.notna(p1) and p0 > 0:
                     stock_rets[t] = round(p1 / p0 - 1, 5)
+                    entry_prices[t] = p0
 
         if len(stock_rets) == 0:
             continue
@@ -723,8 +773,9 @@ def _backtest_period(
         n_stocks_list.append(len(stock_rets))
 
         spy_ret = 0.0
+        s0_rebal = np.nan
         if spy is not None:
-            s0 = (
+            s0_rebal = (
                 spy.loc[rebal_date]
                 if rebal_date in spy.index else np.nan
             )
@@ -732,17 +783,25 @@ def _backtest_period(
                 spy.loc[next_date]
                 if next_date in spy.index else np.nan
             )
-            if pd.notna(s0) and pd.notna(s1) and s0 > 0:
-                spy_ret = s1 / s0 - 1
+            if pd.notna(s0_rebal) and pd.notna(s1) and s0_rebal > 0:
+                spy_ret = s1 / s0_rebal - 1
         spy_returns.append(spy_ret)
 
-        monthly_details.append({
+        alpha_decay = _compute_alpha_decay(
+            entry_prices, close, spy, date_range,
+            rebal_idx, period_len, s0_rebal,
+        )
+
+        detail = {
             "month": str(rebal_date.date()),
             "stocks": stock_rets,
             "port_return": round(float(port_ret), 5),
             "spy_return": round(float(spy_ret), 5),
             "alpha": round(float(port_ret - spy_ret), 5),
-        })
+        }
+        if alpha_decay:
+            detail["alpha_decay"] = alpha_decay
+        monthly_details.append(detail)
 
     return portfolio_returns, spy_returns, monthly_details, n_stocks_list
 
