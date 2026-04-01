@@ -965,6 +965,8 @@ def apply_screen(
                 "spy_return": md["spy_return"],
                 "alpha": md["alpha"],
                 "n_stocks": len(md["stocks"]),
+                **({"alpha_decay": md["alpha_decay"]}
+                   if "alpha_decay" in md else {}),
             }
             for md in monthly_details
         ],

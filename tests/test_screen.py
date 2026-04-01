@@ -371,3 +371,98 @@ def test_apply_screen():
         assert "month" in sd
         assert "stocks" in sd
         assert isinstance(sd["stocks"], dict)
+
+
+def test_alpha_decay_synthetic():
+    """Test _compute_alpha_decay on synthetic prices."""
+    from screen import _compute_alpha_decay
+
+    dates = pd.date_range("2024-01-01", periods=25, freq="B")
+    # Two stocks: AAPL goes up steadily, GOOG flat
+    close = pd.DataFrame({
+        "AAPL": np.linspace(100, 120, 25),  # +20% over 25 days
+        "GOOG": np.full(25, 100.0),          # flat
+        "SPY": np.linspace(100, 105, 25),    # +5% (benchmark)
+    }, index=dates)
+    spy = close["SPY"]
+    entry_prices = {"AAPL": 100.0, "GOOG": 100.0}
+    s0_rebal = 100.0
+
+    decay = _compute_alpha_decay(
+        entry_prices, close, spy, dates,
+        rebal_idx=0, period_len=21, s0_rebal=s0_rebal,
+    )
+    assert "5d" in decay
+    assert "10d" in decay
+    # At 5d: AAPL ~+4%, GOOG 0%, port ~+2%. SPY ~+1%. Alpha ~+1%
+    assert decay["5d"] > 0
+    # Alpha should grow over time (AAPL keeps outpacing SPY)
+    assert decay["10d"] > decay["5d"]
+
+
+def test_alpha_decay_short_period():
+    """Holding period shorter than checkpoints produces empty decay."""
+    from screen import _compute_alpha_decay
+
+    dates = pd.date_range("2024-01-01", periods=10, freq="B")
+    close = pd.DataFrame({
+        "AAPL": np.linspace(100, 110, 10),
+        "SPY": np.linspace(100, 102, 10),
+    }, index=dates)
+    spy = close["SPY"]
+
+    # period_len=4 means only 4 trading days — both 5d and 10d skipped
+    decay = _compute_alpha_decay(
+        {"AAPL": 100.0}, close, spy, dates,
+        rebal_idx=0, period_len=4, s0_rebal=100.0,
+    )
+    assert decay == {}
+
+
+def test_alpha_decay_no_spy():
+    """Alpha decay works without SPY (spy=None)."""
+    from screen import _compute_alpha_decay
+
+    dates = pd.date_range("2024-01-01", periods=25, freq="B")
+    close = pd.DataFrame({
+        "AAPL": np.linspace(100, 120, 25),
+    }, index=dates)
+
+    decay = _compute_alpha_decay(
+        {"AAPL": 100.0}, close, None, dates,
+        rebal_idx=0, period_len=21, s0_rebal=np.nan,
+    )
+    assert "5d" in decay
+    # Without SPY, alpha = port return (spy_cp=0)
+    assert decay["5d"] > 0
+
+
+def test_alpha_decay_in_backtest():
+    """End-to-end: apply_screen produces alpha_decay in monthly_details."""
+    if not Path("data/prices.parquet").exists():
+        pytest.skip("No cached data")
+    features = compute_all_features()
+    screen_def = {
+        "name": "test decay",
+        "hypothesis": "testing alpha decay",
+        "filters": [
+            {"feature": "return_3m", "op": ">", "value": 0.05},
+            {"feature": "close_vs_sma200", "op": ">", "value": 1.0},
+        ],
+        "top_n": 20,
+        "holding_days": 21,
+    }
+    result = apply_screen(screen_def, features)
+    # Should have monthly_details with alpha_decay
+    md = result.get("monthly_details", [])
+    assert md, "No monthly_details in result"
+    has_decay = any("alpha_decay" in d for d in md)
+    assert has_decay, "No alpha_decay in any monthly_details entry"
+    for d in md:
+        if "alpha_decay" in d:
+            ad = d["alpha_decay"]
+            assert isinstance(ad, dict)
+            for k, v in ad.items():
+                assert k.endswith("d")
+                assert isinstance(v, float)
+            break

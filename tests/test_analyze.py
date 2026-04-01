@@ -13,6 +13,7 @@ from analyze import (
     tag_regime,
     _pairwise_jaccard,
     _cluster_screens,
+    _classify_decay,
 )
 
 
@@ -323,3 +324,23 @@ class TestClusterScreens:
     def test_empty_similarities(self):
         clusters = _cluster_screens([], threshold=0.5)
         assert clusters == {}
+
+
+class TestClassifyDecay:
+    def test_front_loaded(self):
+        # First checkpoint captures >60% of final alpha
+        assert _classify_decay({"5d": 0.008}, 0.01) == "front-loaded"
+
+    def test_back_loaded(self):
+        # First checkpoint captures <30% of final alpha
+        assert _classify_decay({"5d": 0.002}, 0.01) == "back-loaded"
+
+    def test_gradual(self):
+        # First checkpoint captures 30-60% of final alpha
+        assert _classify_decay({"5d": 0.004}, 0.01) == "gradual"
+
+    def test_zero_final_alpha(self):
+        assert _classify_decay({"5d": 0.005}, 0.0) == "flat"
+
+    def test_empty_decay(self):
+        assert _classify_decay({}, 0.01) == "flat"
