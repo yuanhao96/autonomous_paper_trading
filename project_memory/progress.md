@@ -36,24 +36,25 @@ Evolve AutoScreen from "does this screen make money?" to "does this screen make 
 - **Summary**: Added pairwise Jaccard overlap and union-find clustering to analyze.py section_overlap. KEEP screens are clustered by stock-pick similarity.
 - **Final score**: N/A (completed outside project-finisher)
 
+### Milestone 8: Alpha decay curve
+- **Status**: completed
+- **Date completed**: 2026-04-01
+- **Summary**: Added _compute_alpha_decay to screen.py computing cumulative alpha at 5d, 10d, 21d checkpoints within each holding period. Added section_decay to analyze.py classifying decay patterns. 10 new tests.
+- **Final score**: 8.4 / 10
+
 ## Current Milestone
 
-### Milestone 8: Alpha decay curve
+### Milestone 9: Quintile monotonicity in feature stats
 - **Status**: in-progress
 - **Phase**: brainstorm
 - **Acceptance criteria**:
-  - [ ] Backtest computes cumulative alpha at 5d, 10d, 21d checkpoints relative to entry for each rebalance period
-  - [ ] Alpha decay profile logged in results.jsonl per screen
-  - [ ] analysis.md surfaces alpha decay summaries for KEEP screens
-  - [ ] Tests for alpha decay computation
+  - [ ] feature_stats.py reports returns for all five quintiles per feature
+  - [ ] Monotonicity score computed per feature
+  - [ ] feature_stats.md includes quintile breakdown
+  - [ ] Tests for quintile reporting
   - [ ] All code passes ruff check
 
 ## Upcoming Milestones
-
-### Milestone 9: Quintile monotonicity in feature stats
-- **Priority**: high
-- **Depends on**: none
-- **Rough scope**: Extend feature_stats.py to report returns for all five quintiles per feature (not just long-short spread). Compute monotonicity score. Surface in feature_stats.md.
 
 ### Milestone 10: Mechanism field in screen DSL
 - **Priority**: high

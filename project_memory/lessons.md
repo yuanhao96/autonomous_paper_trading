@@ -72,3 +72,20 @@
 ### Patterns to Avoid
 - Don't assume pd.DataFrame constructor handles nested DataFrames — use explicit MultiIndex
 - When adding categorical features, exclude them from numeric-only operations (pctrank)
+
+## Milestone: Alpha decay curve (2026-04-01)
+
+### What Worked
+- Computing decay inline in _backtest_period was clean — entry_prices dict already available, just needed intermediate date lookups
+- Backward compatibility via conditional alpha_decay field (only present when non-empty)
+- Reviewer agent caught that 21d checkpoint was missing from ALPHA_DECAY_CHECKPOINTS despite being in acceptance criteria
+
+### What Didn't Work
+- Initially forgot that monthly_details gets split into slim (no stocks) and stock_details (with stocks) — alpha_decay needs to go in the slim version since it's diagnostic, not per-stock data
+
+### Patterns to Reuse
+- When adding per-period diagnostic data, include it in monthly_details (not stock_details) since it's screen-level, not stock-level
+- Use conditional dict unpacking (`**({"key": val} if cond else {})`) for backward-compatible fields
+
+### Patterns to Avoid
+- Don't assume all intermediate data ends up in the final result dict — trace the data flow through the slim/archive split
