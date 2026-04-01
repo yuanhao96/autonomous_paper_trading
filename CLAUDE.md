@@ -124,6 +124,7 @@ Optional fields:
 - **rank_order**: `"desc"` (highest first, default) or `"asc"` (lowest first).
 - **holding_days**: Rebalance every N trading days (default: 21 ≈ monthly). Examples: 10 (biweekly), 21 (monthly), 42 (bimonthly).
 - **score**: Weighted multi-factor composite for `rank_by: "_score"`. List of `{"feature": str, "weight": float}`. Negative weights invert (lower = better). Use `_pctrank` features for comparable scales.
+- **mechanism**: `{"cause": str, "expected_decay": "front-loaded"|"gradual"|"back-loaded"}`. Explains why the screen should work. Backtest compares observed alpha decay against the prediction.
 
 ## Available Features
 
